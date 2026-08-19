@@ -646,8 +646,11 @@ app.get('/api/readers/check-status/:id', (req, res) => {
   });
 });
 
-// Admin approves reader & assigns routes
-app.patch('/api/readers/:id/approve', (req, res) => {
+// Admin approves reader & assigns routes (Supports both PATCH and POST)
+app.all('/api/readers/:id/approve', (req, res) => {
+  if (req.method !== 'PATCH' && req.method !== 'POST') {
+    return res.status(405).json({ success: false, message: 'Method Not Allowed' });
+  }
   const { id } = req.params;
   const { assignedRoutes, approvedBy } = req.body;
 
@@ -904,6 +907,7 @@ app.post('/api/readings/batch', (req, res) => {
     processedCount: processed.length,
     failedCount: errors.length,
     processedIds: processed,
+    syncedIds: processed,
     errors,
     serverTimestamp: new Date().toISOString(),
   });
