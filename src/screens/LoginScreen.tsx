@@ -168,17 +168,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onBackToLandi
         setError(data.message || 'Registration failed. Please verify your details.');
       }
     } catch (err: any) {
-      // Local fallback for offline simulation
-      setPendingReader({
-        id: `RDR-PENDING-${Date.now()}`,
-        employeeId: registrationPayload.employeeId,
-        name: registrationPayload.name,
-        username: registrationPayload.username,
-        assignedRoutes: [regSelectedRoute],
-        status: 'pending',
-        createdAt: new Date().toISOString(),
-      });
-      setAuthMode('PENDING_APPROVAL');
+      setError('Unable to connect to the registration server. Please check your internet connection and try again.');
     } finally {
       setIsRegistering(false);
     }

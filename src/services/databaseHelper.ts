@@ -1,5 +1,4 @@
 import { Consumer, MeterReading, AuditLog, AppConfig, StaffUser } from '../types';
-import { INITIAL_CONSUMERS } from '../data/seedConsumers';
 
 const DB_NAME = 'WDT_MeterReader_DB_v2';
 const DB_VERSION = 1;
@@ -275,12 +274,22 @@ export class DatabaseHelper {
     }
   }
 
-  // Initialize Database Helper and ensure default consumers are seeded
+  // Initialize Database Helper and synchronize real consumers from server
   static async init(): Promise<void> {
     try {
       const existing = await this.getAllConsumers();
       if (!existing || existing.length === 0) {
-        await this.saveConsumers(INITIAL_CONSUMERS);
+        try {
+          const res = await fetch('/api/consumers');
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.consumers && Array.isArray(data.consumers)) {
+              await this.saveConsumers(data.consumers);
+            }
+          }
+        } catch (fetchErr) {
+          console.warn('Could not pull initial consumers from server on startup:', fetchErr);
+        }
       }
     } catch (err) {
       console.warn('DatabaseHelper init error:', err);

@@ -36,14 +36,6 @@ import { DebugScreen } from './screens/DebugScreen';
 import { FlutterConfigScreen } from './screens/FlutterConfigScreen';
 import { AdminApprovalScreen } from './screens/AdminApprovalScreen';
 
-const DEFAULT_STAFF: StaffUser = {
-  id: 'WDT-MR04',
-  username: 'reader04',
-  name: 'Juan Carlo Bautista',
-  role: 'Meter Reader III',
-  zone: 'Zone 1-4 (Poblacion & Baluarte)',
-};
-
 export function App() {
   const [currentUser, setCurrentUser] = useState<StaffUser | null>(null);
   

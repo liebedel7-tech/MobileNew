@@ -248,20 +248,20 @@ export const DebugScreen: React.FC<DebugScreenProps> = ({
           </div>
         </div>
 
-        {/* Re-seed / Clear Buttons */}
+        {/* Database Sync / Clear Actions */}
         <div className="pt-2 flex items-center gap-2">
           <button
             onClick={async () => {
-              if (window.confirm('Reset local cache and reload official Tagoloan District consumers?')) {
+              if (window.confirm('Reload consumer records from Central Server database?')) {
                 await onResetDatabase();
                 await loadDbStats();
-                alert('Database refreshed successfully!');
+                alert('Database synchronized successfully from server!');
               }
             }}
-            className="flex-1 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-sky-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition border border-slate-700"
+            className="flex-1 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-sky-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition border border-slate-700 cursor-pointer"
           >
             <RefreshCw className="w-3.5 h-3.5" />
-            <span>Re-Seed Official Consumers</span>
+            <span>Sync from Central Server</span>
           </button>
 
           <button
