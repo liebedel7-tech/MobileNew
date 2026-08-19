@@ -1,0 +1,6 @@
+{
+  "name": "Tagoloan Water District Meter Reader",
+  "description": "Official mobile and field meter reading application for Tagoloan Water District with offline-first persistence, OCR meter recognition, tiered billing calculation, GPS verification, and server sync.",
+  "requestFramePermissions": ["camera", "geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

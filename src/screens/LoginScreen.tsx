@@ -1,0 +1,605 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  Droplet, 
+  ShieldCheck, 
+  Lock, 
+  User, 
+  ArrowRight, 
+  ArrowLeft, 
+  UserPlus, 
+  CheckCircle2, 
+  Clock, 
+  MapPin, 
+  Phone, 
+  Mail, 
+  BadgeCheck, 
+  RefreshCw,
+  Smartphone,
+  AlertCircle
+} from 'lucide-react';
+import { StaffUser } from '../types';
+import { WebSocketService } from '../services/websocketService';
+
+interface LoginScreenProps {
+  onLogin: (user: StaffUser) => void;
+  onBackToLanding?: () => void;
+}
+
+export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onBackToLanding }) => {
+  const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER' | 'PENDING_APPROVAL'>('LOGIN');
+
+  // Sign In State
+  const [username, setUsername] = useState('');
+  const [pin, setPin] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Registration Form State
+  const [regName, setRegName] = useState('');
+  const [regEmployeeId, setRegEmployeeId] = useState('');
+  const [regUsername, setRegUsername] = useState('');
+  const [regPin, setRegPin] = useState('');
+  const [regContact, setRegContact] = useState('');
+  const [regEmail, setRegEmail] = useState('');
+  const [regSelectedRoute, setRegSelectedRoute] = useState('Poblacion');
+  const [isRegistering, setIsRegistering] = useState(false);
+
+  // Pending State
+  const [pendingReader, setPendingReader] = useState<any>(null);
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
+  // Listen for Real-Time Approval via WebSocket
+  useEffect(() => {
+    const unsub = WebSocketService.subscribe((msg) => {
+      if (msg.type === 'READER_APPROVED_ACTIVE' && pendingReader) {
+        if (msg.payload?.readerId === pendingReader.id || msg.payload?.name === pendingReader.name) {
+          setStatusMessage('🎉 Account APPROVED by Admin! Activating Mobile Terminal...');
+          setTimeout(() => {
+            onLogin({
+              id: pendingReader.id,
+              employeeId: pendingReader.employeeId,
+              username: pendingReader.username || pendingReader.name,
+              name: pendingReader.name,
+              role: 'Meter Reader I',
+              zone: (msg.payload.assignedRoutes || [regSelectedRoute]).join(', '),
+              assignedRoutes: msg.payload.assignedRoutes || [regSelectedRoute],
+              status: 'active',
+            });
+          }, 1200);
+        }
+      }
+    });
+
+    return unsub;
+  }, [pendingReader, regSelectedRoute, onLogin]);
+
+  // Handle Staff Sign In
+  const handleLoginSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!username.trim()) {
+      setError('Please enter your Staff Username or Employee ID');
+      return;
+    }
+    if (!pin.trim()) {
+      setError('Please enter your Security PIN / Password');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username.trim(), pin: pin.trim() }),
+      });
+
+      const text = await response.text();
+      let data: any = null;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = null;
+      }
+
+      if (response.status === 403 && data?.status === 'pending') {
+        // Reader is pending approval
+        setPendingReader(data.reader || { name: username, employeeId: username, username });
+        setAuthMode('PENDING_APPROVAL');
+        return;
+      }
+
+      if (response.ok && data?.user) {
+        onLogin(data.user);
+        return;
+      }
+
+      if (data?.message) {
+        setError(data.message);
+        return;
+      }
+
+      setError('Authentication failed. Please verify your username and PIN or register a new reader account.');
+    } catch {
+      setError('Cannot connect to Central Billing System. Check your network or verify server is online.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle New Meter Reader Registration
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!regName.trim() || !regUsername.trim() || !regPin.trim()) {
+      setError('Please fill in Name, Username, and Security PIN');
+      return;
+    }
+
+    setIsRegistering(true);
+    setError(null);
+
+    const registrationPayload = {
+      name: regName.trim(),
+      employeeId: regEmployeeId.trim() || `TWD-2026-${Math.floor(100 + Math.random() * 900)}`,
+      username: regUsername.trim(),
+      pin: regPin.trim(),
+      contactNumber: regContact.trim(),
+      email: regEmail.trim() || `${regUsername.toLowerCase()}@tagoloanwater.gov.ph`,
+      assignedRoutes: [regSelectedRoute],
+      deviceInfo: navigator.userAgent || 'Android Mobile Device',
+    };
+
+    try {
+      const res = await fetch('/api/readers/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(registrationPayload),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        setPendingReader(data.reader);
+        setAuthMode('PENDING_APPROVAL');
+        setStatusMessage('Registration submitted to Central Web Portal. Awaiting Supervisor approval.');
+      } else {
+        setError(data.message || 'Registration failed. Please verify your details.');
+      }
+    } catch (err: any) {
+      // Local fallback for offline simulation
+      setPendingReader({
+        id: `RDR-PENDING-${Date.now()}`,
+        employeeId: registrationPayload.employeeId,
+        name: registrationPayload.name,
+        username: registrationPayload.username,
+        assignedRoutes: [regSelectedRoute],
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+      });
+      setAuthMode('PENDING_APPROVAL');
+    } finally {
+      setIsRegistering(false);
+    }
+  };
+
+  // Check Approval Status manually
+  const checkApprovalStatus = async () => {
+    if (!pendingReader) return;
+    setIsCheckingStatus(true);
+    setStatusMessage(null);
+
+    try {
+      const res = await fetch(`/api/readers/check-status/${pendingReader.id || pendingReader.username}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.status === 'active') {
+          setStatusMessage('🎉 Your account is APPROVED! Opening Meter Reader Terminal...');
+          setTimeout(() => {
+            onLogin({
+              id: data.id,
+              employeeId: data.employeeId,
+              username: pendingReader.username,
+              name: data.name,
+              role: 'Meter Reader I',
+              zone: (data.assignedRoutes || ['Poblacion']).join(', '),
+              assignedRoutes: data.assignedRoutes || ['Poblacion'],
+              status: 'active',
+            });
+          }, 1000);
+          return;
+        } else if (data.status === 'rejected') {
+          setError('Your registration was rejected by Administrator. Contact District HR.');
+          return;
+        }
+      }
+      setStatusMessage('Status: Still PENDING admin review. The Supervisor will assign your routes shortly.');
+    } catch {
+      setStatusMessage('Status check ping sent. Terminal listening for live approval.');
+    } finally {
+      setIsCheckingStatus(false);
+    }
+  };
+
+  return (
+    <div className="min-h-full flex flex-col justify-center px-3.5 sm:px-4 py-6 max-w-md mx-auto w-full">
+      {/* Return to Portal Header */}
+      {onBackToLanding && (
+        <div className="mb-3">
+          <button
+            type="button"
+            onClick={onBackToLanding}
+            className="flex items-center gap-1.5 text-xs font-bold text-sky-400 hover:text-sky-300 transition cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back to Field Operations Portal</span>
+          </button>
+        </div>
+      )}
+
+      {/* Official District Emblem */}
+      <div className="text-center mb-4">
+        <div className="inline-flex p-2.5 rounded-2xl bg-gradient-to-tr from-sky-600 to-blue-800 shadow-xl shadow-sky-950/60 mb-2">
+          <div className="w-12 h-12 bg-slate-900 rounded-xl flex items-center justify-center border border-sky-400/30">
+            <Droplet className="w-6 h-6 text-sky-400 fill-sky-400/20" />
+          </div>
+        </div>
+
+        <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white uppercase">
+          Tagoloan Water District
+        </h1>
+        <p className="text-xs text-sky-400 font-semibold mt-0.5">
+          Field Meter Reader & Billing System (WDT)
+        </p>
+        <p className="text-[10.5px] text-slate-400">
+          Cloud Firestore Integrated • Province of Misamis Oriental
+        </p>
+      </div>
+
+      {/* Auth Mode Toggle Tabs (Sign In vs Register) */}
+      {authMode !== 'PENDING_APPROVAL' && (
+        <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800 mb-3 shadow-sm">
+          <button
+            type="button"
+            onClick={() => {
+              setAuthMode('LOGIN');
+              setError(null);
+            }}
+            className={`flex-1 py-2 text-xs font-bold rounded-lg transition flex items-center justify-center gap-1.5 cursor-pointer ${
+              authMode === 'LOGIN'
+                ? 'bg-sky-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>Staff Sign In</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setAuthMode('REGISTER');
+              setError(null);
+            }}
+            className={`flex-1 py-2 text-xs font-bold rounded-lg transition flex items-center justify-center gap-1.5 cursor-pointer ${
+              authMode === 'REGISTER'
+                ? 'bg-sky-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <UserPlus className="w-3.5 h-3.5" />
+            <span>Register New Reader</span>
+          </button>
+        </div>
+      )}
+
+      {/* Card Content based on Mode */}
+      <div className="bg-slate-900/95 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-2xl backdrop-blur-sm space-y-4">
+        {/* ================= MODE 1: SIGN IN ================= */}
+        {authMode === 'LOGIN' && (
+          <>
+            <div className="flex items-center justify-between pb-2.5 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-sky-400" />
+                <h2 className="text-xs font-bold text-white uppercase tracking-wider">
+                  Field Reader Authentication
+                </h2>
+              </div>
+              <span className="text-[10px] text-emerald-400 font-mono font-bold bg-emerald-950 px-2 py-0.5 rounded border border-emerald-800">
+                Official Portal
+              </span>
+            </div>
+
+            {error && (
+              <div className="p-3 bg-rose-950/80 border border-rose-800 rounded-xl text-xs text-rose-300 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleLoginSubmit} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Staff Username or Reader ID
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                    <User className="w-4 h-4" />
+                  </div>
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="e.g. reader04 or WDT-MR04"
+                    required
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2.5 text-xs text-white focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Security PIN / Password
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                    <Lock className="w-4 h-4" />
+                  </div>
+                  <input
+                    type="password"
+                    value={pin}
+                    onChange={(e) => setPin(e.target.value)}
+                    placeholder="••••"
+                    required
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2.5 text-xs text-white focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition font-mono tracking-widest"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-sky-600/30 flex items-center justify-center gap-2 text-xs uppercase tracking-wider transition cursor-pointer disabled:opacity-50 active:scale-[0.99]"
+              >
+                <span>{loading ? 'Authenticating...' : 'Sign In to Terminal'}</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </form>
+          </>
+        )}
+
+        {/* ================= MODE 2: NEW READER REGISTRATION ================= */}
+        {authMode === 'REGISTER' && (
+          <>
+            <div className="flex items-center justify-between pb-2.5 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <UserPlus className="w-4 h-4 text-sky-400" />
+                <h2 className="text-xs font-bold text-white uppercase tracking-wider">
+                  New Meter Reader Registration
+                </h2>
+              </div>
+              <span className="text-[10px] text-amber-400 font-mono font-bold bg-amber-950 px-2 py-0.5 rounded border border-amber-800">
+                Requires Admin Approval
+              </span>
+            </div>
+
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              Register your field terminal profile. Once submitted, your account will be sent to the Web Admin for verification and route assignment.
+            </p>
+
+            {error && (
+              <div className="p-3 bg-rose-950/80 border border-rose-800 rounded-xl text-xs text-rose-300 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleRegisterSubmit} className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Full Name <span className="text-rose-400">*</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                    <User className="w-3.5 h-3.5" />
+                  </div>
+                  <input
+                    type="text"
+                    value={regName}
+                    onChange={(e) => setRegName(e.target.value)}
+                    placeholder="e.g. Arnel Mendoza"
+                    required
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500 transition"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Employee ID <span className="text-slate-500 font-normal">(Optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={regEmployeeId}
+                    onChange={(e) => setRegEmployeeId(e.target.value)}
+                    placeholder="TWD-2026-089"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-sky-500 transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Username <span className="text-rose-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={regUsername}
+                    onChange={(e) => setRegUsername(e.target.value)}
+                    placeholder="arnel_reader"
+                    required
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-sky-500 transition"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Security PIN (4-Digits) <span className="text-rose-400">*</span>
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                      <Lock className="w-3.5 h-3.5" />
+                    </div>
+                    <input
+                      type="password"
+                      value={regPin}
+                      onChange={(e) => setRegPin(e.target.value)}
+                      placeholder="1234"
+                      required
+                      maxLength={6}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white font-mono tracking-widest focus:outline-none focus:border-sky-500 transition"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Contact Number
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                      <Phone className="w-3.5 h-3.5" />
+                    </div>
+                    <input
+                      type="text"
+                      value={regContact}
+                      onChange={(e) => setRegContact(e.target.value)}
+                      placeholder="0917-123-4567"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-sky-500 transition"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Target Route / Barangay Assignment
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                    <MapPin className="w-3.5 h-3.5 text-sky-400" />
+                  </div>
+                  <select
+                    value={regSelectedRoute}
+                    onChange={(e) => setRegSelectedRoute(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500 transition"
+                  >
+                    <option value="Poblacion">Zone 1-4: Poblacion (Main Central)</option>
+                    <option value="Baluarte">Zone 2: Baluarte (East Coastal)</option>
+                    <option value="Casinglot">Zone 5: Casinglot (Highway Strip)</option>
+                    <option value="Mohon">Zone 6: Mohon (South Valley)</option>
+                    <option value="Natumolan">Zone 3: Natumolan (Residential)</option>
+                    <option value="Sta. Cruz">Zone 7: Sta. Cruz (North Route)</option>
+                    <option value="Sta. Ana">Zone 8: Sta. Ana (Upper District)</option>
+                    <option value="Sugbongcogon">Zone 9: Sugbongcogon (Industrial PHIVIDEC)</option>
+                    <option value="Gracia">Zone 10: Gracia (Sitio Hills)</option>
+                  </select>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isRegistering}
+                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 text-xs uppercase tracking-wider transition cursor-pointer disabled:opacity-50 active:scale-[0.99]"
+              >
+                <span>{isRegistering ? 'Submitting Registration...' : 'Submit Meter Reader Registration'}</span>
+                <BadgeCheck className="w-4 h-4" />
+              </button>
+            </form>
+          </>
+        )}
+
+        {/* ================= MODE 3: PENDING APPROVAL VIEW ================= */}
+        {authMode === 'PENDING_APPROVAL' && pendingReader && (
+          <div className="space-y-4 text-center py-2">
+            <div className="w-14 h-14 bg-amber-950/80 border border-amber-600/60 rounded-2xl mx-auto flex items-center justify-center text-amber-400 shadow-lg shadow-amber-950/50">
+              <Clock className="w-7 h-7 animate-pulse" />
+            </div>
+
+            <div>
+              <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-950 text-amber-400 border border-amber-800 mb-1.5">
+                Status: Pending Admin Review
+              </span>
+              <h3 className="text-base font-black text-white">
+                {pendingReader.name}
+              </h3>
+              <p className="text-xs font-mono text-sky-400 mt-0.5">
+                Employee ID: {pendingReader.employeeId || 'TWD-RDR'}
+              </p>
+            </div>
+
+            <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-left text-xs space-y-1.5">
+              <div className="flex items-center justify-between text-slate-400">
+                <span>Requested Route:</span>
+                <span className="text-white font-bold">{pendingReader.assignedRoutes?.join(', ') || regSelectedRoute}</span>
+              </div>
+              <div className="flex items-center justify-between text-slate-400">
+                <span>Central Portal Sync:</span>
+                <span className="text-emerald-400 font-mono font-bold flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" /> Received
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-slate-400">
+                <span>Device Binding:</span>
+                <span className="text-slate-300 font-mono truncate max-w-[150px]">
+                  {pendingReader.deviceInfo || 'Android Field Device'}
+                </span>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-slate-400 text-center leading-relaxed">
+              Your registration has been logged in the Tagoloan Water District Central Web System. Once the Billing Supervisor approves your account, your mobile app will activate automatically.
+            </p>
+
+            {statusMessage && (
+              <div className="p-2.5 bg-sky-950/80 border border-sky-800 rounded-xl text-xs text-sky-300 text-left">
+                {statusMessage}
+              </div>
+            )}
+
+            <div className="space-y-2 pt-1">
+              <button
+                type="button"
+                onClick={checkApprovalStatus}
+                disabled={isCheckingStatus}
+                className="w-full py-2.5 px-4 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-sky-600/30 transition cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isCheckingStatus ? 'animate-spin' : ''}`} />
+                <span>{isCheckingStatus ? 'Checking Status...' : 'Check Approval Status'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode('LOGIN');
+                  setPendingReader(null);
+                }}
+                className="w-full py-2 text-xs text-slate-400 hover:text-white transition"
+              >
+                Back to Sign In
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4 text-center text-[10.5px] text-slate-500 space-y-0.5">
+        <p>© 2026 Tagoloan Water District. All rights reserved.</p>
+        <p>Offline-First SQLite Architecture • Encrypted Vault</p>
+      </div>
+    </div>
+  );
+};

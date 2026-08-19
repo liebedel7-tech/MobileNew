@@ -1,0 +1,36 @@
+{
+  "name": "Tagoloan Water District Meter Reader",
+  "short_name": "WDT Reader",
+  "description": "Official Mobile Field Meter Reading, Tiered Billing & Offline Synchronization System for Tagoloan Water District",
+  "start_url": "/",
+  "id": "/?source=pwa",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#020617",
+  "theme_color": "#0f172a",
+  "categories": ["utilities", "business", "productivity"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Scan Meter OCR",
+      "short_name": "Scan Meter",
+      "description": "Quickly scan water meter with camera OCR",
+      "url": "/?action=scan_meter",
+      "icons": [{ "src": "/icon.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "Batch Sync",
+      "short_name": "Sync",
+      "description": "Upload field readings batch to central server",
+      "url": "/?action=batch_submission",
+      "icons": [{ "src": "/icon.svg", "sizes": "192x192" }]
+    }
+  ]
+}

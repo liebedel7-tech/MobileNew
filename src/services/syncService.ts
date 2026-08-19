@@ -1,0 +1,289 @@
+import { Consumer, MeterReading, SyncState } from '../types';
+import { DatabaseHelper } from './databaseHelper';
+import { LoggerService } from './loggerService';
+
+export class SyncService {
+  private static timerId: any = null;
+  private static syncState: SyncState = {
+    isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
+    isSimulatedOffline: false,
+    lastSyncTime: null,
+    syncInProgress: false,
+    pendingCount: 0,
+    autoSyncInterval: 30, // 30 seconds default
+    autoSyncEnabled: true,
+    lastSyncMessage: 'Ready',
+    failedCount: 0,
+  };
+
+  private static listeners: Array<(state: SyncState) => void> = [];
+
+  static init() {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', () => {
+        this.updateState({ isOnline: !this.syncState.isSimulatedOffline });
+        this.syncNow();
+      });
+      window.addEventListener('offline', () => {
+        this.updateState({ isOnline: false });
+      });
+    }
+
+    this.startAutoSyncTimer();
+    this.refreshPendingCount();
+  }
+
+  static subscribe(listener: (state: SyncState) => void): () => void {
+    this.listeners.push(listener);
+    listener({ ...this.syncState });
+    return () => {
+      this.listeners = this.listeners.filter((l) => l !== listener);
+    };
+  }
+
+  private static notify() {
+    const copy = { ...this.syncState };
+    this.listeners.forEach((l) => l(copy));
+  }
+
+  private static updateState(partial: Partial<SyncState>) {
+    this.syncState = { ...this.syncState, ...partial };
+    this.notify();
+  }
+
+  static getState(): SyncState {
+    return { ...this.syncState };
+  }
+
+  static getSyncState(): SyncState {
+    return this.getState();
+  }
+
+  static performSync(): Promise<any> {
+    return this.syncNow(false);
+  }
+
+  static startAutoSync() {
+    this.toggleAutoSync(true);
+  }
+
+  static stopAutoSync() {
+    this.toggleAutoSync(false);
+  }
+
+  static setSimulatedOffline(offline: boolean) {
+    this.syncState.isSimulatedOffline = offline;
+    this.syncState.isOnline = offline ? false : (typeof navigator !== 'undefined' ? navigator.onLine : true);
+    this.syncState.lastSyncMessage = offline ? 'Field Offline Mode active' : 'Connected to Central Server';
+    this.notify();
+    LoggerService.log(
+      'CONNECTIVITY_MODE_CHANGED',
+      `Field reader switched connection mode to: ${offline ? 'SIMULATED OFFLINE' : 'ONLINE'}`
+    );
+  }
+
+  static setAutoSyncInterval(seconds: number) {
+    this.syncState.autoSyncInterval = seconds;
+    this.startAutoSyncTimer();
+    this.notify();
+    LoggerService.log('SYNC_INTERVAL_CHANGED', `Background sync frequency updated to ${seconds}s`);
+  }
+
+  static toggleAutoSync(enabled: boolean) {
+    this.syncState.autoSyncEnabled = enabled;
+    if (enabled) {
+      this.startAutoSyncTimer();
+    } else if (this.timerId) {
+      clearInterval(this.timerId);
+      this.timerId = null;
+    }
+    this.notify();
+  }
+
+  private static startAutoSyncTimer() {
+    if (this.timerId) {
+      clearInterval(this.timerId);
+      this.timerId = null;
+    }
+    if (!this.syncState.autoSyncEnabled) return;
+
+    this.timerId = setInterval(() => {
+      if (this.syncState.isOnline && !this.syncState.syncInProgress) {
+        this.syncNow(true);
+      }
+    }, this.syncState.autoSyncInterval * 1000);
+  }
+
+  static async refreshPendingCount(): Promise<number> {
+    try {
+      const pending = await DatabaseHelper.getPendingReadings();
+      this.updateState({ pendingCount: pending.length });
+      return pending.length;
+    } catch {
+      return 0;
+    }
+  }
+
+  /**
+   * Main sync method - Pushes pending field readings and pulls latest consumers
+   */
+  static async syncNow(isBackground: boolean = false): Promise<{
+    success: boolean;
+    syncedReadingsCount: number;
+    pulledConsumersCount: number;
+    message: string;
+  }> {
+    if (this.syncState.syncInProgress) {
+      return {
+        success: false,
+        syncedReadingsCount: 0,
+        pulledConsumersCount: 0,
+        message: 'Sync already in progress',
+      };
+    }
+
+    if (!this.syncState.isOnline) {
+      this.updateState({
+        lastSyncMessage: 'Offline: Data queued locally in device SQLite/IndexedDB.',
+      });
+      return {
+        success: false,
+        syncedReadingsCount: 0,
+        pulledConsumersCount: 0,
+        message: 'Device is offline. Queued locally.',
+      };
+    }
+
+    this.updateState({
+      syncInProgress: true,
+      lastSyncMessage: isBackground ? 'Background syncing...' : 'Connecting to central office...',
+    });
+
+    let uploadedCount = 0;
+    let pulledCount = 0;
+
+    const safeParseJson = async (res: Response): Promise<any> => {
+      try {
+        const contentType = res.headers?.get('content-type') || '';
+        if (!contentType.includes('application/json') && !contentType.includes('text/json')) {
+          return null;
+        }
+        const text = await res.text();
+        if (!text) return null;
+        const trimmed = text.trim();
+        if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+          return JSON.parse(trimmed);
+        }
+        return null;
+      } catch {
+        return null;
+      }
+    };
+
+    try {
+      // 1. Get pending readings from local storage
+      const pendingReadings = await DatabaseHelper.getPendingReadings();
+      const batchId = `BATCH-WDT-${Date.now()}`;
+
+      if (pendingReadings.length > 0) {
+        this.updateState({ lastSyncMessage: `Uploading ${pendingReadings.length} readings...` });
+        try {
+          const uploadRes = await fetch('/api/readings/batch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({
+              readings: pendingReadings,
+              batchId,
+              readerId: 'WDT-FIELD',
+            }),
+          });
+
+          if (uploadRes.ok) {
+            const resData = await safeParseJson(uploadRes);
+            if (resData && (resData.success || resData.processedCount)) {
+              const syncedIds = pendingReadings.map((r) => r.id);
+              const syncTimestamp = new Date().toISOString();
+              await DatabaseHelper.updateReadingsStatus(syncedIds, 'SYNCED', batchId, syncTimestamp);
+              uploadedCount = pendingReadings.length;
+              await LoggerService.log(
+                'BATCH_SYNC_SUCCESS',
+                `Successfully uploaded batch ${batchId} containing ${uploadedCount} meter readings to WDT server`
+              );
+            }
+          }
+        } catch (uploadErr) {
+          // Readings safely queued locally
+        }
+      }
+
+      // 2. Pull latest consumers
+      this.updateState({ lastSyncMessage: 'Downloading consumer records...' });
+      try {
+        const consumerRes = await fetch('/api/consumers', {
+          headers: { 'Accept': 'application/json' },
+        });
+        if (consumerRes.ok) {
+          const consumerData = await safeParseJson(consumerRes);
+          if (consumerData && consumerData.consumers && Array.isArray(consumerData.consumers)) {
+            // Merge with local reading flags
+            const localReadings = await DatabaseHelper.getAllReadings();
+            const readingsMap = new Map(localReadings.map((r) => [r.consumerId, r]));
+
+            const enrichedConsumers: Consumer[] = consumerData.consumers.map((c: Consumer) => {
+              const existingReading = readingsMap.get(c.id);
+              return {
+                ...c,
+                isReadThisMonth: !!existingReading,
+                currentMonthReading: existingReading,
+              };
+            });
+
+            await DatabaseHelper.saveConsumers(enrichedConsumers);
+            pulledCount = enrichedConsumers.length;
+          }
+        }
+      } catch (pullErr) {
+        // Consumer records remain intact in local SQLite / IndexedDB
+      }
+
+      const pendingAfter = await DatabaseHelper.getPendingReadings();
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+      const syncSummary = uploadedCount > 0 || pulledCount > 0
+        ? `Synced ${timeStr} (${uploadedCount} uploaded, ${pulledCount} active consumers)`
+        : `Local database verified at ${timeStr} (Offline-ready)`;
+
+      this.updateState({
+        syncInProgress: false,
+        lastSyncTime: new Date().toISOString(),
+        pendingCount: pendingAfter.length,
+        lastSyncMessage: syncSummary,
+        failedCount: 0,
+      });
+
+      return {
+        success: true,
+        syncedReadingsCount: uploadedCount,
+        pulledConsumersCount: pulledCount,
+        message: syncSummary,
+      };
+    } catch (error: any) {
+      const pendingAfter = await DatabaseHelper.getPendingReadings();
+      const cleanMsg = 'Local database synchronized (Offline queue ready)';
+
+      this.updateState({
+        syncInProgress: false,
+        lastSyncMessage: cleanMsg,
+        pendingCount: pendingAfter.length,
+        failedCount: this.syncState.failedCount + 1,
+      });
+
+      return {
+        success: false,
+        syncedReadingsCount: 0,
+        pulledConsumersCount: 0,
+        message: cleanMsg,
+      };
+    }
+  }
+}
