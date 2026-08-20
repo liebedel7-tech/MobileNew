@@ -1,15 +1,10 @@
 import express from 'express';
 import http from 'http';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
-import { WebSocketServer, WebSocket } from 'ws';
 import { GoogleGenAI } from '@google/genai';
 
 dotenv.config();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = 3000;
@@ -29,7 +24,7 @@ app.use((req, res, next) => {
 });
 
 // Track active WebSocket connections (in standalone server mode)
-const activeClients = new Set<WebSocket>();
+const activeClients = new Set<any>();
 
 function broadcastWebSocketEvent(eventType: string, data: any) {
   if (activeClients.size === 0) return;
@@ -40,7 +35,7 @@ function broadcastWebSocketEvent(eventType: string, data: any) {
   });
 
   for (const client of activeClients) {
-    if (client.readyState === WebSocket.OPEN) {
+    if (client.readyState === 1 /* OPEN */) {
       try {
         client.send(message);
       } catch (err) {
@@ -52,68 +47,73 @@ function broadcastWebSocketEvent(eventType: string, data: any) {
 
 // Standalone HTTP & WebSocket server reference
 let server: http.Server | null = null;
-let wss: WebSocketServer | null = null;
 
 if (!process.env.VERCEL) {
   try {
     server = http.createServer(app);
-    wss = new WebSocketServer({ server, path: '/ws' });
+    // Dynamically initialize WebSocket server only in standalone container mode
+    import('ws').then(({ WebSocketServer }) => {
+      if (!server) return;
+      const wss = new WebSocketServer({ server, path: '/ws' });
 
-    wss.on('connection', (ws: WebSocket) => {
-      activeClients.add(ws);
-      console.log(`[WS] Field Device connected. Total active connections: ${activeClients.size}`);
+      wss.on('connection', (ws: any) => {
+        activeClients.add(ws);
+        console.log(`[WS] Field Device connected. Total active connections: ${activeClients.size}`);
 
-      ws.send(JSON.stringify({
-        type: 'CONNECTION_ESTABLISHED',
-        timestamp: new Date().toISOString(),
-        payload: {
-          status: 'CONNECTED',
-          server: 'Tagoloan Water District Central Billing Node',
-          activePeers: activeClients.size,
-          district: 'WDT-MISOR',
-        },
-      }));
+        ws.send(JSON.stringify({
+          type: 'CONNECTION_ESTABLISHED',
+          timestamp: new Date().toISOString(),
+          payload: {
+            status: 'CONNECTED',
+            server: 'Tagoloan Water District Central Billing Node',
+            activePeers: activeClients.size,
+            district: 'WDT-MISOR',
+          },
+        }));
 
-      ws.on('message', (raw) => {
-        try {
-          const parsed = JSON.parse(raw.toString());
-          if (parsed.type === 'PING') {
-            ws.send(JSON.stringify({
-              type: 'PONG',
-              timestamp: new Date().toISOString(),
-              payload: { echo: parsed.payload, serverTime: Date.now() },
-            }));
-          } else if (parsed.type === 'FIELD_READING_RECORDED') {
-            broadcastWebSocketEvent('LIVE_READING_UPDATE', parsed.payload);
-          } else if (parsed.type === 'FIELD_STAFF_ACTIVITY') {
-            broadcastWebSocketEvent('STAFF_ACTIVITY_STREAM', parsed.payload);
-          } else if (parsed.type === 'MODULE_NAVIGATION') {
-            broadcastWebSocketEvent('MODULE_NAVIGATION_BROADCAST', parsed.payload);
-          } else if (parsed.type === 'PROCESS_EVENT') {
-            broadcastWebSocketEvent('PROCESS_TELEMETRY_UPDATE', parsed.payload);
+        ws.on('message', (raw: any) => {
+          try {
+            const parsed = JSON.parse(raw.toString());
+            if (parsed.type === 'PING') {
+              ws.send(JSON.stringify({
+                type: 'PONG',
+                timestamp: new Date().toISOString(),
+                payload: { echo: parsed.payload, serverTime: Date.now() },
+              }));
+            } else if (parsed.type === 'FIELD_READING_RECORDED') {
+              broadcastWebSocketEvent('LIVE_READING_UPDATE', parsed.payload);
+            } else if (parsed.type === 'FIELD_STAFF_ACTIVITY') {
+              broadcastWebSocketEvent('STAFF_ACTIVITY_STREAM', parsed.payload);
+            } else if (parsed.type === 'MODULE_NAVIGATION') {
+              broadcastWebSocketEvent('MODULE_NAVIGATION_BROADCAST', parsed.payload);
+            } else if (parsed.type === 'PROCESS_EVENT') {
+              broadcastWebSocketEvent('PROCESS_TELEMETRY_UPDATE', parsed.payload);
+            }
+          } catch {
+            // ignore malformed ws message
           }
-        } catch {
-          // ignore malformed ws message
-        }
-      });
-
-      ws.on('close', () => {
-        activeClients.delete(ws);
-      });
-
-      ws.on('error', () => {
-        activeClients.delete(ws);
-      });
-    });
-
-    setInterval(() => {
-      if (activeClients.size > 0) {
-        broadcastWebSocketEvent('SERVER_HEARTBEAT', {
-          uptimeSeconds: process.uptime(),
-          activeClientsCount: activeClients.size,
         });
-      }
-    }, 15000);
+
+        ws.on('close', () => {
+          activeClients.delete(ws);
+        });
+
+        ws.on('error', () => {
+          activeClients.delete(ws);
+        });
+      });
+
+      setInterval(() => {
+        if (activeClients.size > 0) {
+          broadcastWebSocketEvent('SERVER_HEARTBEAT', {
+            uptimeSeconds: process.uptime(),
+            activeClientsCount: activeClients.size,
+          });
+        }
+      }, 15000);
+    }).catch(() => {
+      // ws not loaded or in serverless mode
+    });
   } catch (err) {
     console.warn('WebSocket server init skipped:', err);
   }
@@ -470,110 +470,121 @@ const STAFF_USERS = REGISTERED_READERS.map(r => ({
 }));
 
 // API Routes
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    district: 'Tagoloan Water District',
-    code: 'WDT-MISOR',
-    lwuaCategory: 'Category C Water District',
-    firestoreProject: 'ai-studio-tagoloanwaterdis-29aaeffc-dbd1-4669-9b5b-63d636462350',
-    serverTime: new Date().toISOString(),
-    totalConsumers: INITIAL_CONSUMERS.length,
-    totalReadingsLogged: serverReadings.length,
-    totalRegisteredReaders: REGISTERED_READERS.length,
-    pendingApprovalReaders: REGISTERED_READERS.filter(r => r.status === 'pending').length,
-  });
+app.get(['/api/health', '/health'], (req, res) => {
+  try {
+    res.json({
+      status: 'ok',
+      district: 'Tagoloan Water District',
+      code: 'WDT-MISOR',
+      lwuaCategory: 'Category C Water District',
+      serverTime: new Date().toISOString(),
+      totalConsumers: INITIAL_CONSUMERS.length,
+      totalReadingsLogged: serverReadings.length,
+      totalRegisteredReaders: REGISTERED_READERS.length,
+      pendingApprovalReaders: REGISTERED_READERS.filter(r => r.status === 'pending').length,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Server error' });
+  }
 });
 
 // Meter Reader Registration (Mobile App -> Central / Firestore readers collection)
-app.post(['/api/readers/register', '/api/auth/register'], (req, res) => {
-  const { name, employeeId, id, username, pin, contactNumber, email, zone, assignedRoutes, deviceInfo } = req.body;
+app.post(['/api/readers/register', '/api/auth/register', '/readers/register', '/auth/register'], (req, res) => {
+  try {
+    const { name, employeeId, id, username, pin, contactNumber, email, zone, assignedRoutes, deviceInfo } = req.body;
 
-  const readerName = name || username || 'Field Staff';
-  const readerUsername = username || id || employeeId || `reader_${Date.now()}`;
+    const readerName = name || username || 'Field Staff';
+    const readerUsername = username || id || employeeId || `reader_${Date.now()}`;
 
-  if (!readerName || !readerUsername) {
-    return res.status(400).json({ success: false, message: 'Name and Username are required' });
-  }
+    if (!readerName || !readerUsername) {
+      return res.status(400).json({ success: false, message: 'Name and Username are required' });
+    }
 
-  // Check if username or employeeId already registered
-  const existing = REGISTERED_READERS.find(
-    r => r.username.toLowerCase() === readerUsername.toLowerCase() || 
-         (employeeId && r.employeeId && r.employeeId.toLowerCase() === employeeId.toLowerCase()) ||
-         (id && r.id && r.id.toLowerCase() === id.toLowerCase())
-  );
+    // Check if username or employeeId already registered
+    const existing = REGISTERED_READERS.find(
+      r => r.username.toLowerCase() === readerUsername.toLowerCase() || 
+           (employeeId && r.employeeId && r.employeeId.toLowerCase() === employeeId.toLowerCase()) ||
+           (id && r.id && r.id.toLowerCase() === id.toLowerCase())
+    );
 
-  if (existing) {
-    return res.status(409).json({
-      success: false,
-      message: `A meter reader with Username '${readerUsername}' or ID '${id || employeeId || ''}' already exists.`,
-      status: existing.status,
-      employmentStatus: existing.status,
-      reader: existing,
+    if (existing) {
+      return res.status(409).json({
+        success: false,
+        message: `A meter reader with Username '${readerUsername}' or ID '${id || employeeId || ''}' already exists.`,
+        status: existing.status,
+        employmentStatus: existing.status,
+        reader: existing,
+      });
+    }
+
+    const routes = Array.isArray(assignedRoutes) && assignedRoutes.length > 0 
+      ? assignedRoutes 
+      : (zone ? [zone] : ['Poblacion']);
+
+    const newReaderId = id || `RDR-${String(REGISTERED_READERS.length + 1).padStart(3, '0')}`;
+    const newReader = {
+      id: newReaderId,
+      employeeId: employeeId || `TWD-2026-${String(Math.floor(100 + Math.random() * 900))}`,
+      username: readerUsername.trim(),
+      pin: pin || '1234',
+      name: readerName.trim(),
+      role: req.body.role || 'Meter Reader I',
+      contactNumber: contactNumber || '',
+      email: email || `${readerUsername.toLowerCase()}@tagoloanwater.gov.ph`,
+      assignedRoutes: routes,
+      status: 'pending', // Starts in pending approval
+      employmentStatus: 'pending',
+      deviceInfo: deviceInfo || req.headers['user-agent'] || 'Android Mobile Device',
+      createdAt: new Date().toISOString(),
+    };
+
+    REGISTERED_READERS.push(newReader);
+
+    // Broadcast WebSocket notification to Admin Web Portal
+    broadcastWebSocketEvent('READER_REGISTERED_PENDING', {
+      reader: newReader,
+      totalPending: REGISTERED_READERS.filter(r => r.status === 'pending').length,
+      timestamp: new Date().toISOString(),
     });
+
+    serverAuditLogs.push({
+      id: `LOG-REG-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      action: 'READER_REGISTRATION_SUBMITTED',
+      userId: newReader.id,
+      userName: newReader.name,
+      details: `Meter Reader registered on mobile (${newReader.employeeId}). Status set to PENDING admin approval.`,
+      deviceInfo: newReader.deviceInfo,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Meter reader registration submitted successfully. Awaiting Administrator approval.',
+      status: 'pending',
+      employmentStatus: 'pending',
+      reader: newReader,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Registration failed' });
   }
-
-  const routes = Array.isArray(assignedRoutes) && assignedRoutes.length > 0 
-    ? assignedRoutes 
-    : (zone ? [zone] : ['Poblacion']);
-
-  const newReaderId = id || `RDR-${String(REGISTERED_READERS.length + 1).padStart(3, '0')}`;
-  const newReader = {
-    id: newReaderId,
-    employeeId: employeeId || `TWD-2026-${String(Math.floor(100 + Math.random() * 900))}`,
-    username: readerUsername.trim(),
-    pin: pin || '1234',
-    name: readerName.trim(),
-    role: req.body.role || 'Meter Reader I',
-    contactNumber: contactNumber || '',
-    email: email || `${readerUsername.toLowerCase()}@tagoloanwater.gov.ph`,
-    assignedRoutes: routes,
-    status: 'pending', // Starts in pending approval
-    employmentStatus: 'pending',
-    deviceInfo: deviceInfo || req.headers['user-agent'] || 'Android Mobile Device',
-    createdAt: new Date().toISOString(),
-  };
-
-  REGISTERED_READERS.push(newReader);
-
-  // Broadcast WebSocket notification to Admin Web Portal
-  broadcastWebSocketEvent('READER_REGISTERED_PENDING', {
-    reader: newReader,
-    totalPending: REGISTERED_READERS.filter(r => r.status === 'pending').length,
-    timestamp: new Date().toISOString(),
-  });
-
-  serverAuditLogs.push({
-    id: `LOG-REG-${Date.now()}`,
-    timestamp: new Date().toISOString(),
-    action: 'READER_REGISTRATION_SUBMITTED',
-    userId: newReader.id,
-    userName: newReader.name,
-    details: `Meter Reader registered on mobile (${newReader.employeeId}). Status set to PENDING admin approval.`,
-    deviceInfo: newReader.deviceInfo,
-  });
-
-  res.status(201).json({
-    success: true,
-    message: 'Meter reader registration submitted successfully. Awaiting Administrator approval.',
-    status: 'pending',
-    employmentStatus: 'pending',
-    reader: newReader,
-  });
 });
 
 // List all readers (for Admin Portal & Mobile Sync)
-app.get(['/api/readers', '/api/staff'], (req, res) => {
-  res.json({
-    success: true,
-    count: REGISTERED_READERS.length,
-    readers: REGISTERED_READERS,
-    staff: REGISTERED_READERS.map(r => ({
-      ...r,
-      employmentStatus: r.status,
-      zone: r.assignedRoutes?.join(', ') || 'Poblacion',
-    })),
-  });
+app.get(['/api/readers', '/api/staff', '/readers', '/staff'], (req, res) => {
+  try {
+    res.json({
+      success: true,
+      count: REGISTERED_READERS.length,
+      readers: REGISTERED_READERS,
+      staff: REGISTERED_READERS.map(r => ({
+        ...r,
+        employmentStatus: r.status,
+        zone: r.assignedRoutes?.join(', ') || 'Poblacion',
+      })),
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Failed to list readers' });
+  }
 });
 
 // Admin updates staff / reader status and routes
@@ -714,205 +725,359 @@ app.patch('/api/readers/:id/reject', (req, res) => {
 });
 
 // Authentication with Status Check
-app.post('/api/auth/login', (req, res) => {
-  const { username, pin, readerId } = req.body;
-  const user = REGISTERED_READERS.find(
-    u => (u.username.toLowerCase() === (username || '').toLowerCase() || 
-          u.id.toLowerCase() === (readerId || username || '').toLowerCase() ||
-          u.employeeId.toLowerCase() === (username || '').toLowerCase()) &&
-         (u.pin === pin || !pin)
-  );
+app.post(['/api/auth/login', '/auth/login'], (req, res) => {
+  try {
+    const { username, pin, readerId } = req.body;
+    const user = REGISTERED_READERS.find(
+      u => (u.username.toLowerCase() === (username || '').toLowerCase() || 
+            u.id.toLowerCase() === (readerId || username || '').toLowerCase() ||
+            (u.employeeId && u.employeeId.toLowerCase() === (username || '').toLowerCase())) &&
+           (u.pin === pin || !pin)
+    );
 
-  if (user) {
-    if (user.status === 'pending') {
-      return res.status(403).json({
-        success: false,
-        status: 'pending',
-        message: 'Your reader account is pending Administrator review and route assignment.',
-        reader: {
+    if (user) {
+      if (user.status === 'pending') {
+        return res.status(403).json({
+          success: false,
+          status: 'pending',
+          message: 'Your reader account is pending Administrator review and route assignment.',
+          reader: {
+            id: user.id,
+            employeeId: user.employeeId,
+            name: user.name,
+            status: 'pending',
+            createdAt: user.createdAt,
+          }
+        });
+      }
+
+      if (user.status === 'rejected') {
+        return res.status(403).json({
+          success: false,
+          status: 'rejected',
+          message: 'Your reader account has been deactivated by the Administrator.',
+        });
+      }
+
+      res.json({
+        success: true,
+        user: {
           id: user.id,
           employeeId: user.employeeId,
+          username: user.username,
           name: user.name,
-          status: 'pending',
-          createdAt: user.createdAt,
-        }
+          role: user.role,
+          zone: user.assignedRoutes.join(', '),
+          assignedRoutes: user.assignedRoutes,
+          status: user.status,
+        },
+        serverSyncTime: new Date().toISOString(),
       });
-    }
-
-    if (user.status === 'rejected') {
-      return res.status(403).json({
+    } else {
+      res.status(401).json({
         success: false,
-        status: 'rejected',
-        message: 'Your reader account has been deactivated by the Administrator.',
+        message: 'Invalid Staff Username, Employee ID, or Security PIN. Please verify your credentials or register as a new reader.',
       });
     }
-
-    res.json({
-      success: true,
-      user: {
-        id: user.id,
-        employeeId: user.employeeId,
-        username: user.username,
-        name: user.name,
-        role: user.role,
-        zone: user.assignedRoutes.join(', '),
-        assignedRoutes: user.assignedRoutes,
-        status: user.status,
-      },
-      serverSyncTime: new Date().toISOString(),
-    });
-  } else {
-    // If not matched, return real invalid credentials error (No fake fallback)
-    res.status(401).json({
-      success: false,
-      message: 'Invalid Staff Username, Employee ID, or Security PIN. Please verify your credentials or register as a new reader.',
-    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Login failed' });
   }
 });
 
 // Consumers list download & Route Sync Pull
-app.get(['/api/consumers', '/api/sync/pull'], (req, res) => {
-  const { since, zone, route } = req.query;
-  let filtered = [...INITIAL_CONSUMERS];
+app.get(['/api/consumers', '/api/sync/pull', '/consumers', '/sync/pull'], (req, res) => {
+  try {
+    const { since, zone, barangay, route, search, q, status, category } = req.query;
+    let filtered = [...INITIAL_CONSUMERS];
 
-  if (zone && typeof zone === 'string' && zone.toLowerCase() !== 'all') {
-    filtered = filtered.filter(c => 
-      (c.barangay && c.barangay.toLowerCase().includes(zone.toLowerCase())) ||
-      (c.routeCode && c.routeCode.toLowerCase().includes(zone.toLowerCase())) ||
-      (c.address && c.address.toLowerCase().includes(zone.toLowerCase()))
+    const searchTerm = (search || q || '') as string;
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase().trim();
+      filtered = filtered.filter(c =>
+        (c.name && c.name.toLowerCase().includes(term)) ||
+        (c.accountNumber && c.accountNumber.toLowerCase().includes(term)) ||
+        (c.meterSerial && c.meterSerial.toLowerCase().includes(term)) ||
+        (c.address && c.address.toLowerCase().includes(term)) ||
+        (c.barangay && c.barangay.toLowerCase().includes(term))
+      );
+    }
+
+    const zoneFilter = (zone || barangay) as string;
+    if (zoneFilter && typeof zoneFilter === 'string' && zoneFilter.toLowerCase() !== 'all') {
+      const z = zoneFilter.toLowerCase();
+      filtered = filtered.filter(c => 
+        (c.barangay && c.barangay.toLowerCase().includes(z)) ||
+        (c.routeCode && c.routeCode.toLowerCase().includes(z)) ||
+        (c.address && c.address.toLowerCase().includes(z))
+      );
+    }
+
+    if (route && typeof route === 'string' && route.toLowerCase() !== 'all') {
+      filtered = filtered.filter(c => c.routeCode && c.routeCode.toLowerCase().includes(route.toLowerCase()));
+    }
+
+    if (status && typeof status === 'string' && status.toLowerCase() !== 'all') {
+      filtered = filtered.filter(c => c.status && c.status.toLowerCase() === status.toLowerCase());
+    }
+
+    if (category && typeof category === 'string' && category.toLowerCase() !== 'all') {
+      filtered = filtered.filter(c => c.category && c.category.toLowerCase().includes(category.toLowerCase()));
+    }
+
+    res.json({
+      success: true,
+      zone: zoneFilter || 'ALL',
+      count: filtered.length,
+      timestamp: new Date().toISOString(),
+      consumers: filtered,
+      data: filtered, // Support both 'consumers' and 'data' envelope keys
+    });
+  } catch (err: any) {
+    res.json({
+      success: true,
+      zone: 'ALL',
+      count: INITIAL_CONSUMERS.length,
+      timestamp: new Date().toISOString(),
+      consumers: INITIAL_CONSUMERS,
+      data: INITIAL_CONSUMERS,
+    });
+  }
+});
+
+// Single Consumer Details by Account Number or Meter Serial
+app.get(['/api/consumers/:identifier', '/consumers/:identifier'], (req, res) => {
+  try {
+    const { identifier } = req.params;
+    const cleanId = (identifier || '').toLowerCase().trim();
+    const consumer = INITIAL_CONSUMERS.find(c => 
+      c.accountNumber.toLowerCase() === cleanId ||
+      c.id.toLowerCase() === cleanId ||
+      (c.meterSerial && c.meterSerial.toLowerCase() === cleanId)
     );
-  }
 
-  if (route && typeof route === 'string' && route.toLowerCase() !== 'all') {
-    filtered = filtered.filter(c => c.routeCode && c.routeCode.toLowerCase().includes(route.toLowerCase()));
+    if (consumer) {
+      res.json({
+        success: true,
+        consumer,
+        data: consumer,
+      });
+    } else {
+      res.status(404).json({
+        success: false,
+        message: `Consumer with Account/Meter '${identifier}' not found in Tagoloan District registry.`,
+      });
+    }
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Error fetching consumer' });
   }
+});
+
+// Create or Update Consumer Record
+app.post(['/api/consumers', '/consumers'], (req, res) => {
+  try {
+    const data = req.body;
+    if (!data.accountNumber || !data.name) {
+      return res.status(400).json({ success: false, message: 'Account Number and Consumer Name are required' });
+    }
+
+    const existingIndex = INITIAL_CONSUMERS.findIndex(c => 
+      c.accountNumber.toLowerCase() === data.accountNumber.toLowerCase() ||
+      (data.id && c.id.toLowerCase() === data.id.toLowerCase())
+    );
+
+    const consumerRecord = {
+      id: data.id || `WDT-ACC-${Date.now().toString().slice(-5)}`,
+      accountNumber: data.accountNumber,
+      name: data.name,
+      address: data.address || 'Tagoloan, Misamis Oriental',
+      barangay: data.barangay || 'Poblacion',
+      meterSerial: data.meterSerial || `MTR-${Math.floor(1000000 + Math.random() * 9000000)}`,
+      meterSize: data.meterSize || '1/2"',
+      category: data.category || 'Residential',
+      status: data.status || 'Active',
+      previousReading: Number(data.previousReading || 0),
+      previousReadingDate: data.previousReadingDate || new Date().toISOString().split('T')[0],
+      averageConsumption: Number(data.averageConsumption || 15),
+      rateCode: data.rateCode || 'RES-01',
+      gpsCoordinates: data.gpsCoordinates || { lat: 8.5398, lng: 124.7523 },
+      routeCode: data.routeCode || 'RT-POB-01',
+      sequenceNo: data.sequenceNo || INITIAL_CONSUMERS.length + 1,
+      contactNumber: data.contactNumber || '',
+      lastSyncDate: new Date().toISOString(),
+    };
+
+    if (existingIndex >= 0) {
+      INITIAL_CONSUMERS[existingIndex] = { ...INITIAL_CONSUMERS[existingIndex], ...consumerRecord };
+    } else {
+      INITIAL_CONSUMERS.push(consumerRecord);
+    }
+
+    broadcastWebSocketEvent('CONSUMER_REGISTRY_UPDATED', {
+      consumer: consumerRecord,
+      action: existingIndex >= 0 ? 'UPDATE' : 'CREATE',
+      timestamp: new Date().toISOString(),
+    });
+
+    res.status(existingIndex >= 0 ? 200 : 201).json({
+      success: true,
+      message: existingIndex >= 0 ? 'Consumer updated successfully' : 'Consumer created successfully',
+      consumer: consumerRecord,
+      data: consumerRecord,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Failed to save consumer' });
+  }
+});
+
+// Barangays & Tariff Rates Endpoint
+app.get(['/api/barangays', '/barangays'], (req, res) => {
+  const barangays = [
+    { name: 'Poblacion', code: 'POB', activeRoutes: ['RT-POB-01', 'RT-POB-02', 'RT-POB-03', 'RT-POB-04'], totalConsumers: 1420 },
+    { name: 'Baluarte', code: 'BAL', activeRoutes: ['RT-BAL-01', 'RT-BAL-02'], totalConsumers: 860 },
+    { name: 'Casinglot', code: 'CAS', activeRoutes: ['RT-CAS-01', 'RT-CAS-02', 'RT-CAS-03'], totalConsumers: 1150 },
+    { name: 'Mohon', code: 'MOH', activeRoutes: ['RT-MOH-01', 'RT-MOH-02'], totalConsumers: 730 },
+    { name: 'Natumolan', code: 'NAT', activeRoutes: ['RT-NAT-01', 'RT-NAT-02'], totalConsumers: 940 },
+    { name: 'Santa Ana', code: 'STA', activeRoutes: ['RT-STA-01', 'RT-STA-02'], totalConsumers: 680 },
+    { name: 'Santa Cruz', code: 'STC', activeRoutes: ['RT-STC-01', 'RT-STC-02'], totalConsumers: 520 },
+    { name: 'Sugbongcogon', code: 'SUG', activeRoutes: ['RT-SUG-01', 'RT-SUG-02', 'RT-SUG-03'], totalConsumers: 1280 },
+    { name: 'Gracia', code: 'GRA', activeRoutes: ['RT-GRA-01'], totalConsumers: 410 },
+    { name: 'Rosario', code: 'ROS', activeRoutes: ['RT-ROS-01'], totalConsumers: 390 },
+  ];
 
   res.json({
     success: true,
-    zone: zone || 'ALL',
-    count: filtered.length,
-    timestamp: new Date().toISOString(),
-    consumers: filtered,
+    district: 'Tagoloan Water District (WDT-MISOR)',
+    count: barangays.length,
+    barangays,
+    data: barangays,
   });
 });
 
 // Single Reading Submit Endpoint
-app.post(['/api/readings/submit', '/api/sync/push'], (req, res) => {
-  const body = req.body;
+app.post(['/api/readings/submit', '/api/sync/push', '/readings/submit', '/sync/push'], (req, res) => {
+  try {
+    const body = req.body;
 
-  // Handle if client sent an array or single object
-  const readingsToProcess = Array.isArray(body.readings) 
-    ? body.readings 
-    : (Array.isArray(body) ? body : [body]);
+    // Handle if client sent an array or single object
+    const readingsToProcess = Array.isArray(body.readings) 
+      ? body.readings 
+      : (Array.isArray(body) ? body : [body]);
 
-  if (readingsToProcess.length === 0) {
-    return res.status(400).json({ success: false, message: 'No reading data received.' });
-  }
+    if (readingsToProcess.length === 0) {
+      return res.status(400).json({ success: false, message: 'No reading data received.' });
+    }
 
-  const saved: any[] = [];
-  readingsToProcess.forEach((item: any) => {
-    const prev = Number(item.previousReading || 0);
-    const curr = Number(item.currentReading || item.readingValue || 0);
-    const cons = Math.max(0, curr - prev);
+    const saved: any[] = [];
+    readingsToProcess.forEach((item: any) => {
+      const prev = Number(item.previousReading || 0);
+      const curr = Number(item.currentReading || item.readingValue || 0);
+      const cons = Math.max(0, curr - prev);
 
-    const readingEntry = {
-      id: item.id || `RDG-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      consumerId: item.consumerId || item.accountNumber,
-      accountNumber: item.accountNumber || item.consumerAccountNumber,
-      consumerName: item.consumerName || item.name || 'Account Holder',
-      meterSerial: item.meterSerial || item.meterNumber || 'MTR-STD',
-      meterNumber: item.meterNumber || item.meterSerial || 'MT-001',
-      previousReading: prev,
-      currentReading: curr,
-      consumption: cons,
-      readingDate: item.readingDate || new Date().toISOString().split('T')[0],
-      readerId: item.readerId || 'FIELD-STAFF',
-      readerName: item.readerName || 'Field Reader',
-      route: item.route || item.zone || 'Poblacion',
-      billingPeriod: item.billingPeriod || 'August 2026',
-      approvalStatus: item.approvalStatus || 'pending_approval',
-      status: 'PENDING_APPROVAL',
-      photoUrl: item.photoUrl || item.meterPhotoBase64 || '',
-      coordinates: item.coordinates || item.gpsLocation || { lat: 8.5398, lng: 124.7523 },
-      receivedAt: new Date().toISOString(),
-    };
+      const readingEntry = {
+        id: item.id || `RDG-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        consumerId: item.consumerId || item.accountNumber,
+        accountNumber: item.accountNumber || item.consumerAccountNumber,
+        consumerName: item.consumerName || item.name || 'Account Holder',
+        meterSerial: item.meterSerial || item.meterNumber || 'MTR-STD',
+        meterNumber: item.meterNumber || item.meterSerial || 'MT-001',
+        previousReading: prev,
+        currentReading: curr,
+        consumption: cons,
+        readingDate: item.readingDate || new Date().toISOString().split('T')[0],
+        readerId: item.readerId || 'FIELD-STAFF',
+        readerName: item.readerName || 'Field Reader',
+        route: item.route || item.zone || 'Poblacion',
+        billingPeriod: item.billingPeriod || 'August 2026',
+        approvalStatus: item.approvalStatus || 'pending_approval',
+        status: 'PENDING_APPROVAL',
+        photoUrl: item.photoUrl || item.meterPhotoBase64 || '',
+        coordinates: item.coordinates || item.gpsLocation || { lat: 8.5398, lng: 124.7523 },
+        receivedAt: new Date().toISOString(),
+      };
 
-    serverReadings.push(readingEntry);
-    saved.push(readingEntry);
+      serverReadings.push(readingEntry);
+      saved.push(readingEntry);
 
-    // Broadcast WebSocket update
-    broadcastWebSocketEvent('READING_SUBMITTED_FOR_APPROVAL', {
-      reading: readingEntry,
-      timestamp: new Date().toISOString(),
+      // Broadcast WebSocket update
+      broadcastWebSocketEvent('READING_SUBMITTED_FOR_APPROVAL', {
+        reading: readingEntry,
+        timestamp: new Date().toISOString(),
+      });
     });
-  });
 
-  res.status(201).json({
-    success: true,
-    message: `Successfully received ${saved.length} reading(s). Queued for supervisor approval.`,
-    readings: saved,
-    reading: saved[0],
-    count: saved.length,
-  });
+    res.status(201).json({
+      success: true,
+      message: `Successfully received ${saved.length} reading(s). Queued for supervisor approval.`,
+      readings: saved,
+      reading: saved[0],
+      count: saved.length,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Reading submit failed' });
+  }
 });
 
 // Batch reading submission
-app.post('/api/readings/batch', (req, res) => {
-  const { readings, readerId, batchId } = req.body;
-  if (!Array.isArray(readings) || readings.length === 0) {
-    return res.status(400).json({ success: false, message: 'No readings provided' });
-  }
-
-  const processed: any[] = [];
-  const errors: any[] = [];
-
-  readings.forEach((reading: any) => {
-    try {
-      const readingRecord = {
-        ...reading,
-        receivedAt: new Date().toISOString(),
-        serverVerified: true,
-        batchId: batchId || `BATCH-${Date.now()}`,
-      };
-      serverReadings.push(readingRecord);
-      processed.push(reading.id || reading.accountNumber);
-    } catch (err: any) {
-      errors.push({ id: reading.id, error: err.message });
+app.post(['/api/readings/batch', '/readings/batch'], (req, res) => {
+  try {
+    const { readings, readerId, batchId } = req.body;
+    if (!Array.isArray(readings) || readings.length === 0) {
+      return res.status(400).json({ success: false, message: 'No readings provided' });
     }
-  });
 
-  serverAuditLogs.push({
-    id: `LOG-BATCH-${Date.now()}`,
-    timestamp: new Date().toISOString(),
-    action: 'BATCH_SUBMISSION_PROCESSED',
-    userId: readerId || 'FIELD_READER',
-    userName: `Meter Reader (${readerId || 'WDT-FIELD'})`,
-    details: `Processed ${processed.length} water meter readings in batch ${batchId || 'SYNC'}`,
-    deviceInfo: req.headers['user-agent'] || 'Field Mobile Device',
-  });
+    const processed: any[] = [];
+    const errors: any[] = [];
 
-  // Broadcast WebSocket update to all active devices
-  broadcastWebSocketEvent('BATCH_SYNC_PROCESSED', {
-    readerId: readerId || 'WDT-FIELD',
-    batchId: batchId || `BATCH-${Date.now()}`,
-    processedCount: processed.length,
-    totalServerReadings: serverReadings.length,
-    timestamp: new Date().toISOString(),
-  });
+    readings.forEach((reading: any) => {
+      try {
+        const readingRecord = {
+          ...reading,
+          receivedAt: new Date().toISOString(),
+          serverVerified: true,
+          batchId: batchId || `BATCH-${Date.now()}`,
+        };
+        serverReadings.push(readingRecord);
+        processed.push(reading.id || reading.accountNumber);
+      } catch (err: any) {
+        errors.push({ id: reading.id, error: err.message });
+      }
+    });
 
-  res.json({
-    success: true,
-    processedCount: processed.length,
-    failedCount: errors.length,
-    processedIds: processed,
-    syncedIds: processed,
-    errors,
-    serverTimestamp: new Date().toISOString(),
-  });
+    serverAuditLogs.push({
+      id: `LOG-BATCH-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      action: 'BATCH_SUBMISSION_PROCESSED',
+      userId: readerId || 'FIELD_READER',
+      userName: `Meter Reader (${readerId || 'WDT-FIELD'})`,
+      details: `Processed ${processed.length} water meter readings in batch ${batchId || 'SYNC'}`,
+      deviceInfo: req.headers['user-agent'] || 'Field Mobile Device',
+    });
+
+    // Broadcast WebSocket update to all active devices
+    broadcastWebSocketEvent('BATCH_SYNC_PROCESSED', {
+      readerId: readerId || 'WDT-FIELD',
+      batchId: batchId || `BATCH-${Date.now()}`,
+      processedCount: processed.length,
+      totalServerReadings: serverReadings.length,
+      timestamp: new Date().toISOString(),
+    });
+
+    res.json({
+      success: true,
+      processedCount: processed.length,
+      failedCount: errors.length,
+      processedIds: processed,
+      syncedIds: processed,
+      errors,
+      serverTimestamp: new Date().toISOString(),
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Batch submit failed' });
+  }
 });
 
 // History & Status
-app.get('/api/readings/history', (req, res) => {
+app.get(['/api/readings/history', '/readings/history'], (req, res) => {
   res.json({
     success: true,
     total: serverReadings.length,
@@ -921,14 +1086,14 @@ app.get('/api/readings/history', (req, res) => {
 });
 
 // Audit Logs
-app.get('/api/audit-logs', (req, res) => {
+app.get(['/api/audit-logs', '/audit-logs'], (req, res) => {
   res.json({
     success: true,
     logs: serverAuditLogs.slice(-100).reverse(),
   });
 });
 
-app.post('/api/audit-logs', (req, res) => {
+app.post(['/api/audit-logs', '/audit-logs'], (req, res) => {
   const { action, userId, userName, details, deviceInfo } = req.body;
   const newLog = {
     id: `LOG-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
@@ -944,7 +1109,7 @@ app.post('/api/audit-logs', (req, res) => {
 });
 
 // Readings Pending Admin Approval Queue
-app.get('/api/readings/pending', (req, res) => {
+app.get(['/api/readings/pending', '/readings/pending'], (req, res) => {
   const pendingReadings = serverReadings.filter(
     (r: any) => r.approvalStatus === 'pending_approval' || (!r.approvalStatus && r.status !== 'SYNCED')
   );
@@ -1167,8 +1332,17 @@ Respond with strict JSON ONLY:
   }
 });
 
-// Catch-all API fallback: Any unmatched /api/* route returns JSON, never HTML
-app.all('/api/*', (req, res) => {
+// Catch-all API fallback: Any unmatched /api/* or /* API route returns JSON, never HTML
+app.use((err: any, req: any, res: any, next: any) => {
+  console.error('[API Server Error]', err);
+  res.status(500).json({
+    success: false,
+    error: err?.message || 'Internal Server Error',
+    timestamp: new Date().toISOString(),
+  });
+});
+
+app.all(['/api/*', '/api'], (req, res) => {
   res.status(404).json({
     success: false,
     error: `API route ${req.method} ${req.path} not found`,

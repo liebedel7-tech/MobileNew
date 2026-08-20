@@ -1,6 +1,7 @@
 import { Consumer, MeterReading, SyncState } from '../types';
 import { DatabaseHelper } from './databaseHelper';
 import { LoggerService } from './loggerService';
+import { getApiEndpoint } from './apiConfig';
 
 export class SyncService {
   private static timerId: any = null;
@@ -188,7 +189,7 @@ export class SyncService {
       if (pendingReadings.length > 0) {
         this.updateState({ lastSyncMessage: `Uploading ${pendingReadings.length} readings...` });
         try {
-          const uploadRes = await fetch('/api/readings/batch', {
+          const uploadRes = await fetch(getApiEndpoint('/api/readings/batch'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
             body: JSON.stringify({
@@ -219,17 +220,18 @@ export class SyncService {
       // 2. Pull latest consumers
       this.updateState({ lastSyncMessage: 'Downloading consumer records...' });
       try {
-        const consumerRes = await fetch('/api/consumers', {
+        const consumerRes = await fetch(getApiEndpoint('/api/consumers'), {
           headers: { 'Accept': 'application/json' },
         });
         if (consumerRes.ok) {
           const consumerData = await safeParseJson(consumerRes);
-          if (consumerData && consumerData.consumers && Array.isArray(consumerData.consumers)) {
+          const rawConsumers = consumerData?.consumers || consumerData?.data;
+          if (rawConsumers && Array.isArray(rawConsumers)) {
             // Merge with local reading flags
             const localReadings = await DatabaseHelper.getAllReadings();
             const readingsMap = new Map(localReadings.map((r) => [r.consumerId, r]));
 
-            const enrichedConsumers: Consumer[] = consumerData.consumers.map((c: Consumer) => {
+            const enrichedConsumers: Consumer[] = rawConsumers.map((c: Consumer) => {
               const existingReading = readingsMap.get(c.id);
               return {
                 ...c,

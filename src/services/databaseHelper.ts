@@ -1,4 +1,5 @@
 import { Consumer, MeterReading, AuditLog, AppConfig, StaffUser, ReaderAccount, ReaderStatus } from '../types';
+import { getApiEndpoint } from './apiConfig';
 
 const DB_NAME = 'WDT_MeterReader_DB_v2';
 const DB_VERSION = 1;
@@ -357,21 +358,148 @@ export class DatabaseHelper {
     }
   }
 
+  // Initial Seed Consumers for Tagoloan Water District (WDT), Misamis Oriental
+  private static DEFAULT_SEED_CONSUMERS: Consumer[] = [
+    {
+      id: 'WDT-ACC-01042',
+      accountNumber: '01-042-0091',
+      name: 'AMORATO, VICENTE G.',
+      address: 'Zone 2, Brgy. Poblacion, Tagoloan, Misamis Oriental',
+      barangay: 'Poblacion',
+      meterSerial: 'MTR-8849201',
+      meterSize: '1/2"',
+      category: 'Residential',
+      status: 'Active',
+      previousReading: 342,
+      previousReadingDate: '2026-07-14',
+      averageConsumption: 18,
+      rateCode: 'RES-01',
+      gpsCoordinates: { lat: 8.5398, lng: 124.7523 },
+      routeCode: 'RT-POB-04',
+      sequenceNo: 1,
+      contactNumber: '+63 917 234 5678',
+      lastSyncDate: new Date().toISOString(),
+    },
+    {
+      id: 'WDT-ACC-01043',
+      accountNumber: '01-042-0092',
+      name: 'CABALLERO, MA. ELENA S.',
+      address: 'Purok 4, Brgy. Baluarte, Tagoloan, Misamis Oriental',
+      barangay: 'Baluarte',
+      meterSerial: 'MTR-7738291',
+      meterSize: '1/2"',
+      category: 'Residential',
+      status: 'Active',
+      previousReading: 512,
+      previousReadingDate: '2026-07-14',
+      averageConsumption: 22,
+      rateCode: 'RES-01',
+      gpsCoordinates: { lat: 8.5462, lng: 124.7611 },
+      routeCode: 'RT-BAL-01',
+      sequenceNo: 2,
+      contactNumber: '+63 928 891 2345',
+      lastSyncDate: new Date().toISOString(),
+    },
+    {
+      id: 'WDT-ACC-01044',
+      accountNumber: '02-019-0115',
+      name: 'TAGOLOAN GRAIN MILL & TRADING',
+      address: 'National Highway, Brgy. Casinglot, Tagoloan',
+      barangay: 'Casinglot',
+      meterSerial: 'MTR-COM-44912',
+      meterSize: '1"',
+      category: 'Commercial A',
+      status: 'Active',
+      previousReading: 1289,
+      previousReadingDate: '2026-07-13',
+      averageConsumption: 85,
+      rateCode: 'COM-A-01',
+      gpsCoordinates: { lat: 8.5312, lng: 124.7435 },
+      routeCode: 'RT-CAS-02',
+      sequenceNo: 3,
+      contactNumber: '+63 939 123 4567',
+      lastSyncDate: new Date().toISOString(),
+    },
+    {
+      id: 'WDT-ACC-01045',
+      accountNumber: '01-088-0044',
+      name: 'RODRIGUEZ, BENJAMIN T.',
+      address: 'Zone 1, Brgy. Mohon, Tagoloan, Misamis Oriental',
+      barangay: 'Mohon',
+      meterSerial: 'MTR-9021844',
+      meterSize: '1/2"',
+      category: 'Residential',
+      status: 'Active',
+      previousReading: 198,
+      previousReadingDate: '2026-07-15',
+      averageConsumption: 14,
+      rateCode: 'RES-01',
+      gpsCoordinates: { lat: 8.5284, lng: 124.7698 },
+      routeCode: 'RT-MOH-01',
+      sequenceNo: 4,
+      contactNumber: '+63 915 678 9012',
+      lastSyncDate: new Date().toISOString(),
+    },
+    {
+      id: 'WDT-ACC-01046',
+      accountNumber: '03-005-0012',
+      name: 'SANTA CRUZ FISH PROCESSING CORP.',
+      address: 'Coastal Road, Brgy. Santa Cruz, Tagoloan',
+      barangay: 'Santa Cruz',
+      meterSerial: 'MTR-IND-99120',
+      meterSize: '2"',
+      category: 'Industrial',
+      status: 'Active',
+      previousReading: 4890,
+      previousReadingDate: '2026-07-12',
+      averageConsumption: 320,
+      rateCode: 'IND-01',
+      gpsCoordinates: { lat: 8.5521, lng: 124.7389 },
+      routeCode: 'RT-STC-01',
+      sequenceNo: 5,
+      contactNumber: '+63 917 889 0012',
+      lastSyncDate: new Date().toISOString(),
+    },
+    {
+      id: 'WDT-ACC-01047',
+      accountNumber: '01-042-0105',
+      name: 'VILLANUEVA, TERESITA L.',
+      address: 'Purok 2, Brgy. Poblacion, Tagoloan, Misamis Oriental',
+      barangay: 'Poblacion',
+      meterSerial: 'MTR-8849312',
+      meterSize: '1/2"',
+      category: 'Residential',
+      status: 'Active',
+      previousReading: 412,
+      previousReadingDate: '2026-07-14',
+      averageConsumption: 19,
+      rateCode: 'RES-01',
+      gpsCoordinates: { lat: 8.5412, lng: 124.7541 },
+      routeCode: 'RT-POB-04',
+      sequenceNo: 6,
+      contactNumber: '+63 920 445 6789',
+      lastSyncDate: new Date().toISOString(),
+    }
+  ];
+
   // Initialize Database Helper and synchronize real consumers from server
   static async init(): Promise<void> {
     try {
       const existing = await this.getAllConsumers();
       if (!existing || existing.length === 0) {
+        // Seed default consumers immediately to ensure instant offline capability
+        await this.saveConsumers(this.DEFAULT_SEED_CONSUMERS);
+        
         try {
-          const res = await fetch('/api/consumers');
+          const res = await fetch(getApiEndpoint('/api/consumers'));
           if (res.ok) {
             const data = await res.json();
-            if (data && data.consumers && Array.isArray(data.consumers)) {
-              await this.saveConsumers(data.consumers);
+            if (data && (data.consumers || data.data) && Array.isArray(data.consumers || data.data)) {
+              await this.saveConsumers(data.consumers || data.data);
             }
           }
-        } catch (fetchErr) {
-          console.warn('Could not pull initial consumers from server on startup:', fetchErr);
+        } catch {
+          // Offline fallback is already loaded
         }
       }
     } catch (err) {
