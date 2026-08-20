@@ -1,9 +1,7 @@
 // Central API Client for Mobile Field Reader & Web Admin Workflows
 // Tagoloan Water District (WDT), Misamis Oriental
 
-export const API_BASE_URL = 
-  (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL) 
-  || '/api';
+import { getApiEndpoint } from './apiConfig';
 
 /**
  * 1. Mobile Reader Registration
@@ -17,7 +15,7 @@ export async function registerMeterReader(readerData: {
   contactNumber?: string;
 }) {
   try {
-    const res = await fetch(`${API_BASE_URL}/readers/register`, {
+    const res = await fetch(getApiEndpoint('/api/readers/register'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify(readerData),
@@ -40,7 +38,7 @@ export async function registerMeterReader(readerData: {
  */
 export async function checkReaderApprovalStatus(readerIdOrUsername: string) {
   try {
-    const res = await fetch(`${API_BASE_URL}/readers/check-status/${encodeURIComponent(readerIdOrUsername)}`, {
+    const res = await fetch(getApiEndpoint(`/api/readers/check-status/${encodeURIComponent(readerIdOrUsername)}`), {
       headers: { 'Accept': 'application/json' },
     });
     return await res.json();
@@ -56,7 +54,7 @@ export async function checkReaderApprovalStatus(readerIdOrUsername: string) {
 export async function fetchAssignedConsumers(zone?: string) {
   try {
     const query = zone && zone !== 'All' && zone !== 'ALL' ? `?zone=${encodeURIComponent(zone)}` : '';
-    const res = await fetch(`${API_BASE_URL}/consumers${query}`, {
+    const res = await fetch(getApiEndpoint(`/api/consumers${query}`), {
       headers: { 'Accept': 'application/json' },
     });
     const data = await res.json();
@@ -81,7 +79,7 @@ export async function submitMeterReading(reading: {
   photoUrl?: string;
 }) {
   try {
-    const res = await fetch(`${API_BASE_URL}/readings/submit`, {
+    const res = await fetch(getApiEndpoint('/api/readings/submit'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify(reading),

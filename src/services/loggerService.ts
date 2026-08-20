@@ -1,5 +1,6 @@
 import { AuditLog } from '../types';
 import { DatabaseHelper } from './databaseHelper';
+import { getApiEndpoint } from './apiConfig';
 
 export class LoggerService {
   private static subscribers: Array<(log: AuditLog) => void> = [];
@@ -33,7 +34,7 @@ export class LoggerService {
       this.subscribers.forEach((fn) => fn(logItem));
 
       // Attempt non-blocking server log sync if online
-      fetch('/api/audit-logs', {
+      fetch(getApiEndpoint('/api/audit-logs'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(logItem),
