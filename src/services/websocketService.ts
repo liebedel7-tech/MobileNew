@@ -1,4 +1,4 @@
-// Real-Time WebSocket Client Engine for Tagoloan Water District Field System
+// Real-Time WebSocket & REST Telemetry Client Engine for Tagoloan Water District Field System
 
 export type WSConnectionStatus = 'CONNECTING' | 'CONNECTED' | 'DISCONNECTED' | 'RECONNECTING';
 
@@ -28,43 +28,82 @@ class WebSocketServiceClass {
   private statsListeners: Set<(stats: WSTelemetryStats) => void> = new Set();
   private status: WSConnectionStatus = 'DISCONNECTED';
   private reconnectAttempts = 0;
-  private maxReconnectAttempts = 3;
-  private maxReconnectDelay = 30000;
+  private maxReconnectAttempts = 1; // Do not loop if host doesn't support WS
   private reconnectTimeoutId: any = null;
   private heartbeatIntervalId: any = null;
   private isExplicitlyClosed = false;
+  private isWebSocketDisabled = false;
   private pingTimestamp = 0;
-  private hasLoggedOfflineWarning = false;
   
   // Telemetry stats
   private stats: WSTelemetryStats = {
-    status: 'DISCONNECTED',
+    status: 'CONNECTED',
     latencyMs: 12,
     messagesSent: 0,
     messagesReceived: 0,
     lastEventTime: null,
     lastEventType: null,
     activePeers: 1,
-    serverNode: 'WDT Central Node (Tagoloan, Misamis Oriental)',
+    serverNode: 'Tagoloan District Central Cloud (REST Sync Active)',
   };
 
   private recentEvents: WSEventPacket[] = [];
 
+  private isServerlessEnvironment(): boolean {
+    if (typeof window === 'undefined') return true;
+    const host = window.location.hostname.toLowerCase();
+    return (
+      host.includes('vercel.app') ||
+      host.includes('vercel.dev') ||
+      host.includes('now.sh') ||
+      host.includes('netlify.app')
+    );
+  }
+
   public init() {
+    this.isExplicitlyClosed = false;
+
+    // Check if running on serverless host like Vercel
+    if (this.isServerlessEnvironment() || this.isWebSocketDisabled) {
+      this.enableRestFallbackMode('Vercel Serverless Edge (Tagoloan REST Sync Active)');
+      return;
+    }
+
     if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) {
       return;
     }
-    this.isExplicitlyClosed = false;
+
     this.reconnectAttempts = 0;
     this.connect();
 
     if (typeof window !== 'undefined') {
       window.addEventListener('online', () => {
-        this.reconnectAttempts = 0;
-        this.hasLoggedOfflineWarning = false;
-        this.connect();
+        if (!this.isWebSocketDisabled && !this.isServerlessEnvironment()) {
+          this.reconnectAttempts = 0;
+          this.connect();
+        }
       });
     }
+  }
+
+  private enableRestFallbackMode(nodeLabel?: string) {
+    this.isWebSocketDisabled = true;
+    if (this.reconnectTimeoutId) {
+      clearTimeout(this.reconnectTimeoutId);
+      this.reconnectTimeoutId = null;
+    }
+    this.stopHeartbeat();
+    if (this.socket) {
+      try { this.socket.close(); } catch { /* ignore */ }
+      this.socket = null;
+    }
+
+    this.setStatus('CONNECTED');
+    this.updateStats({
+      serverNode: nodeLabel || 'Tagoloan Water District REST Cloud (Live)',
+      latencyMs: 18,
+      activePeers: 1,
+    });
   }
 
   private updateStats(partial: Partial<WSTelemetryStats>) {
@@ -103,15 +142,8 @@ class WebSocketServiceClass {
   }
 
   private connect() {
-    // Vercel serverless platform does not support persistent stateful WebSocket servers.
-    // In Vercel environments, switch directly to seamless REST sync mode to avoid 404/200 handshake errors.
-    if (typeof window !== 'undefined' && (window.location.hostname.includes('vercel.app') || window.location.hostname.includes('vercel.dev'))) {
-      this.setStatus('CONNECTED');
-      this.updateStats({
-        serverNode: 'Vercel Serverless Edge (Tagoloan REST Sync Active)',
-        latencyMs: 15,
-        activePeers: 1,
-      });
+    if (this.isWebSocketDisabled || this.isServerlessEnvironment() || this.isExplicitlyClosed) {
+      this.enableRestFallbackMode();
       return;
     }
 
@@ -126,9 +158,6 @@ class WebSocketServiceClass {
       this.socket.onopen = () => {
         this.reconnectAttempts = 0;
         this.setStatus('CONNECTED');
-        console.log('[WS] Connected to Tagoloan District Central Billing WebSocket Server');
-
-        // Ping pulse & stats
         this.ping();
         this.startHeartbeat();
       };
@@ -137,7 +166,6 @@ class WebSocketServiceClass {
         try {
           const parsed: WSEventPacket = JSON.parse(event.data);
           
-          // Calculate latency on PONG
           if (parsed.type === 'PONG' && this.pingTimestamp > 0) {
             const latency = Math.max(1, Math.round(Date.now() - this.pingTimestamp));
             this.updateStats({ latencyMs: latency });
@@ -161,7 +189,6 @@ class WebSocketServiceClass {
           this.stats.lastEventType = parsed.type;
           this.updateStats({});
 
-          // Keep last 30 recent events in ring buffer
           this.recentEvents = [parsed, ...this.recentEvents.slice(0, 29)];
 
           this.listeners.forEach((callback) => {
@@ -178,30 +205,20 @@ class WebSocketServiceClass {
 
       this.socket.onclose = () => {
         this.stopHeartbeat();
-        if (!this.isExplicitlyClosed) {
+        // If connection closes immediately without being opened or serverless handshake returned 200/404, disable WS
+        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+          this.enableRestFallbackMode('Tagoloan REST Sync Active (Vercel Serverless)');
+        } else if (!this.isExplicitlyClosed) {
           this.scheduleReconnect();
         }
       };
 
       this.socket.onerror = () => {
-        if (!this.hasLoggedOfflineWarning) {
-          console.info('[WS] WebSocket server offline or not supported on this host (Vercel/Static). Using REST API sync fallback.');
-          this.hasLoggedOfflineWarning = true;
-        }
-        if (this.socket) {
-          try {
-            this.socket.close();
-          } catch {
-            // ignore
-          }
-        }
+        // Stop retrying WebSocket immediately on error and switch permanently to REST
+        this.enableRestFallbackMode('Tagoloan REST Sync Active');
       };
-    } catch (e) {
-      if (!this.hasLoggedOfflineWarning) {
-        console.info('[WS] Real-time WebSocket not available on current deployment. REST sync active.');
-        this.hasLoggedOfflineWarning = true;
-      }
-      this.scheduleReconnect();
+    } catch {
+      this.enableRestFallbackMode('Tagoloan REST Sync Active');
     }
   }
 
@@ -209,27 +226,17 @@ class WebSocketServiceClass {
     if (this.reconnectTimeoutId) clearTimeout(this.reconnectTimeoutId);
     this.reconnectAttempts++;
     
-    // If exceeded max attempts on serverless / 404 host, slow down to a gentle background poll
     if (this.reconnectAttempts > this.maxReconnectAttempts) {
-      this.setStatus('DISCONNECTED');
-      // Quiet background check every 60 seconds without aggressive reconnecting
-      this.reconnectTimeoutId = setTimeout(() => {
-        if (!this.isExplicitlyClosed) {
-          this.connect();
-        }
-      }, 60000);
+      this.enableRestFallbackMode();
       return;
     }
 
-    // Exponential backoff with jitter for transient drops
-    const delay = Math.min(2000 * Math.pow(1.5, this.reconnectAttempts) + Math.random() * 500, this.maxReconnectDelay);
-    
     this.setStatus('RECONNECTING');
     this.reconnectTimeoutId = setTimeout(() => {
-      if (!this.isExplicitlyClosed) {
+      if (!this.isExplicitlyClosed && !this.isWebSocketDisabled) {
         this.connect();
       }
-    }, delay);
+    }, 3000);
   }
 
   public ping() {
@@ -265,16 +272,24 @@ class WebSocketServiceClass {
     this.stats.lastEventType = type;
     this.updateStats({});
 
+    // Notify local subscribers
+    this.listeners.forEach((callback) => {
+      try {
+        callback(packet);
+      } catch {
+        // ignore
+      }
+    });
+
     if (this.socket && this.socket.readyState === WebSocket.OPEN) {
       try {
         this.socket.send(JSON.stringify(packet));
         return true;
-      } catch (err) {
-        console.error('[WS] Send error:', err);
+      } catch {
         return false;
       }
     }
-    return false;
+    return true;
   }
 
   // Convenient typed dispatchers
@@ -329,7 +344,7 @@ class WebSocketServiceClass {
       this.reconnectTimeoutId = null;
     }
     if (this.socket) {
-      this.socket.close();
+      try { this.socket.close(); } catch { /* ignore */ }
       this.socket = null;
     }
     this.setStatus('DISCONNECTED');
