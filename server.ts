@@ -5,7 +5,6 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { WebSocketServer, WebSocket } from 'ws';
 import { GoogleGenAI } from '@google/genai';
-import { createServer as createViteServer } from 'vite';
 
 dotenv.config();
 
@@ -21,7 +20,7 @@ app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 // Set up CORS & JSON response headers for API requests
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
@@ -29,14 +28,11 @@ app.use((req, res, next) => {
   next();
 });
 
-// Set up HTTP and WebSocket Server
-const server = http.createServer(app);
-const wss = new WebSocketServer({ server, path: '/ws' });
-
-// Track active WebSocket connections
+// Track active WebSocket connections (in standalone server mode)
 const activeClients = new Set<WebSocket>();
 
 function broadcastWebSocketEvent(eventType: string, data: any) {
+  if (activeClients.size === 0) return;
   const message = JSON.stringify({
     type: eventType,
     timestamp: new Date().toISOString(),
@@ -54,72 +50,74 @@ function broadcastWebSocketEvent(eventType: string, data: any) {
   }
 }
 
-wss.on('connection', (ws: WebSocket, req) => {
-  activeClients.add(ws);
-  console.log(`[WS] Field Device connected. Total active connections: ${activeClients.size}`);
+// Standalone HTTP & WebSocket server reference
+let server: http.Server | null = null;
+let wss: WebSocketServer | null = null;
 
-  // Send initial welcome & real-time sync pulse
-  ws.send(JSON.stringify({
-    type: 'CONNECTION_ESTABLISHED',
-    timestamp: new Date().toISOString(),
-    payload: {
-      status: 'CONNECTED',
-      server: 'Tagoloan Water District Central Billing Node',
-      activePeers: activeClients.size,
-      district: 'WDT-MISOR',
-      totalReadingsLogged: serverReadings.length,
-      initialConsumersCount: INITIAL_CONSUMERS.length,
-    },
-  }));
+if (!process.env.VERCEL) {
+  try {
+    server = http.createServer(app);
+    wss = new WebSocketServer({ server, path: '/ws' });
 
-  ws.on('message', (raw) => {
-    try {
-      const parsed = JSON.parse(raw.toString());
-      if (parsed.type === 'PING') {
-        ws.send(JSON.stringify({
-          type: 'PONG',
-          timestamp: new Date().toISOString(),
-          payload: { echo: parsed.payload, serverTime: Date.now() },
-        }));
-      } else if (parsed.type === 'FIELD_READING_RECORDED') {
-        // Broadcast single live reading event
-        broadcastWebSocketEvent('LIVE_READING_UPDATE', parsed.payload);
-      } else if (parsed.type === 'FIELD_STAFF_ACTIVITY') {
-        broadcastWebSocketEvent('STAFF_ACTIVITY_STREAM', parsed.payload);
-      } else if (parsed.type === 'MODULE_NAVIGATION') {
-        // Broadcast real-time module transition to all connected district terminals
-        broadcastWebSocketEvent('MODULE_NAVIGATION_BROADCAST', parsed.payload);
-        console.log(`[WS] Reader ${parsed.payload?.readerName || 'Staff'} switched module -> ${parsed.payload?.toModule}`);
-      } else if (parsed.type === 'PROCESS_EVENT') {
-        // Broadcast process state (batch sync, OCR analyze, tariff compute, etc.)
-        broadcastWebSocketEvent('PROCESS_TELEMETRY_UPDATE', parsed.payload);
-        console.log(`[WS] Process [${parsed.payload?.processName}]: ${parsed.payload?.status}`);
-      }
-    } catch (e) {
-      // ignore malformed ws message
-    }
-  });
+    wss.on('connection', (ws: WebSocket) => {
+      activeClients.add(ws);
+      console.log(`[WS] Field Device connected. Total active connections: ${activeClients.size}`);
 
-  ws.on('close', () => {
-    activeClients.delete(ws);
-    console.log(`[WS] Field Device disconnected. Total active: ${activeClients.size}`);
-  });
+      ws.send(JSON.stringify({
+        type: 'CONNECTION_ESTABLISHED',
+        timestamp: new Date().toISOString(),
+        payload: {
+          status: 'CONNECTED',
+          server: 'Tagoloan Water District Central Billing Node',
+          activePeers: activeClients.size,
+          district: 'WDT-MISOR',
+        },
+      }));
 
-  ws.on('error', (err) => {
-    activeClients.delete(ws);
-  });
-});
+      ws.on('message', (raw) => {
+        try {
+          const parsed = JSON.parse(raw.toString());
+          if (parsed.type === 'PING') {
+            ws.send(JSON.stringify({
+              type: 'PONG',
+              timestamp: new Date().toISOString(),
+              payload: { echo: parsed.payload, serverTime: Date.now() },
+            }));
+          } else if (parsed.type === 'FIELD_READING_RECORDED') {
+            broadcastWebSocketEvent('LIVE_READING_UPDATE', parsed.payload);
+          } else if (parsed.type === 'FIELD_STAFF_ACTIVITY') {
+            broadcastWebSocketEvent('STAFF_ACTIVITY_STREAM', parsed.payload);
+          } else if (parsed.type === 'MODULE_NAVIGATION') {
+            broadcastWebSocketEvent('MODULE_NAVIGATION_BROADCAST', parsed.payload);
+          } else if (parsed.type === 'PROCESS_EVENT') {
+            broadcastWebSocketEvent('PROCESS_TELEMETRY_UPDATE', parsed.payload);
+          }
+        } catch {
+          // ignore malformed ws message
+        }
+      });
 
-// Periodic heartbeat pulse
-setInterval(() => {
-  if (activeClients.size > 0) {
-    broadcastWebSocketEvent('SERVER_HEARTBEAT', {
-      uptimeSeconds: process.uptime(),
-      activeClientsCount: activeClients.size,
-      totalReadingsOnServer: serverReadings.length,
+      ws.on('close', () => {
+        activeClients.delete(ws);
+      });
+
+      ws.on('error', () => {
+        activeClients.delete(ws);
+      });
     });
+
+    setInterval(() => {
+      if (activeClients.size > 0) {
+        broadcastWebSocketEvent('SERVER_HEARTBEAT', {
+          uptimeSeconds: process.uptime(),
+          activeClientsCount: activeClients.size,
+        });
+      }
+    }, 15000);
+  } catch (err) {
+    console.warn('WebSocket server init skipped:', err);
   }
-}, 15000);
+}
 
 // Initialize Gemini if API key is present
 const getGeminiClient = () => {
@@ -1188,6 +1186,7 @@ async function startServer() {
   }
 
   if (process.env.NODE_ENV !== 'production') {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
@@ -1201,9 +1200,11 @@ async function startServer() {
     });
   }
 
-  server.listen(PORT, '0.0.0.0', () => {
-    console.log(`Tagoloan Water District Meter Reader Server & WebSocket running on port ${PORT}`);
-  });
+  if (server) {
+    server.listen(PORT, '0.0.0.0', () => {
+      console.log(`Tagoloan Water District Meter Reader Server & WebSocket running on port ${PORT}`);
+    });
+  }
 }
 
 startServer();
