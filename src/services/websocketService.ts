@@ -28,11 +28,13 @@ class WebSocketServiceClass {
   private statsListeners: Set<(stats: WSTelemetryStats) => void> = new Set();
   private status: WSConnectionStatus = 'DISCONNECTED';
   private reconnectAttempts = 0;
-  private maxReconnectDelay = 10000;
+  private maxReconnectAttempts = 3;
+  private maxReconnectDelay = 30000;
   private reconnectTimeoutId: any = null;
   private heartbeatIntervalId: any = null;
   private isExplicitlyClosed = false;
   private pingTimestamp = 0;
+  private hasLoggedOfflineWarning = false;
   
   // Telemetry stats
   private stats: WSTelemetryStats = {
@@ -53,7 +55,16 @@ class WebSocketServiceClass {
       return;
     }
     this.isExplicitlyClosed = false;
+    this.reconnectAttempts = 0;
     this.connect();
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', () => {
+        this.reconnectAttempts = 0;
+        this.hasLoggedOfflineWarning = false;
+        this.connect();
+      });
+    }
   }
 
   private updateStats(partial: Partial<WSTelemetryStats>) {
@@ -156,19 +167,28 @@ class WebSocketServiceClass {
       this.socket.onclose = () => {
         this.stopHeartbeat();
         if (!this.isExplicitlyClosed) {
-          this.setStatus('DISCONNECTED');
           this.scheduleReconnect();
         }
       };
 
-      this.socket.onerror = (err) => {
-        console.warn('[WS] WebSocket connection encountered error/offline status.');
+      this.socket.onerror = () => {
+        if (!this.hasLoggedOfflineWarning) {
+          console.info('[WS] WebSocket server offline or not supported on this host (Vercel/Static). Using REST API sync fallback.');
+          this.hasLoggedOfflineWarning = true;
+        }
         if (this.socket) {
-          this.socket.close();
+          try {
+            this.socket.close();
+          } catch {
+            // ignore
+          }
         }
       };
     } catch (e) {
-      console.warn('[WS] Failed to initialize WebSocket client:', e);
+      if (!this.hasLoggedOfflineWarning) {
+        console.info('[WS] Real-time WebSocket not available on current deployment. REST sync active.');
+        this.hasLoggedOfflineWarning = true;
+      }
       this.scheduleReconnect();
     }
   }
@@ -177,8 +197,20 @@ class WebSocketServiceClass {
     if (this.reconnectTimeoutId) clearTimeout(this.reconnectTimeoutId);
     this.reconnectAttempts++;
     
-    // Exponential backoff with jitter
-    const delay = Math.min(1000 * Math.pow(1.5, this.reconnectAttempts) + Math.random() * 500, this.maxReconnectDelay);
+    // If exceeded max attempts on serverless / 404 host, slow down to a gentle background poll
+    if (this.reconnectAttempts > this.maxReconnectAttempts) {
+      this.setStatus('DISCONNECTED');
+      // Quiet background check every 60 seconds without aggressive reconnecting
+      this.reconnectTimeoutId = setTimeout(() => {
+        if (!this.isExplicitlyClosed) {
+          this.connect();
+        }
+      }, 60000);
+      return;
+    }
+
+    // Exponential backoff with jitter for transient drops
+    const delay = Math.min(2000 * Math.pow(1.5, this.reconnectAttempts) + Math.random() * 500, this.maxReconnectDelay);
     
     this.setStatus('RECONNECTING');
     this.reconnectTimeoutId = setTimeout(() => {

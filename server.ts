@@ -1178,8 +1178,15 @@ app.all('/api/*', (req, res) => {
   });
 });
 
-// Vite Middleware Setup
+// Export app for Vercel Serverless Functions & testing
+export default app;
+
+// Vite Middleware Setup (only starts standalone server if not inside Vercel serverless)
 async function startServer() {
+  if (process.env.VERCEL) {
+    return;
+  }
+
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
       server: { middlewareMode: true },

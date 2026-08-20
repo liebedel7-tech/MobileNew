@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { StaffUser, ReaderAccount, MeterReading } from '../types';
 import { WebSocketService } from '../services/websocketService';
+import { DatabaseHelper } from '../services/databaseHelper';
 
 interface AdminApprovalScreenProps {
   currentUser: StaffUser;
@@ -57,27 +58,61 @@ export const AdminApprovalScreen: React.FC<AdminApprovalScreenProps> = ({
   const fetchData = async () => {
     setLoading(true);
     try {
-      // 1. Fetch Readers
-      const readersRes = await fetch('/api/readers');
-      if (readersRes.ok) {
-        const data = await readersRes.json();
-        if (data.readers) {
-          setReaders(data.readers);
-          const routeMap: Record<string, string[]> = {};
-          data.readers.forEach((r: ReaderAccount) => {
-            routeMap[r.id] = r.assignedRoutes || ['Poblacion'];
-          });
-          setSelectedRouteForReader(routeMap);
+      const serverReadersMap = new Map<string, ReaderAccount>();
+
+      // 1. Fetch Readers from server
+      try {
+        const readersRes = await fetch('/api/readers');
+        if (readersRes.ok) {
+          const data = await readersRes.json();
+          if (data.readers && Array.isArray(data.readers)) {
+            data.readers.forEach((r: ReaderAccount) => {
+              serverReadersMap.set(r.id.toLowerCase(), r);
+            });
+          }
         }
+      } catch {
+        // Server might be offline or on Vercel static
       }
 
-      // 2. Fetch Pending Readings
-      const readingsRes = await fetch('/api/readings/history');
-      if (readingsRes.ok) {
-        const rData = await readingsRes.json();
-        if (rData.readings) {
-          setPendingReadings(rData.readings);
+      // 2. Merge with locally registered readers
+      try {
+        const localReaders = await DatabaseHelper.getLocalReaders();
+        localReaders.forEach((r) => {
+          if (!serverReadersMap.has(r.id.toLowerCase())) {
+            serverReadersMap.set(r.id.toLowerCase(), r);
+          } else {
+            // Merge state
+            const existing = serverReadersMap.get(r.id.toLowerCase())!;
+            serverReadersMap.set(r.id.toLowerCase(), { ...existing, ...r });
+          }
+        });
+      } catch (localErr) {
+        console.warn('Error reading local readers:', localErr);
+      }
+
+      const allMergedReaders = Array.from(serverReadersMap.values());
+      setReaders(allMergedReaders);
+
+      const routeMap: Record<string, string[]> = {};
+      allMergedReaders.forEach((r: ReaderAccount) => {
+        routeMap[r.id] = r.assignedRoutes || ['Poblacion'];
+      });
+      setSelectedRouteForReader(routeMap);
+
+      // 3. Fetch Pending Readings
+      try {
+        const readingsRes = await fetch('/api/readings/history');
+        if (readingsRes.ok) {
+          const rData = await readingsRes.json();
+          if (rData.readings) {
+            setPendingReadings(rData.readings);
+          }
         }
+      } catch {
+        // Fallback to local IndexedDB readings
+        const localReadings = await DatabaseHelper.getAllReadings();
+        setPendingReadings(localReadings);
       }
     } catch (err) {
       console.error('Failed to fetch admin data:', err);
@@ -105,8 +140,12 @@ export const AdminApprovalScreen: React.FC<AdminApprovalScreenProps> = ({
   const handleApproveReader = async (reader: ReaderAccount) => {
     const assigned = selectedRouteForReader[reader.id] || reader.assignedRoutes || ['Poblacion'];
 
+    // 1. Update local database immediately
+    await DatabaseHelper.updateLocalReaderStatus(reader.id, 'active', assigned, currentUser.name);
+
+    // 2. Update central server
     try {
-      const res = await fetch(`/api/readers/${reader.id}/approve`, {
+      await fetch(`/api/readers/${reader.id}/approve`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -114,33 +153,33 @@ export const AdminApprovalScreen: React.FC<AdminApprovalScreenProps> = ({
           approvedBy: currentUser.name || 'Admin Supervisor',
         }),
       });
-
-      if (res.ok) {
-        setActionMessage(`✅ Meter Reader ${reader.name} is now ACTIVE! Assigned: ${assigned.join(', ')}`);
-        fetchData();
-        setTimeout(() => setActionMessage(null), 4000);
-      }
-    } catch (err) {
-      console.error('Approval failed:', err);
+    } catch {
+      // Offline / Vercel fallback already stored locally
     }
+
+    setActionMessage(`✅ Meter Reader ${reader.name} is now ACTIVE! Assigned: ${assigned.join(', ')}`);
+    fetchData();
+    setTimeout(() => setActionMessage(null), 4000);
   };
 
   // Admin rejects reader
   const handleRejectReader = async (reader: ReaderAccount) => {
+    // 1. Update local database
+    await DatabaseHelper.updateLocalReaderStatus(reader.id, 'rejected');
+
+    // 2. Update server
     try {
-      const res = await fetch(`/api/readers/${reader.id}/reject`, {
+      await fetch(`/api/readers/${reader.id}/reject`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
       });
-
-      if (res.ok) {
-        setActionMessage(`Reader ${reader.name} set to REJECTED.`);
-        fetchData();
-        setTimeout(() => setActionMessage(null), 3000);
-      }
-    } catch (err) {
-      console.error('Rejection failed:', err);
+    } catch {
+      // ignore
     }
+
+    setActionMessage(`Reader ${reader.name} set to REJECTED.`);
+    fetchData();
+    setTimeout(() => setActionMessage(null), 3000);
   };
 
   // Admin approves reading and publishes bill

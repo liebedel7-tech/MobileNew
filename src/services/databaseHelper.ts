@@ -1,4 +1,4 @@
-import { Consumer, MeterReading, AuditLog, AppConfig, StaffUser } from '../types';
+import { Consumer, MeterReading, AuditLog, AppConfig, StaffUser, ReaderAccount, ReaderStatus } from '../types';
 
 const DB_NAME = 'WDT_MeterReader_DB_v2';
 const DB_VERSION = 1;
@@ -271,6 +271,89 @@ export class DatabaseHelper {
       });
     } catch {
       return defaultValue;
+    }
+  }
+
+  // Local Registered Readers (supports offline field operations & Vercel static fallback)
+  static async getLocalReaders(): Promise<ReaderAccount[]> {
+    try {
+      const fromDB = await this.getItem<ReaderAccount[]>('twd_registered_readers', []);
+      let fromLS: ReaderAccount[] = [];
+      if (typeof window !== 'undefined') {
+        const raw = localStorage.getItem('twd_registered_readers');
+        if (raw) {
+          try { fromLS = JSON.parse(raw); } catch { /* ignore */ }
+        }
+      }
+      
+      // Merge unique by username / id
+      const map = new Map<string, ReaderAccount>();
+      (fromDB || []).forEach(r => map.set((r.username || r.id).toLowerCase(), r));
+      (fromLS || []).forEach(r => map.set((r.username || r.id).toLowerCase(), r));
+      return Array.from(map.values());
+    } catch {
+      return [];
+    }
+  }
+
+  static async saveLocalReader(reader: ReaderAccount): Promise<void> {
+    try {
+      const existing = await this.getLocalReaders();
+      const updated = existing.filter(
+        r => r.username.toLowerCase() !== reader.username.toLowerCase() && 
+             r.id.toLowerCase() !== reader.id.toLowerCase()
+      );
+      updated.push(reader);
+
+      await this.setItem('twd_registered_readers', updated);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('twd_registered_readers', JSON.stringify(updated));
+        localStorage.setItem('twd_reader_id', reader.id);
+        localStorage.setItem('twd_reader_status', reader.status);
+      }
+    } catch (err) {
+      console.warn('Error saving local reader:', err);
+    }
+  }
+
+  static async updateLocalReaderStatus(
+    identifier: string, 
+    status: ReaderStatus, 
+    assignedRoutes?: string[],
+    approvedBy?: string
+  ): Promise<ReaderAccount | null> {
+    try {
+      const readers = await this.getLocalReaders();
+      let updatedReader: ReaderAccount | null = null;
+      const updated = readers.map((r) => {
+        if (
+          r.id.toLowerCase() === identifier.toLowerCase() ||
+          r.username.toLowerCase() === identifier.toLowerCase() ||
+          (r.employeeId && r.employeeId.toLowerCase() === identifier.toLowerCase())
+        ) {
+          const mod = {
+            ...r,
+            status,
+            assignedRoutes: assignedRoutes && assignedRoutes.length > 0 ? assignedRoutes : r.assignedRoutes,
+            approvedAt: status === 'active' ? new Date().toISOString() : r.approvedAt,
+            approvedBy: approvedBy || 'Admin Supervisor',
+          };
+          updatedReader = mod;
+          return mod;
+        }
+        return r;
+      });
+
+      await this.setItem('twd_registered_readers', updated);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('twd_registered_readers', JSON.stringify(updated));
+        if (updatedReader) {
+          localStorage.setItem('twd_reader_status', status);
+        }
+      }
+      return updatedReader;
+    } catch {
+      return null;
     }
   }
 
