@@ -1,5 +1,6 @@
 // Central API URL resolver for Tagoloan Water District
 // Supports relative endpoints (/api/...) as well as custom central server URLs (VITE_API_URL)
+import { API_BASE_URL } from '../config/api';
 
 export function getApiBaseUrl(): string {
   // 1. Check environment variable
@@ -23,13 +24,19 @@ export function getApiBaseUrl(): string {
     }
   }
 
-  // 3. Default to relative endpoint
-  return '';
+  // 3. Default to the production backend API base URL
+  return (API_BASE_URL || 'https://twd-zeta.vercel.app/api').replace(/\/+$/, '');
 }
 
 export function getApiEndpoint(path: string): string {
   const base = getApiBaseUrl();
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
+
+  // If base already ends with '/api' and cleanPath starts with '/api/', avoid duplicate '/api/api'
+  if (base.endsWith('/api') && cleanPath.startsWith('/api/')) {
+    return `${base}${cleanPath.substring(4)}`;
+  }
+
   if (!base) return cleanPath;
   return `${base}${cleanPath}`;
 }
