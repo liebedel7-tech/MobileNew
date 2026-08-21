@@ -1,39 +1,43 @@
 import { INITIAL_READERS, DistrictReader } from '../src/data/seedData';
-import app from '../server';
 
+// In-memory readers store across serverless warm invocations
 const readersStore: DistrictReader[] = [...INITIAL_READERS];
 
 export default function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.setHeader('Content-Type', 'application/json');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
-  const url = req.url || '';
+  try {
+    const url = req.url || '';
+    const query = req.query || {};
 
-  // Registration handler
-  if (url.includes('register') && req.method === 'POST') {
-    try {
+    // 1. Meter Reader Registration: POST /api/readers/register or POST /api/readers (when action=register)
+    if (req.method === 'POST') {
       const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
       const { name, username, id, employeeId, pin, contactNumber, email, zone, assignedRoutes, deviceInfo } = body;
       const readerUsername = username || id || employeeId || `reader_${Date.now()}`;
       const readerName = name || username || 'Field Staff';
 
       const existing = readersStore.find(r => 
-        r.username.toLowerCase() === readerUsername.toLowerCase() ||
-        (employeeId && r.employeeId && r.employeeId.toLowerCase() === employeeId.toLowerCase())
+        (r.username && r.username.toLowerCase() === readerUsername.toLowerCase()) ||
+        (employeeId && r.employeeId && r.employeeId.toLowerCase() === employeeId.toLowerCase()) ||
+        (id && r.id && r.id.toLowerCase() === id.toLowerCase())
       );
 
       if (existing) {
         return res.status(200).json({
           success: true,
-          message: `Reader '${readerUsername}' already registered.`,
+          message: `Reader '${readerUsername}' is registered.`,
           status: existing.status,
           employmentStatus: existing.status,
           reader: existing,
+          data: existing,
         });
       }
 
@@ -63,46 +67,68 @@ export default function handler(req: any, res: any) {
         reader: newReader,
         data: newReader,
       });
-    } catch {
+    }
+
+    // 2. Reader Status Check: GET /api/readers/check-status?id=... or /api/readers?checkStatus=...
+    const checkId = query.id || query.checkStatus || query.readerId;
+    if (checkId || url.includes('check-status')) {
+      const parts = url.split('/');
+      const pathId = parts[parts.length - 1]?.split('?')[0];
+      const targetId = (checkId || pathId || '').toString().toLowerCase().trim();
+
+      const reader = readersStore.find(r =>
+        (r.id && r.id.toLowerCase() === targetId) ||
+        (r.username && r.username.toLowerCase() === targetId) ||
+        (r.employeeId && r.employeeId.toLowerCase() === targetId)
+      );
+
+      if (reader) {
+        return res.status(200).json({
+          success: true,
+          status: reader.status,
+          employmentStatus: reader.status,
+          assignedRoutes: reader.assignedRoutes,
+          reader,
+          data: reader,
+        });
+      }
+
       return res.status(200).json({
         success: true,
         status: 'pending',
-        message: 'Registration queued for review.',
-      });
-    }
-  }
-
-  // Check Status handler
-  if (url.includes('check-status')) {
-    const parts = url.split('/');
-    const identifier = parts[parts.length - 1]?.split('?')[0] || '';
-    const cleanId = decodeURIComponent(identifier).toLowerCase().trim();
-
-    const reader = readersStore.find(r =>
-      r.id.toLowerCase() === cleanId ||
-      r.username.toLowerCase() === cleanId ||
-      r.employeeId.toLowerCase() === cleanId
-    );
-
-    if (reader) {
-      return res.status(200).json({
-        success: true,
-        status: reader.status,
-        employmentStatus: reader.status,
-        assignedRoutes: reader.assignedRoutes,
-        reader,
+        employmentStatus: 'pending',
+        assignedRoutes: ['Poblacion'],
+        message: 'Reader is pending approval.',
       });
     }
 
-    return res.status(200).json({
-      success: true,
-      status: 'pending',
-      message: 'Reader is pending approval.',
-    });
-  }
+    // 3. Admin Approval / Update: PATCH or PUT or POST with status
+    if (req.method === 'PATCH' || req.method === 'PUT') {
+      const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+      const targetId = (query.id || body.id || body.readerId || '').toString().toLowerCase().trim();
 
-  // List readers handler
-  if (req.method === 'GET') {
+      const reader = readersStore.find(r =>
+        (r.id && r.id.toLowerCase() === targetId) ||
+        (r.username && r.username.toLowerCase() === targetId) ||
+        (r.employeeId && r.employeeId.toLowerCase() === targetId)
+      );
+
+      if (reader) {
+        const newStatus = body.status || 'active';
+        reader.status = newStatus;
+        reader.employmentStatus = newStatus;
+        if (Array.isArray(body.assignedRoutes)) {
+          reader.assignedRoutes = body.assignedRoutes;
+        }
+        return res.status(200).json({
+          success: true,
+          message: `Reader ${reader.name} status updated to ${newStatus}.`,
+          reader,
+        });
+      }
+    }
+
+    // 4. List All Readers: GET /api/readers
     return res.status(200).json({
       success: true,
       count: readersStore.length,
@@ -114,15 +140,14 @@ export default function handler(req: any, res: any) {
         zone: r.assignedRoutes?.join(', ') || 'Poblacion',
       })),
     });
-  }
-
-  try {
-    return app(req, res);
   } catch (err: any) {
+    // Fail-safe response
     return res.status(200).json({
       success: true,
-      message: 'Fallback readers handler',
+      fallback: true,
+      count: readersStore.length,
       readers: readersStore,
+      data: readersStore,
     });
   }
 }

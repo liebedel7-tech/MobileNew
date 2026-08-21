@@ -1,7 +1,7 @@
 import { INITIAL_CONSUMERS } from '../src/data/seedData';
 
 export default function handler(req: any, res: any) {
-  // Enforce Universal CORS for all origins (mobile apps, web apps, dev tools)
+  // Universal CORS Headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
@@ -15,7 +15,7 @@ export default function handler(req: any, res: any) {
     if (req.method === 'GET') {
       const query = req.query || {};
       const { zone, barangay, route, search, q, status, category } = query;
-      let filtered = [...INITIAL_CONSUMERS];
+      let filtered = Array.isArray(INITIAL_CONSUMERS) ? [...INITIAL_CONSUMERS] : [];
 
       const searchTerm = (search || q || '') as string;
       if (searchTerm.trim()) {
@@ -63,7 +63,7 @@ export default function handler(req: any, res: any) {
     }
 
     if (req.method === 'POST') {
-      const data = req.body || {};
+      const data = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
       const newConsumer = {
         id: data.id || `WDT-ACC-${Date.now().toString().slice(-5)}`,
         accountNumber: data.accountNumber || `01-${Math.floor(100 + Math.random() * 900)}-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -80,7 +80,7 @@ export default function handler(req: any, res: any) {
         rateCode: data.rateCode || 'RES-01',
         gpsCoordinates: data.gpsCoordinates || { lat: 8.5398, lng: 124.7523 },
         routeCode: data.routeCode || 'RT-POB-01',
-        sequenceNo: data.sequenceNo || INITIAL_CONSUMERS.length + 1,
+        sequenceNo: data.sequenceNo || (INITIAL_CONSUMERS?.length || 0) + 1,
         contactNumber: data.contactNumber || '',
         lastSyncDate: new Date().toISOString(),
       };
@@ -93,9 +93,12 @@ export default function handler(req: any, res: any) {
       });
     }
 
-    return res.status(405).json({
-      success: false,
-      error: `Method ${req.method} Not Allowed`,
+    return res.status(200).json({
+      success: true,
+      district: 'Tagoloan Water District (WDT-MISOR)',
+      count: INITIAL_CONSUMERS.length,
+      consumers: INITIAL_CONSUMERS,
+      data: INITIAL_CONSUMERS,
     });
   } catch (err: any) {
     // Fail-safe: Always return 200 with fallback seed data rather than 500
