@@ -59,7 +59,11 @@ class WebSocketServiceClass {
       host.includes('netlify.app') ||
       host.includes('pages.dev') ||
       host.includes('workers.dev') ||
-      host.includes('github.io')
+      host.includes('github.io') ||
+      host.includes('run.app') ||
+      host.includes('googleusercontent.com') ||
+      host.includes('web.app') ||
+      host.includes('firebaseapp.com')
     );
   }
 
