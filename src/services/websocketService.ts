@@ -56,7 +56,10 @@ class WebSocketServiceClass {
       host.includes('vercel.app') ||
       host.includes('vercel.dev') ||
       host.includes('now.sh') ||
-      host.includes('netlify.app')
+      host.includes('netlify.app') ||
+      host.includes('pages.dev') ||
+      host.includes('workers.dev') ||
+      host.includes('github.io')
     );
   }
 
