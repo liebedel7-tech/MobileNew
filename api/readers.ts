@@ -1,4 +1,4 @@
-import { INITIAL_READERS, DistrictReader } from '../src/data/seedData';
+import { INITIAL_READERS, DistrictReader } from './seedData';
 
 // In-memory readers store across serverless warm invocations
 const readersStore: DistrictReader[] = [...INITIAL_READERS];

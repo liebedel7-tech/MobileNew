@@ -1,4 +1,4 @@
-import { INITIAL_CONSUMERS, INITIAL_READERS, DistrictReader } from '../src/data/seedData';
+import { INITIAL_CONSUMERS, INITIAL_READERS, DistrictReader } from './seedData';
 
 // Serverless persistent stores for warm invocations
 const serverlessReaders: DistrictReader[] = [...INITIAL_READERS];

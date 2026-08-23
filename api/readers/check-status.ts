@@ -1,4 +1,4 @@
-import { INITIAL_READERS, DistrictReader } from '../../src/data/seedData';
+import { INITIAL_READERS, DistrictReader } from '../seedData';
 
 const readersStore: DistrictReader[] = [...INITIAL_READERS];
 

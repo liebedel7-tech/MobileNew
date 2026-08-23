@@ -1,4 +1,4 @@
-import { INITIAL_CONSUMERS } from '../src/data/seedData';
+import { INITIAL_CONSUMERS } from './seedData';
 
 export default function handler(req: any, res: any) {
   // Universal CORS Headers
