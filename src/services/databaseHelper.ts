@@ -1,5 +1,5 @@
 import { Consumer, MeterReading, AuditLog, AppConfig, StaffUser, ReaderAccount, ReaderStatus } from '../types';
-import { getApiEndpoint } from './apiConfig';
+import { universalApiFetch, getApiEndpoint } from './apiConfig';
 
 const DB_NAME = 'WDT_MeterReader_DB_v2';
 const DB_VERSION = 1;
@@ -491,7 +491,7 @@ export class DatabaseHelper {
         await this.saveConsumers(this.DEFAULT_SEED_CONSUMERS);
         
         try {
-          const res = await fetch(getApiEndpoint('/api/consumers'));
+          const res = await universalApiFetch('/api/consumers');
           if (res.ok) {
             const data = await res.json();
             if (data && (data.consumers || data.data) && Array.isArray(data.consumers || data.data)) {

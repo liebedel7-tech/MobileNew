@@ -1,5 +1,5 @@
 import { MeterRecognitionEngine, RecognitionResult, CropRegion } from './meterRecognitionEngine';
-import { getApiEndpoint } from './apiConfig';
+import { universalApiFetch, getApiEndpoint } from './apiConfig';
 
 export interface OCRResult {
   success: boolean;
@@ -41,7 +41,7 @@ export class OCRService {
     meterSerial?: string
   ): Promise<OCRResult> {
     try {
-      const response = await fetch(getApiEndpoint('/api/ocr/analyze'), {
+      const response = await universalApiFetch('/api/ocr/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -1,7 +1,7 @@
 // Central API Client for Mobile Field Reader & Web Admin Workflows
 // Tagoloan Water District (WDT), Misamis Oriental
 
-import { getApiEndpoint } from './apiConfig';
+import { universalApiFetch } from './apiConfig';
 
 /**
  * 1. Mobile Reader Registration
@@ -15,7 +15,7 @@ export async function registerMeterReader(readerData: {
   contactNumber?: string;
 }) {
   try {
-    const res = await fetch(getApiEndpoint('/api/readers/register'), {
+    const res = await universalApiFetch('/api/readers/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify(readerData),
@@ -38,7 +38,7 @@ export async function registerMeterReader(readerData: {
  */
 export async function checkReaderApprovalStatus(readerIdOrUsername: string) {
   try {
-    const res = await fetch(getApiEndpoint(`/api/readers/check-status/${encodeURIComponent(readerIdOrUsername)}`), {
+    const res = await universalApiFetch(`/api/readers/check-status/${encodeURIComponent(readerIdOrUsername)}`, {
       headers: { 'Accept': 'application/json' },
     });
     return await res.json();
@@ -54,7 +54,7 @@ export async function checkReaderApprovalStatus(readerIdOrUsername: string) {
 export async function fetchAssignedConsumers(zone?: string) {
   try {
     const query = zone && zone !== 'All' && zone !== 'ALL' ? `?zone=${encodeURIComponent(zone)}` : '';
-    const res = await fetch(getApiEndpoint(`/api/consumers${query}`), {
+    const res = await universalApiFetch(`/api/consumers${query}`, {
       headers: { 'Accept': 'application/json' },
     });
     const data = await res.json();
@@ -79,7 +79,7 @@ export async function submitMeterReading(reading: {
   photoUrl?: string;
 }) {
   try {
-    const res = await fetch(getApiEndpoint('/api/readings/submit'), {
+    const res = await universalApiFetch('/api/readings/submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify(reading),
@@ -90,3 +90,4 @@ export async function submitMeterReading(reading: {
     return { success: true, offline: true };
   }
 }
+

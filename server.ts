@@ -16,7 +16,7 @@ app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, x-client-version, x-app-id, Cache-Control, Pragma, X-CSRF-Token');
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
   }
@@ -250,12 +250,31 @@ app.get(['/api/health', '/health'], (req, res) => {
 });
 
 // Meter Reader Registration (Mobile App -> Central / Firestore readers collection)
-app.post(['/api/readers/register', '/api/auth/register', '/readers/register', '/auth/register'], (req, res) => {
-  try {
-    const { name, employeeId, id, username, pin, contactNumber, email, zone, assignedRoutes, deviceInfo } = req.body;
+app.all(['/api/readers/register', '/api/auth/register', '/api/readers', '/api/auth/register-reader', '/api/staff/register', '/api/staff', '/readers/register', '/auth/register'], (req, res, next) => {
+  if (req.method === 'GET') {
+    // If it's a GET request to /api/readers or /api/staff, let next route handle it
+    return next();
+  }
+  if (req.method !== 'POST' && req.method !== 'OPTIONS') {
+    return res.status(405).json({ success: false, message: 'Method Not Allowed' });
+  }
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
 
-    const readerName = name || username || 'Field Staff';
-    const readerUsername = username || id || employeeId || `reader_${Date.now()}`;
+  try {
+    const body = req.body || {};
+    const name = body.name || body.fullName || body.fullname || body.employeeName || body.username || 'Field Staff';
+    const employeeId = body.employeeId || body.employee_id || body.id || body.badgeId;
+    const username = (body.username || body.id || body.employeeId || `reader_${Date.now()}`).toString().trim();
+    const pin = (body.pin || body.password || '1234').toString().trim();
+    const contactNumber = body.contactNumber || body.contact_number || body.phone || body.mobile || '';
+    const email = body.email || `${username.toLowerCase()}@tagoloanwater.gov.ph`;
+    const assignedRoutes = body.assignedRoutes || body.assignedZones || body.assignedBarangays || (body.zone ? [body.zone] : ['Poblacion']);
+    const deviceInfo = body.deviceInfo || req.headers['user-agent'] || 'Android Mobile Device';
+
+    const readerName = (name || username).toString().trim();
+    const readerUsername = username;
 
     if (!readerName || !readerUsername) {
       return res.status(400).json({ success: false, message: 'Name and Username are required' });
@@ -264,14 +283,14 @@ app.post(['/api/readers/register', '/api/auth/register', '/readers/register', '/
     // Check if username or employeeId already registered
     const existing = REGISTERED_READERS.find(
       r => r.username.toLowerCase() === readerUsername.toLowerCase() || 
-           (employeeId && r.employeeId && r.employeeId.toLowerCase() === employeeId.toLowerCase()) ||
-           (id && r.id && r.id.toLowerCase() === id.toLowerCase())
+           (employeeId && r.employeeId && r.employeeId.toLowerCase() === employeeId.toString().toLowerCase()) ||
+           (body.id && r.id && r.id.toLowerCase() === body.id.toString().toLowerCase())
     );
 
     if (existing) {
       return res.status(409).json({
         success: false,
-        message: `A meter reader with Username '${readerUsername}' or ID '${id || employeeId || ''}' already exists.`,
+        message: `A meter reader with Username '${readerUsername}' or ID '${body.id || employeeId || ''}' already exists.`,
         status: existing.status,
         employmentStatus: existing.status,
         reader: existing,
@@ -280,22 +299,22 @@ app.post(['/api/readers/register', '/api/auth/register', '/readers/register', '/
 
     const routes = Array.isArray(assignedRoutes) && assignedRoutes.length > 0 
       ? assignedRoutes 
-      : (zone ? [zone] : ['Poblacion']);
+      : (body.zone ? [body.zone] : ['Poblacion']);
 
-    const newReaderId = id || `RDR-${String(REGISTERED_READERS.length + 1).padStart(3, '0')}`;
+    const newReaderId = body.id || `RDR-${String(REGISTERED_READERS.length + 1).padStart(3, '0')}`;
     const newReader = {
       id: newReaderId,
       employeeId: employeeId || `TWD-2026-${String(Math.floor(100 + Math.random() * 900))}`,
-      username: readerUsername.trim(),
-      pin: pin || '1234',
-      name: readerName.trim(),
-      role: req.body.role || 'Meter Reader I',
-      contactNumber: contactNumber || '',
-      email: email || `${readerUsername.toLowerCase()}@tagoloanwater.gov.ph`,
+      username: readerUsername,
+      pin: pin,
+      name: readerName,
+      role: body.role || 'Meter Reader I',
+      contactNumber: contactNumber,
+      email: email,
       assignedRoutes: routes,
       status: 'pending', // Starts in pending approval
       employmentStatus: 'pending',
-      deviceInfo: deviceInfo || req.headers['user-agent'] || 'Android Mobile Device',
+      deviceInfo: deviceInfo,
       createdAt: new Date().toISOString(),
     };
 

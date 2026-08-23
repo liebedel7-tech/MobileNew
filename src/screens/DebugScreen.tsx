@@ -20,7 +20,7 @@ import { SyncService } from '../services/syncService';
 import { DatabaseHelper } from '../services/databaseHelper';
 import { LoggerService } from '../services/loggerService';
 import { WebSocketService, WSTelemetryStats } from '../services/websocketService';
-import { getApiEndpoint } from '../services/apiConfig';
+import { universalApiFetch, getApiEndpoint } from '../services/apiConfig';
 
 interface DebugScreenProps {
   syncState: SyncState;
@@ -73,7 +73,7 @@ export const DebugScreen: React.FC<DebugScreenProps> = ({
   const handlePingServer = async () => {
     setIsPinging(true);
     try {
-      const res = await fetch(getApiEndpoint('/api/health'), {
+      const res = await universalApiFetch('/api/health', {
         headers: { 'Accept': 'application/json' },
       });
       if (res.ok) {

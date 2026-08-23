@@ -24,7 +24,7 @@ import {
 import { StaffUser, ReaderAccount, MeterReading } from '../types';
 import { WebSocketService } from '../services/websocketService';
 import { DatabaseHelper } from '../services/databaseHelper';
-import { getApiEndpoint, getApiBaseUrl } from '../services/apiConfig';
+import { universalApiFetch, getApiEndpoint, getApiBaseUrl } from '../services/apiConfig';
 
 interface AdminApprovalScreenProps {
   currentUser: StaffUser;
@@ -63,7 +63,7 @@ export const AdminApprovalScreen: React.FC<AdminApprovalScreenProps> = ({
 
       // 1. Fetch Readers from server
       try {
-        const readersRes = await fetch(getApiEndpoint('/api/readers'));
+        const readersRes = await universalApiFetch('/api/readers');
         if (readersRes.ok) {
           const data = await readersRes.json();
           if (data.readers && Array.isArray(data.readers)) {
@@ -103,7 +103,7 @@ export const AdminApprovalScreen: React.FC<AdminApprovalScreenProps> = ({
 
       // 3. Fetch Pending Readings
       try {
-        const readingsRes = await fetch(getApiEndpoint('/api/readings/history'));
+        const readingsRes = await universalApiFetch('/api/readings/history');
         if (readingsRes.ok) {
           const rData = await readingsRes.json();
           if (rData.readings) {
@@ -154,7 +154,7 @@ export const AdminApprovalScreen: React.FC<AdminApprovalScreenProps> = ({
 
     // 2. Update central server
     try {
-      await fetch(getApiEndpoint(`/api/readers/${reader.id}/approve`), {
+      await universalApiFetch(`/api/readers/${reader.id}/approve`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -178,7 +178,7 @@ export const AdminApprovalScreen: React.FC<AdminApprovalScreenProps> = ({
 
     // 2. Update server
     try {
-      await fetch(getApiEndpoint(`/api/readers/${reader.id}/reject`), {
+      await universalApiFetch(`/api/readers/${reader.id}/reject`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -194,7 +194,7 @@ export const AdminApprovalScreen: React.FC<AdminApprovalScreenProps> = ({
   // Admin approves reading and publishes bill
   const handleApproveReading = async (reading: MeterReading) => {
     try {
-      const res = await fetch(getApiEndpoint(`/api/readings/${reading.id}/approve`), {
+      const res = await universalApiFetch(`/api/readings/${reading.id}/approve`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ approvedBy: currentUser.name }),

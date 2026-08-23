@@ -20,14 +20,22 @@ export default function handler(req: any, res: any) {
     // 1. Meter Reader Registration: POST /api/readers/register or POST /api/readers (when action=register)
     if (req.method === 'POST') {
       const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
-      const { name, username, id, employeeId, pin, contactNumber, email, zone, assignedRoutes, deviceInfo } = body;
-      const readerUsername = username || id || employeeId || `reader_${Date.now()}`;
-      const readerName = name || username || 'Field Staff';
+      const name = body.name || body.fullName || body.fullname || body.employeeName || body.username || 'Field Staff';
+      const employeeId = body.employeeId || body.employee_id || body.id || body.badgeId;
+      const username = (body.username || body.id || body.employeeId || `reader_${Date.now()}`).toString().trim();
+      const pin = (body.pin || body.password || '1234').toString().trim();
+      const contactNumber = body.contactNumber || body.contact_number || body.phone || body.mobile || '';
+      const email = body.email || `${username.toLowerCase()}@tagoloanwater.gov.ph`;
+      const assignedRoutes = body.assignedRoutes || body.assignedZones || body.assignedBarangays || (body.zone ? [body.zone] : ['Poblacion']);
+      const deviceInfo = body.deviceInfo || 'Android Mobile Device';
+
+      const readerUsername = username;
+      const readerName = name.toString().trim();
 
       const existing = readersStore.find(r => 
         (r.username && r.username.toLowerCase() === readerUsername.toLowerCase()) ||
-        (employeeId && r.employeeId && r.employeeId.toLowerCase() === employeeId.toLowerCase()) ||
-        (id && r.id && r.id.toLowerCase() === id.toLowerCase())
+        (employeeId && r.employeeId && r.employeeId.toLowerCase() === employeeId.toString().toLowerCase()) ||
+        (body.id && r.id && r.id.toLowerCase() === body.id.toString().toLowerCase())
       );
 
       if (existing) {
@@ -42,18 +50,18 @@ export default function handler(req: any, res: any) {
       }
 
       const newReader: DistrictReader = {
-        id: id || `RDR-${String(readersStore.length + 1).padStart(3, '0')}`,
+        id: body.id || `RDR-${String(readersStore.length + 1).padStart(3, '0')}`,
         employeeId: employeeId || `TWD-2026-${String(Math.floor(100 + Math.random() * 900))}`,
-        username: readerUsername.trim(),
-        pin: pin || '1234',
-        name: readerName.trim(),
+        username: readerUsername,
+        pin: pin,
+        name: readerName,
         role: body.role || 'Meter Reader I',
-        contactNumber: contactNumber || '',
-        email: email || `${readerUsername.toLowerCase()}@tagoloanwater.gov.ph`,
-        assignedRoutes: Array.isArray(assignedRoutes) && assignedRoutes.length > 0 ? assignedRoutes : (zone ? [zone] : ['Poblacion']),
+        contactNumber: contactNumber,
+        email: email,
+        assignedRoutes: Array.isArray(assignedRoutes) && assignedRoutes.length > 0 ? assignedRoutes : ['Poblacion'],
         status: 'pending',
         employmentStatus: 'pending',
-        deviceInfo: deviceInfo || 'Android Mobile Device',
+        deviceInfo: deviceInfo,
         createdAt: new Date().toISOString(),
       };
 

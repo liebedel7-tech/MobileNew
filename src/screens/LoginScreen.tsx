@@ -20,7 +20,7 @@ import {
 import { StaffUser, ReaderAccount } from '../types';
 import { WebSocketService } from '../services/websocketService';
 import { DatabaseHelper } from '../services/databaseHelper';
-import { getApiEndpoint } from '../services/apiConfig';
+import { universalApiFetch, getApiEndpoint } from '../services/apiConfig';
 
 interface LoginScreenProps {
   onLogin: (user: StaffUser) => void;
@@ -126,7 +126,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onBackToLandi
     }
 
     try {
-      const response = await fetch(getApiEndpoint('/api/auth/login'), {
+      const response = await universalApiFetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: cleanUsername, pin: cleanPin }),
@@ -233,7 +233,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onBackToLandi
     };
 
     try {
-      const res = await fetch(getApiEndpoint('/api/readers/register'), {
+      const res = await universalApiFetch('/api/readers/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -317,7 +317,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onBackToLandi
     // 2. Check Central Server API
     try {
       const targetId = pendingReader.employeeId || pendingReader.id || pendingReader.username;
-      const res = await fetch(getApiEndpoint(`/api/readers/check-status/${encodeURIComponent(targetId)}`));
+      const res = await universalApiFetch(`/api/readers/check-status/${encodeURIComponent(targetId)}`);
       if (res.ok) {
         const data = await res.json();
         if (data.status === 'active') {

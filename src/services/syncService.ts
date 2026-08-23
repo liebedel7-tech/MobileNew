@@ -1,7 +1,7 @@
 import { Consumer, MeterReading, SyncState } from '../types';
 import { DatabaseHelper } from './databaseHelper';
 import { LoggerService } from './loggerService';
-import { getApiEndpoint } from './apiConfig';
+import { universalApiFetch, getApiEndpoint } from './apiConfig';
 
 export class SyncService {
   private static timerId: any = null;
@@ -189,7 +189,7 @@ export class SyncService {
       if (pendingReadings.length > 0) {
         this.updateState({ lastSyncMessage: `Uploading ${pendingReadings.length} readings...` });
         try {
-          const uploadRes = await fetch(getApiEndpoint('/api/readings/batch'), {
+          const uploadRes = await universalApiFetch('/api/readings/batch', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
             body: JSON.stringify({
@@ -220,7 +220,7 @@ export class SyncService {
       // 2. Pull latest consumers
       this.updateState({ lastSyncMessage: 'Downloading consumer records...' });
       try {
-        const consumerRes = await fetch(getApiEndpoint('/api/consumers'), {
+        const consumerRes = await universalApiFetch('/api/consumers', {
           headers: { 'Accept': 'application/json' },
         });
         if (consumerRes.ok) {
