@@ -200,6 +200,7 @@ export type ActiveScreen =
   | 'batch_submission'
   | 'history'
   | 'audit_log'
+  | 'meter_readers'
   | 'debug'
   | 'flutter_config'
   | 'token_setup'; // Backwards-compatible alias

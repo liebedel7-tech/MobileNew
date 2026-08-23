@@ -189,6 +189,20 @@ const MODULE_CONFIGS: Record<ActiveScreen, {
       'Initializing diagnostic console',
     ],
   },
+  meter_readers: {
+    name: 'Meter Readers & Staff Directory',
+    category: 'Admin Access & Personnel Approval',
+    icon: Users,
+    color: 'text-amber-400',
+    bgGlow: 'from-amber-500/20 to-orange-600/5',
+    borderColor: 'border-amber-500/40',
+    defaultSteps: [
+      'Synchronizing meter reader registrations',
+      'Checking pending mobile approval requests',
+      'Loading assigned barangay coverage routes',
+      'Opening Staff & Meter Readers Directory',
+    ],
+  },
   flutter_config: {
     name: 'Android Flutter Terminal Setup',
     category: 'Hardware & Token Engine',

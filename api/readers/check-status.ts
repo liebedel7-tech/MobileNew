@@ -1,6 +1,4 @@
-import { INITIAL_READERS, DistrictReader } from '../seedData';
-
-const readersStore: DistrictReader[] = [...INITIAL_READERS];
+import { DistrictReader, getSharedReaders } from '../seedData';
 
 export default function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -19,6 +17,7 @@ export default function handler(req: any, res: any) {
     const pathId = parts[parts.length - 1]?.split('?')[0];
     const checkId = (query.id || query.checkStatus || query.readerId || pathId || '').toString().toLowerCase().trim();
 
+    const readersStore = getSharedReaders();
     const reader = readersStore.find(r =>
       (r.id && r.id.toLowerCase() === checkId) ||
       (r.username && r.username.toLowerCase() === checkId) ||
@@ -52,3 +51,4 @@ export default function handler(req: any, res: any) {
     });
   }
 }
+

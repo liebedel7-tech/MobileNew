@@ -1,7 +1,4 @@
-import { INITIAL_READERS, DistrictReader } from './seedData';
-
-// In-memory readers store across serverless warm invocations
-const readersStore: DistrictReader[] = [...INITIAL_READERS];
+import { DistrictReader, getSharedReaders, upsertSharedReader } from './seedData';
 
 export default function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -16,10 +13,41 @@ export default function handler(req: any, res: any) {
   try {
     const url = req.url || '';
     const query = req.query || {};
+    const readersStore = getSharedReaders();
 
-    // 1. Meter Reader Registration: POST /api/readers/register or POST /api/readers (when action=register)
+    // 1. Batch Reader Sync or Registration: POST /api/readers
     if (req.method === 'POST') {
       const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+
+      // Batch Readers Sync from Mobile local store
+      if (Array.isArray(body.readers) && body.readers.length > 0) {
+        const synced = body.readers.map((r: any) => {
+          return upsertSharedReader({
+            id: r.id,
+            employeeId: r.employeeId,
+            username: r.username,
+            name: r.name,
+            pin: r.pin,
+            contactNumber: r.contactNumber,
+            email: r.email,
+            assignedRoutes: r.assignedRoutes,
+            status: r.status,
+            deviceInfo: r.deviceInfo,
+            createdAt: r.createdAt,
+          });
+        });
+
+        const allReaders = getSharedReaders();
+        return res.status(200).json({
+          success: true,
+          message: `Synchronized ${synced.length} reader account(s).`,
+          count: allReaders.length,
+          readers: allReaders,
+          data: allReaders,
+        });
+      }
+
+      // Single Registration
       const name = body.name || body.fullName || body.fullname || body.employeeName || body.username || 'Field Staff';
       const employeeId = body.employeeId || body.employee_id || body.id || body.badgeId;
       const username = (body.username || body.id || body.employeeId || `reader_${Date.now()}`).toString().trim();
@@ -29,51 +57,27 @@ export default function handler(req: any, res: any) {
       const assignedRoutes = body.assignedRoutes || body.assignedZones || body.assignedBarangays || (body.zone ? [body.zone] : ['Poblacion']);
       const deviceInfo = body.deviceInfo || 'Android Mobile Device';
 
-      const readerUsername = username;
-      const readerName = name.toString().trim();
-
-      const existing = readersStore.find(r => 
-        (r.username && r.username.toLowerCase() === readerUsername.toLowerCase()) ||
-        (employeeId && r.employeeId && r.employeeId.toLowerCase() === employeeId.toString().toLowerCase()) ||
-        (body.id && r.id && r.id.toLowerCase() === body.id.toString().toLowerCase())
-      );
-
-      if (existing) {
-        return res.status(200).json({
-          success: true,
-          message: `Reader '${readerUsername}' is registered.`,
-          status: existing.status,
-          employmentStatus: existing.status,
-          reader: existing,
-          data: existing,
-        });
-      }
-
-      const newReader: DistrictReader = {
-        id: body.id || `RDR-${String(readersStore.length + 1).padStart(3, '0')}`,
-        employeeId: employeeId || `TWD-2026-${String(Math.floor(100 + Math.random() * 900))}`,
-        username: readerUsername,
-        pin: pin,
-        name: readerName,
-        role: body.role || 'Meter Reader I',
-        contactNumber: contactNumber,
-        email: email,
+      const savedReader = upsertSharedReader({
+        id: body.id,
+        employeeId,
+        username,
+        name: name.toString().trim(),
+        pin,
+        contactNumber,
+        email,
         assignedRoutes: Array.isArray(assignedRoutes) && assignedRoutes.length > 0 ? assignedRoutes : ['Poblacion'],
-        status: 'pending',
-        employmentStatus: 'pending',
-        deviceInfo: deviceInfo,
-        createdAt: new Date().toISOString(),
-      };
-
-      readersStore.push(newReader);
+        status: body.status || 'pending',
+        deviceInfo,
+      });
 
       return res.status(201).json({
         success: true,
-        message: 'Meter reader registration submitted successfully. Awaiting Administrator approval.',
-        status: 'pending',
-        employmentStatus: 'pending',
-        reader: newReader,
-        data: newReader,
+        message: 'Meter reader registration submitted successfully.',
+        status: savedReader.status,
+        employmentStatus: savedReader.status,
+        reader: savedReader,
+        data: savedReader,
+        allReaders: getSharedReaders(),
       });
     }
 
@@ -137,25 +141,27 @@ export default function handler(req: any, res: any) {
     }
 
     // 4. List All Readers: GET /api/readers
+    const allReaders = getSharedReaders();
     return res.status(200).json({
       success: true,
-      count: readersStore.length,
-      readers: readersStore,
-      data: readersStore,
-      staff: readersStore.map(r => ({
+      count: allReaders.length,
+      readers: allReaders,
+      data: allReaders,
+      staff: allReaders.map(r => ({
         ...r,
         employmentStatus: r.status,
         zone: r.assignedRoutes?.join(', ') || 'Poblacion',
       })),
     });
   } catch (err: any) {
-    // Fail-safe response
+    const allReaders = getSharedReaders();
     return res.status(200).json({
       success: true,
       fallback: true,
-      count: readersStore.length,
-      readers: readersStore,
-      data: readersStore,
+      count: allReaders.length,
+      readers: allReaders,
+      data: allReaders,
     });
   }
 }
+

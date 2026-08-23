@@ -1,8 +1,8 @@
-import { INITIAL_CONSUMERS, INITIAL_READERS, DistrictReader } from './seedData';
+import { INITIAL_CONSUMERS, DistrictReader, getSharedReaders, upsertSharedReader } from './seedData';
 
 // Serverless persistent stores for warm invocations
-const serverlessReaders: DistrictReader[] = [...INITIAL_READERS];
 const serverlessReadings: any[] = [];
+
 
 export default function handler(req: any, res: any) {
   // Set CORS headers unconditionally for all origins
@@ -80,48 +80,27 @@ export default function handler(req: any, res: any) {
       const readerUsername = username || id || employeeId || `reader_${Date.now()}`;
       const readerName = name || username || 'Field Staff';
 
-      const existing = serverlessReaders.find(r => 
-        (r.username && r.username.toLowerCase() === readerUsername.toLowerCase()) ||
-        (employeeId && r.employeeId && r.employeeId.toLowerCase() === employeeId.toLowerCase()) ||
-        (id && r.id && r.id.toLowerCase() === id.toLowerCase())
-      );
-
-      if (existing) {
-        return res.status(200).json({
-          success: true,
-          message: `Reader '${readerUsername}' already registered.`,
-          status: existing.status,
-          employmentStatus: existing.status,
-          reader: existing,
-          data: existing,
-        });
-      }
-
-      const newReader: DistrictReader = {
-        id: id || `RDR-${String(serverlessReaders.length + 1).padStart(3, '0')}`,
-        employeeId: employeeId || `TWD-2026-${String(Math.floor(100 + Math.random() * 900))}`,
-        username: readerUsername.trim(),
+      const savedReader = upsertSharedReader({
+        id,
+        employeeId,
+        username: readerUsername,
+        name: readerName,
         pin: pin || '1234',
-        name: readerName.trim(),
-        role: body.role || 'Meter Reader I',
         contactNumber: contactNumber || '',
         email: email || `${readerUsername.toLowerCase()}@tagoloanwater.gov.ph`,
         assignedRoutes: Array.isArray(assignedRoutes) && assignedRoutes.length > 0 ? assignedRoutes : (zone ? [zone] : ['Poblacion']),
-        status: 'pending',
-        employmentStatus: 'pending',
+        status: body.status || 'pending',
         deviceInfo: deviceInfo || 'Android Mobile Device',
-        createdAt: new Date().toISOString(),
-      };
-
-      serverlessReaders.push(newReader);
+      });
 
       return res.status(201).json({
         success: true,
         message: 'Meter reader registration submitted successfully. Awaiting Administrator approval.',
-        status: 'pending',
-        employmentStatus: 'pending',
-        reader: newReader,
-        data: newReader,
+        status: savedReader.status,
+        employmentStatus: savedReader.status,
+        reader: savedReader,
+        data: savedReader,
+        allReaders: getSharedReaders(),
       });
     }
 
@@ -130,8 +109,9 @@ export default function handler(req: any, res: any) {
       const parts = rawUrl.split('/');
       const identifier = parts[parts.length - 1]?.split('?')[0] || query.id || '';
       const cleanId = decodeURIComponent(identifier).toLowerCase().trim();
+      const currentReaders = getSharedReaders();
 
-      const reader = serverlessReaders.find(r =>
+      const reader = currentReaders.find(r =>
         (r.id && r.id.toLowerCase() === cleanId) ||
         (r.username && r.username.toLowerCase() === cleanId) ||
         (r.employeeId && r.employeeId.toLowerCase() === cleanId)
@@ -159,13 +139,14 @@ export default function handler(req: any, res: any) {
 
     // 4. List All Readers: /api/readers or /api/staff
     if (url.includes('reader') || url.includes('staff')) {
+      const currentReaders = getSharedReaders();
       if (req.method === 'GET') {
         return res.status(200).json({
           success: true,
-          count: serverlessReaders.length,
-          readers: serverlessReaders,
-          data: serverlessReaders,
-          staff: serverlessReaders.map(r => ({
+          count: currentReaders.length,
+          readers: currentReaders,
+          data: currentReaders,
+          staff: currentReaders.map(r => ({
             ...r,
             employmentStatus: r.status,
             zone: r.assignedRoutes?.join(', ') || 'Poblacion',
@@ -180,7 +161,7 @@ export default function handler(req: any, res: any) {
         const parts = rawUrl.split('/');
         const cleanId = (parts[parts.length - 2] || parts[parts.length - 1] || body.id || '').toLowerCase().trim();
 
-        const reader = serverlessReaders.find(r => 
+        const reader = currentReaders.find(r => 
           (r.id && r.id.toLowerCase() === cleanId) || 
           (r.username && r.username.toLowerCase() === cleanId) ||
           (r.employeeId && r.employeeId.toLowerCase() === cleanId)
@@ -201,6 +182,7 @@ export default function handler(req: any, res: any) {
         }
       }
     }
+
 
     // 5. Submit Meter Reading: /api/readings/submit or /api/sync/push
     if (url.includes('reading') || url.includes('push') || url.includes('submit')) {
@@ -249,9 +231,9 @@ export default function handler(req: any, res: any) {
       success: true,
       district: 'Tagoloan Water District (WDT-MISOR)',
       consumersCount: INITIAL_CONSUMERS.length,
-      readersCount: serverlessReaders.length,
+      readersCount: getSharedReaders().length,
       consumers: INITIAL_CONSUMERS,
-      readers: serverlessReaders,
+      readers: getSharedReaders(),
       timestamp: new Date().toISOString(),
     });
   } catch (err: any) {
@@ -261,7 +243,8 @@ export default function handler(req: any, res: any) {
       status: 'ok',
       district: 'Tagoloan Water District (WDT-MISOR)',
       consumers: INITIAL_CONSUMERS,
-      readers: serverlessReaders,
+      readers: getSharedReaders(),
     });
   }
 }
+

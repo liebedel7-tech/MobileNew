@@ -20,6 +20,7 @@ import {
 import { StaffUser, ReaderAccount } from '../types';
 import { WebSocketService } from '../services/websocketService';
 import { DatabaseHelper } from '../services/databaseHelper';
+import { SyncService } from '../services/syncService';
 import { universalApiFetch, getApiEndpoint } from '../services/apiConfig';
 
 interface LoginScreenProps {
@@ -51,8 +52,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onBackToLandi
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
-  // Listen for Real-Time Approval via WebSocket
+  // Listen for Real-Time Approval via WebSocket & Periodic REST Polling
   useEffect(() => {
+    // 1. WebSocket stream listener
     const unsub = WebSocketService.subscribe((msg) => {
       if (msg.type === 'READER_APPROVED_ACTIVE' && pendingReader) {
         const isMatch = 
@@ -86,8 +88,48 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onBackToLandi
       }
     });
 
-    return unsub;
-  }, [pendingReader, regSelectedRoute, onLogin]);
+    // 2. High-frequency background check while in PENDING_APPROVAL mode
+    let pollTimer: any = null;
+    if (authMode === 'PENDING_APPROVAL' && pendingReader) {
+      pollTimer = setInterval(async () => {
+        try {
+          const targetId = pendingReader.employeeId || pendingReader.id || pendingReader.username;
+          const res = await universalApiFetch(`/api/readers/check-status/${encodeURIComponent(targetId)}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.status === 'active') {
+              await DatabaseHelper.updateLocalReaderStatus(
+                pendingReader.id,
+                'active',
+                data.assignedRoutes,
+                data.approvedBy
+              );
+              setStatusMessage('🎉 Account APPROVED by Admin! Activating Mobile Terminal...');
+              setTimeout(() => {
+                onLogin({
+                  id: data.id || pendingReader.id,
+                  employeeId: data.employeeId || pendingReader.employeeId,
+                  username: pendingReader.username,
+                  name: data.name || pendingReader.name,
+                  role: 'Meter Reader I',
+                  zone: (data.assignedRoutes || ['Poblacion']).join(', '),
+                  assignedRoutes: data.assignedRoutes || ['Poblacion'],
+                  status: 'active',
+                });
+              }, 800);
+            }
+          }
+        } catch {
+          // Offline/silent check
+        }
+      }, 2500);
+    }
+
+    return () => {
+      unsub();
+      if (pollTimer) clearInterval(pollTimer);
+    };
+  }, [authMode, pendingReader, regSelectedRoute, onLogin]);
 
   // Handle Staff Sign In
   const handleLoginSubmit = async (e?: React.FormEvent) => {
@@ -262,6 +304,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onBackToLandi
         setPendingReader(savedReader);
         setAuthMode('PENDING_APPROVAL');
         setStatusMessage('Registration submitted to Central Web Portal. Awaiting Supervisor approval.');
+        SyncService.syncReaders().catch(() => {});
         return;
       } else if (data?.message && !data?.success) {
         setError(data.message);
@@ -276,6 +319,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onBackToLandi
     setPendingReader(localReaderRecord);
     setAuthMode('PENDING_APPROVAL');
     setStatusMessage('Registration saved securely! Awaiting Administrator approval in the Admin Portal.');
+    SyncService.syncReaders().catch(() => {});
     setIsRegistering(false);
   };
 

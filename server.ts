@@ -249,8 +249,8 @@ app.get(['/api/health', '/health'], (req, res) => {
   }
 });
 
-// Meter Reader Registration (Mobile App -> Central / Firestore readers collection)
-app.all(['/api/readers/register', '/api/auth/register', '/api/readers', '/api/auth/register-reader', '/api/staff/register', '/api/staff', '/readers/register', '/auth/register'], (req, res, next) => {
+// Meter Reader Registration & Sync (Mobile App -> Central / Firestore readers collection)
+app.all(['/api/readers/register', '/api/readers/sync', '/api/readers/batch-sync', '/api/staff/sync', '/api/auth/register', '/api/readers', '/api/auth/register-reader', '/api/staff/register', '/api/staff', '/readers/register', '/auth/register'], (req, res, next) => {
   if (req.method === 'GET') {
     // If it's a GET request to /api/readers or /api/staff, let next route handle it
     return next();
@@ -264,6 +264,71 @@ app.all(['/api/readers/register', '/api/auth/register', '/api/readers', '/api/au
 
   try {
     const body = req.body || {};
+
+    // 1. Batch Reader Sync from mobile app
+    if (Array.isArray(body.readers) && body.readers.length > 0) {
+      let newlyAdded = 0;
+      body.readers.forEach((r: any) => {
+        const uname = (r.username || r.id || r.employeeId || '').toLowerCase().trim();
+        const empId = (r.employeeId || '').toLowerCase().trim();
+        const rId = (r.id || '').toLowerCase().trim();
+
+        const existingIndex = REGISTERED_READERS.findIndex(
+          ex => ex.username.toLowerCase() === uname ||
+                (empId && ex.employeeId && ex.employeeId.toLowerCase() === empId) ||
+                (rId && ex.id && ex.id.toLowerCase() === rId)
+        );
+
+        if (existingIndex >= 0) {
+          // If already existing, preserve active status if server approved it
+          const existing = REGISTERED_READERS[existingIndex];
+          REGISTERED_READERS[existingIndex] = {
+            ...existing,
+            ...r,
+            status: existing.status === 'active' ? 'active' : (r.status || existing.status),
+            assignedRoutes: r.assignedRoutes && r.assignedRoutes.length > 0 ? r.assignedRoutes : existing.assignedRoutes,
+          };
+        } else if (uname) {
+          const newR = {
+            id: r.id || `RDR-${String(REGISTERED_READERS.length + 1).padStart(3, '0')}`,
+            employeeId: r.employeeId || `TWD-2026-${String(Math.floor(100 + Math.random() * 900))}`,
+            username: r.username || uname,
+            pin: r.pin || '1234',
+            name: r.name || uname,
+            role: r.role || 'Meter Reader I',
+            contactNumber: r.contactNumber || '',
+            email: r.email || `${uname}@tagoloanwater.gov.ph`,
+            assignedRoutes: Array.isArray(r.assignedRoutes) && r.assignedRoutes.length > 0 ? r.assignedRoutes : ['Poblacion'],
+            status: r.status || 'pending',
+            employmentStatus: r.status || 'pending',
+            deviceInfo: r.deviceInfo || 'Android Field Terminal',
+            createdAt: r.createdAt || new Date().toISOString(),
+          };
+          REGISTERED_READERS.push(newR);
+          newlyAdded++;
+
+          broadcastWebSocketEvent('READER_REGISTERED_PENDING', {
+            reader: newR,
+            totalPending: REGISTERED_READERS.filter(x => x.status === 'pending').length,
+            timestamp: new Date().toISOString(),
+          });
+        }
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: `Synced ${body.readers.length} reader account(s) (${newlyAdded} new).`,
+        count: REGISTERED_READERS.length,
+        readers: REGISTERED_READERS,
+        staff: REGISTERED_READERS.map(r => ({
+          ...r,
+          employmentStatus: r.status,
+          zone: r.assignedRoutes?.join(', ') || 'Poblacion',
+        })),
+      });
+    }
+
+    // 2. Single Registration
     const name = body.name || body.fullName || body.fullname || body.employeeName || body.username || 'Field Staff';
     const employeeId = body.employeeId || body.employee_id || body.id || body.badgeId;
     const username = (body.username || body.id || body.employeeId || `reader_${Date.now()}`).toString().trim();
@@ -281,19 +346,21 @@ app.all(['/api/readers/register', '/api/auth/register', '/api/readers', '/api/au
     }
 
     // Check if username or employeeId already registered
-    const existing = REGISTERED_READERS.find(
+    const existingIndex = REGISTERED_READERS.findIndex(
       r => r.username.toLowerCase() === readerUsername.toLowerCase() || 
            (employeeId && r.employeeId && r.employeeId.toLowerCase() === employeeId.toString().toLowerCase()) ||
            (body.id && r.id && r.id.toLowerCase() === body.id.toString().toLowerCase())
     );
 
-    if (existing) {
-      return res.status(409).json({
-        success: false,
-        message: `A meter reader with Username '${readerUsername}' or ID '${body.id || employeeId || ''}' already exists.`,
+    if (existingIndex >= 0) {
+      const existing = REGISTERED_READERS[existingIndex];
+      return res.status(200).json({
+        success: true,
+        message: `Meter reader '${readerUsername}' is registered.`,
         status: existing.status,
         employmentStatus: existing.status,
         reader: existing,
+        allReaders: REGISTERED_READERS,
       });
     }
 
@@ -312,8 +379,8 @@ app.all(['/api/readers/register', '/api/auth/register', '/api/readers', '/api/au
       contactNumber: contactNumber,
       email: email,
       assignedRoutes: routes,
-      status: 'pending', // Starts in pending approval
-      employmentStatus: 'pending',
+      status: body.status || 'pending', // Starts in pending approval
+      employmentStatus: body.status || 'pending',
       deviceInfo: deviceInfo,
       createdAt: new Date().toISOString(),
     };
@@ -340,14 +407,16 @@ app.all(['/api/readers/register', '/api/auth/register', '/api/readers', '/api/au
     res.status(201).json({
       success: true,
       message: 'Meter reader registration submitted successfully. Awaiting Administrator approval.',
-      status: 'pending',
-      employmentStatus: 'pending',
+      status: newReader.status,
+      employmentStatus: newReader.status,
       reader: newReader,
+      allReaders: REGISTERED_READERS,
     });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message || 'Registration failed' });
   }
 });
+
 
 // List all readers (for Admin Portal & Mobile Sync)
 app.get(['/api/readers', '/api/staff', '/readers', '/staff'], (req, res) => {

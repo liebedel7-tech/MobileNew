@@ -1,6 +1,4 @@
-import { INITIAL_READERS, DistrictReader } from '../seedData';
-
-const readersStore: DistrictReader[] = [...INITIAL_READERS];
+import { DistrictReader, getSharedReaders, upsertSharedReader } from '../seedData';
 
 export default function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -26,48 +24,27 @@ export default function handler(req: any, res: any) {
     const readerUsername = username;
     const readerName = name.toString().trim();
 
-    const existing = readersStore.find(r => 
-      (r.username && r.username.toLowerCase() === readerUsername.toLowerCase()) ||
-      (employeeId && r.employeeId && r.employeeId.toLowerCase() === employeeId.toString().toLowerCase()) ||
-      (body.id && r.id && r.id.toLowerCase() === body.id.toString().toLowerCase())
-    );
-
-    if (existing) {
-      return res.status(200).json({
-        success: true,
-        message: `Reader '${readerUsername}' is registered.`,
-        status: existing.status,
-        employmentStatus: existing.status,
-        reader: existing,
-        data: existing,
-      });
-    }
-
-    const newReader: DistrictReader = {
-      id: body.id || `RDR-${String(readersStore.length + 1).padStart(3, '0')}`,
-      employeeId: employeeId || `TWD-2026-${String(Math.floor(100 + Math.random() * 900))}`,
+    const savedReader = upsertSharedReader({
+      id: body.id,
+      employeeId,
       username: readerUsername,
-      pin: pin,
       name: readerName,
-      role: body.role || 'Meter Reader I',
-      contactNumber: contactNumber,
-      email: email,
+      pin,
+      contactNumber,
+      email,
       assignedRoutes: Array.isArray(assignedRoutes) && assignedRoutes.length > 0 ? assignedRoutes : ['Poblacion'],
-      status: 'pending',
-      employmentStatus: 'pending',
-      deviceInfo: deviceInfo,
-      createdAt: new Date().toISOString(),
-    };
-
-    readersStore.push(newReader);
+      status: body.status || 'pending',
+      deviceInfo,
+    });
 
     return res.status(201).json({
       success: true,
-      message: 'Meter reader registration submitted successfully. Awaiting Administrator approval.',
-      status: 'pending',
-      employmentStatus: 'pending',
-      reader: newReader,
-      data: newReader,
+      message: 'Meter reader registration saved successfully. Awaiting Administrator approval.',
+      status: savedReader.status,
+      employmentStatus: savedReader.status,
+      reader: savedReader,
+      data: savedReader,
+      allReaders: getSharedReaders(),
     });
   } catch (err: any) {
     return res.status(200).json({
@@ -78,3 +55,4 @@ export default function handler(req: any, res: any) {
     });
   }
 }
+

@@ -367,7 +367,33 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
             <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-purple-400 group-hover:translate-x-0.5 transition" />
           </div>
 
-          {/* Module 5: Android APK Installation */}
+          {/* Module 5: Meter Readers & Staff Approval Module */}
+          <div 
+            onClick={() => onNavigate('meter_readers')}
+            className="p-3 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-amber-500/50 transition cursor-pointer flex items-center justify-between group active:scale-[0.99]"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0">
+                <Users className="w-4 h-4" />
+              </div>
+              <div className="text-left">
+                <div className="flex items-center gap-1.5">
+                  <h3 className="text-xs font-bold text-white group-hover:text-amber-300 transition">
+                    Meter Readers & Staff Directory
+                  </h3>
+                  <span className="px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-300 text-[9px] font-mono font-bold">
+                    Admin Approval
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-400">
+                  Review mobile registrations, verify accounts & assign routes
+                </p>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-amber-400 group-hover:translate-x-0.5 transition" />
+          </div>
+
+          {/* Module 6: Android APK Installation */}
           <div 
             onClick={onOpenApkModal}
             className="p-3 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-sky-500/50 transition cursor-pointer flex items-center justify-between group active:scale-[0.99]"

@@ -64,7 +64,91 @@ export class SyncService {
     return this.syncNow(false);
   }
 
+  /**
+   * Synchronizes local and remote meter reader accounts
+   */
+  static async syncReaders(): Promise<any[]> {
+    try {
+      const localReaders = await DatabaseHelper.getLocalReaders();
+      const res = await universalApiFetch('/api/readers/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ readers: localReaders }),
+      });
+
+      if (res.ok) {
+        const text = await res.text();
+        if (text) {
+          const data = JSON.parse(text);
+          const serverReaders = data?.readers || data?.staff || data?.data;
+          if (Array.isArray(serverReaders) && serverReaders.length > 0) {
+            for (const r of serverReaders) {
+              await DatabaseHelper.saveLocalReader(r);
+            }
+            return serverReaders;
+          }
+        }
+      }
+    } catch {
+      // Fall back to local readers
+    }
+    return DatabaseHelper.getLocalReaders();
+  }
+
+  /**
+   * Submits a single meter reading directly to the Central Admin Dashboard for approval
+   */
+  static async submitSingleReading(reading: MeterReading): Promise<{
+    success: boolean;
+    message: string;
+    reading?: any;
+  }> {
+    try {
+      const readingPayload = {
+        ...reading,
+        status: 'PENDING_SYNC',
+        approvalStatus: 'pending_approval',
+      };
+
+      const res = await universalApiFetch('/api/readings/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ readings: [readingPayload] }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        await DatabaseHelper.saveReading({
+          ...reading,
+          approvalStatus: 'pending_approval',
+        });
+        await this.refreshPendingCount();
+        await LoggerService.log(
+          'READING_DISPATCHED_ADMIN',
+          `Dispatched reading for Account #${reading.accountNumber} to Central Admin Dashboard for supervisor approval.`
+        );
+        return {
+          success: true,
+          message: 'Reading submitted to Central Admin Dashboard. Status: Pending Approval.',
+          reading: data.reading || readingPayload,
+        };
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        return {
+          success: false,
+          message: errData?.message || 'Server did not acknowledge reading transmission.',
+        };
+      }
+    } catch (err: any) {
+      return {
+        success: false,
+        message: `Offline or network timeout: Saved in offline queue. (${err.message || 'Queued'})`,
+      };
+    }
+  }
+
   static startAutoSync() {
+
     this.toggleAutoSync(true);
   }
 
@@ -248,7 +332,30 @@ export class SyncService {
         // Consumer records remain intact in local SQLite / IndexedDB
       }
 
+      // 3. Bi-Directional Meter Reader Account Synchronization
+      try {
+        const localReaders = await DatabaseHelper.getLocalReaders();
+        const readerSyncRes = await universalApiFetch('/api/readers/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify({ readers: localReaders }),
+        });
+
+        if (readerSyncRes.ok) {
+          const readerSyncData = await safeParseJson(readerSyncRes);
+          const serverReaders = readerSyncData?.readers || readerSyncData?.staff || readerSyncData?.data;
+          if (Array.isArray(serverReaders) && serverReaders.length > 0) {
+            for (const sReader of serverReaders) {
+              await DatabaseHelper.saveLocalReader(sReader);
+            }
+          }
+        }
+      } catch (readerSyncErr) {
+        // Local reader accounts remain safe
+      }
+
       const pendingAfter = await DatabaseHelper.getPendingReadings();
+
       const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
       const syncSummary = uploadedCount > 0 || pulledCount > 0

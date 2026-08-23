@@ -32,6 +32,7 @@ import { ScanMeterScreen } from './screens/ScanMeterScreen';
 import { BatchSubmissionScreen } from './screens/BatchSubmissionScreen';
 import { HistoryScreen } from './screens/HistoryScreen';
 import { AuditLogScreen } from './screens/AuditLogScreen';
+import { MeterReadersScreen } from './screens/MeterReadersScreen';
 import { DebugScreen } from './screens/DebugScreen';
 import { FlutterConfigScreen } from './screens/FlutterConfigScreen';
 
@@ -291,25 +292,10 @@ export function App() {
   };
 
   const handleSaveReading = async (reading: MeterReading) => {
-    // Show saving process loader
-    setLoadingProcess({
-      type: 'save_reading',
-      targetModule: 'dashboard',
-      title: 'Computing Tariff & Recording Reading',
-      subtitle: `Acc: ${reading.accountNumber} • ${reading.consumerName}`,
-      steps: [
-        'Calculating Tagoloan tiered water tariff schedule',
-        'Validating consumption delta vs 12-month average',
-        'Writing encrypted record to local SQLite database',
-        'Broadcasting live reading packet over WebSocket',
-        'Generating official thermal bill receipt print spool',
-      ],
-      durationMs: 400,
-    });
-
+    // Save to local database (IndexedDB / SQLite)
     await DatabaseHelper.saveReading(reading);
     
-    // Broadcast live reading via WebSocket
+    // Broadcast live reading via WebSocket to Central Portal
     WebSocketService.send('FIELD_READING_RECORDED', {
       readingId: reading.id,
       accountNumber: reading.accountNumber,
@@ -323,16 +309,9 @@ export function App() {
       'RECORD_READING',
       currentUser?.id || 'SYSTEM',
       currentUser?.name || 'Reader',
-      `Logged reading ${reading.currentReading} cu.m for Acc: ${reading.accountNumber} (${reading.consumerName}). Due: ₱${reading.billCalculation.totalAmountDue.toFixed(2)}`
+      `Logged reading ${reading.currentReading} cu.m for Acc: ${reading.accountNumber} (${reading.consumerName}). Due: ₱${reading.billCalculation.totalAmountDue.toFixed(2)}. Stored locally.`
     );
     await reloadData();
-    
-    setTimeout(() => {
-      setLoadingProcess(null);
-      // Automatically open the thermal bill receipt for field printing
-      setActiveReceiptReading(reading);
-      setActiveScreen('dashboard');
-    }, 400);
   };
 
   const handleTriggerSync = async () => {
@@ -445,6 +424,29 @@ export function App() {
     );
   }
 
+  // If navigating to meter readers directory without being logged in
+  if (!currentUser && activeScreen === 'meter_readers') {
+    return (
+      <MobileFrameWrapper isMobileChassis={isMobileChassis}>
+        {loadingProcess && (
+          <ModuleLoadingScreen
+            processInfo={loadingProcess}
+            currentUser={currentUser}
+            onFinished={handleFinishLoadingProcess}
+          />
+        )}
+        <MeterReadersScreen
+          currentUser={currentUser}
+          onNavigate={navigateTo}
+          onSwitchUser={(user) => {
+            setCurrentUser(user);
+            navigateTo('dashboard');
+          }}
+        />
+      </MobileFrameWrapper>
+    );
+  }
+
   // If no user is logged in or user explicitly navigates to login, show Login Screen
   if (!currentUser || activeScreen === 'login') {
     return (
@@ -535,12 +537,15 @@ export function App() {
             <ReadingEntryScreen
               consumer={selectedConsumer}
               user={currentUser}
+              allConsumers={consumers}
               initialReadingValue={ocrInitialData.readingValue}
               initialPhotoUrl={ocrInitialData.photoUrl}
               initialOcrConfidence={ocrInitialData.confidence}
               onSaveReading={handleSaveReading}
               onNavigate={navigateTo}
               onScanWithCamera={handleScanMeter}
+              onSelectNextConsumer={(c) => setSelectedConsumer(c)}
+              onViewReceipt={setActiveReceiptReading}
             />
           )}
 
@@ -569,6 +574,7 @@ export function App() {
               readings={readings}
               onNavigate={navigateTo}
               onViewReceipt={setActiveReceiptReading}
+              onReload={reloadData}
             />
           )}
 
@@ -576,6 +582,17 @@ export function App() {
             <AuditLogScreen
               logs={auditLogs}
               onNavigate={navigateTo}
+            />
+          )}
+
+          {activeScreen === 'meter_readers' && (
+            <MeterReadersScreen
+              currentUser={currentUser}
+              onNavigate={navigateTo}
+              onSwitchUser={(user) => {
+                setCurrentUser(user);
+                navigateTo('dashboard');
+              }}
             />
           )}
 

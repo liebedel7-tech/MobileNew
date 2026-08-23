@@ -11,7 +11,13 @@ import {
   ShieldCheck, 
   FileText,
   Clock,
-  Sparkles
+  Sparkles,
+  Send,
+  UserCheck,
+  ChevronRight,
+  Printer,
+  Home,
+  Check
 } from 'lucide-react';
 import { 
   Consumer, 
@@ -24,27 +30,35 @@ import {
 import { CalculationService } from '../services/calculationService';
 import { LocationService } from '../services/locationService';
 import { LoggerService } from '../services/loggerService';
+import { SyncService } from '../services/syncService';
+import { WebSocketService } from '../services/websocketService';
 
 interface ReadingEntryScreenProps {
   consumer: Consumer;
   user: StaffUser;
+  allConsumers?: Consumer[];
   initialReadingValue?: number;
   initialPhotoUrl?: string;
   initialOcrConfidence?: number;
-  onSaveReading: (reading: MeterReading) => void;
+  onSaveReading: (reading: MeterReading) => Promise<void> | void;
   onNavigate: (screen: ActiveScreen) => void;
   onScanWithCamera: (consumer: Consumer) => void;
+  onSelectNextConsumer?: (consumer: Consumer) => void;
+  onViewReceipt?: (reading: MeterReading) => void;
 }
 
 export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
   consumer,
   user,
+  allConsumers = [],
   initialReadingValue,
   initialPhotoUrl,
   initialOcrConfidence,
   onSaveReading,
   onNavigate,
   onScanWithCamera,
+  onSelectNextConsumer,
+  onViewReceipt,
 }) => {
   const [currentReading, setCurrentReading] = useState<string>(
     initialReadingValue !== undefined ? String(initialReadingValue) : ''
@@ -59,6 +73,27 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
   });
   const [isCapturingGPS, setIsCapturingGPS] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Post-Save Flow State
+  const [savedReading, setSavedReading] = useState<MeterReading | null>(null);
+  const [isSendingToAdmin, setIsSendingToAdmin] = useState(false);
+  const [sendSuccess, setSendSuccess] = useState(false);
+  const [sendFeedback, setSendFeedback] = useState<string | null>(null);
+
+  // Find next unread consumer on route
+  const nextConsumer = useMemo(() => {
+    if (!allConsumers || allConsumers.length === 0) return null;
+    const currentIndex = allConsumers.findIndex((c) => c.id === consumer.id);
+    // Find next unread consumer after current
+    for (let i = currentIndex + 1; i < allConsumers.length; i++) {
+      if (!allConsumers[i].isReadThisMonth) return allConsumers[i];
+    }
+    // Loop back from beginning if none after
+    for (let i = 0; i < currentIndex; i++) {
+      if (!allConsumers[i].isReadThisMonth) return allConsumers[i];
+    }
+    return null;
+  }, [allConsumers, consumer.id]);
 
   // Capture GPS on mount
   useEffect(() => {
@@ -91,6 +126,7 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
     return CalculationService.checkConsumptionAnomaly(consumption, consumer.averageConsumption);
   }, [consumption, consumer.averageConsumption, currentReading]);
 
+  // Handle Save Locally
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentReading || isNaN(Number(currentReading))) {
@@ -131,21 +167,216 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
       meterCondition,
       remarks,
       status: 'PENDING_SYNC',
+      approvalStatus: 'pending_approval',
       billCalculation: billCalc,
       isAnomaly: anomalyInfo.isAnomaly,
       anomalyReason: anomalyInfo.reason,
     };
 
+    await onSaveReading(newReading);
+
     await LoggerService.log(
-      'READING_SAVED',
-      `Meter reading ${numReading} cu.m. (${consumption} used, ₱${billCalc.totalAmountDue}) recorded for Acc #${consumer.accountNumber}`,
+      'READING_SAVED_LOCAL',
+      `Meter reading ${numReading} cu.m. (${consumption} used, ₱${billCalc.totalAmountDue}) saved locally for Acc #${consumer.accountNumber}. Awaiting Send to Admin.`,
       user.id,
       user.name
     );
 
-    onSaveReading(newReading);
+    setIsSaving(false);
+    setSavedReading(newReading);
   };
 
+  // Handle Explicit "Send to Admin Dashboard" action
+  const handleSendToAdmin = async () => {
+    if (!savedReading) return;
+    setIsSendingToAdmin(true);
+    setSendFeedback(null);
+
+    try {
+      const result = await SyncService.submitSingleReading(savedReading);
+      if (result.success) {
+        setSendSuccess(true);
+        setSendFeedback('Reading successfully submitted to Central Admin Dashboard for review & approval.');
+        
+        // Notify via WebSocket
+        WebSocketService.send('READING_SUBMITTED_FOR_APPROVAL', {
+          readingId: savedReading.id,
+          accountNumber: savedReading.accountNumber,
+          consumerName: savedReading.consumerName,
+          consumption: savedReading.consumption,
+          amount: savedReading.billCalculation.totalAmountDue,
+          readerName: user.name,
+          timestamp: new Date().toISOString(),
+        });
+      } else {
+        setSendFeedback(result.message || 'Queued locally in offline database.');
+      }
+    } catch (err: any) {
+      setSendFeedback(`Notice: Queued offline (${err?.message || 'Will sync when online'})`);
+    } finally {
+      setIsSendingToAdmin(false);
+    }
+  };
+
+  // -------------------------------------------------------------
+  // POST-SAVE CONFIRMATION VIEW (NO THERMAL RECEIPT POPUP)
+  // -------------------------------------------------------------
+  if (savedReading) {
+    return (
+      <div className="p-3 sm:p-5 max-w-2xl mx-auto w-full space-y-4 pb-24 animate-in fade-in zoom-in-95 duration-200">
+        {/* Status Confirmation Banner */}
+        <div className="bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-2xl text-center space-y-4 relative overflow-hidden">
+          <div className="absolute top-0 right-0 transform translate-x-4 -translate-y-4 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
+          
+          <div className="w-16 h-16 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center mx-auto shadow-inner">
+            <CheckCircle2 className="w-9 h-9" />
+          </div>
+
+          <div>
+            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-950/80 border border-emerald-800 text-emerald-400 text-[11px] font-mono font-bold tracking-wide uppercase mb-2">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              Saved to Offline SQLite
+            </span>
+            <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+              Reading Confirmed & Saved
+            </h2>
+            <p className="text-xs text-slate-400 max-w-md mx-auto mt-1">
+              Record stored in encrypted device storage. Tap <strong className="text-sky-300">"Send to Admin Dashboard"</strong> to dispatch for supervisor approval.
+            </p>
+          </div>
+
+          {/* Reading Summary Breakdown Card */}
+          <div className="bg-slate-950/80 border border-slate-800/90 rounded-2xl p-4 text-left space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
+              <div>
+                <span className="font-mono text-xs font-bold text-sky-400 bg-sky-950 px-2 py-0.5 rounded border border-sky-800">
+                  {consumer.accountNumber}
+                </span>
+                <h3 className="font-bold text-sm text-white mt-1">{consumer.name}</h3>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Zone Route</span>
+                <span className="text-xs font-mono font-bold text-slate-200">{consumer.routeCode}</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 text-center py-1">
+              <div className="bg-slate-900/90 p-2 rounded-xl border border-slate-800">
+                <span className="text-[10px] text-slate-500 uppercase font-bold block">Previous</span>
+                <span className="text-xs font-mono font-bold text-slate-300">{savedReading.previousReading} m³</span>
+              </div>
+              <div className="bg-slate-900/90 p-2 rounded-xl border border-slate-800">
+                <span className="text-[10px] text-slate-500 uppercase font-bold block">Present</span>
+                <span className="text-xs font-mono font-bold text-sky-400">{savedReading.currentReading} m³</span>
+              </div>
+              <div className="bg-slate-900/90 p-2 rounded-xl border border-slate-800">
+                <span className="text-[10px] text-slate-500 uppercase font-bold block">Used</span>
+                <span className="text-xs font-mono font-bold text-emerald-400">{savedReading.consumption} m³</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
+              <span className="text-xs text-slate-400">Calculated Water Tariff:</span>
+              <span className="text-base font-black text-emerald-400 font-mono">
+                ₱{savedReading.billCalculation.totalAmountDue.toFixed(2)}
+              </span>
+            </div>
+          </div>
+
+          {/* Send Status Notification */}
+          {sendFeedback && (
+            <div className={`p-3 rounded-xl text-xs font-medium text-left flex items-start gap-2 ${
+              sendSuccess 
+                ? 'bg-emerald-950/80 border border-emerald-800 text-emerald-300' 
+                : 'bg-sky-950/80 border border-sky-800 text-sky-300'
+            }`}>
+              <Check className="w-4 h-4 shrink-0 mt-0.5 text-emerald-400" />
+              <span>{sendFeedback}</span>
+            </div>
+          )}
+
+          {/* Primary Action: SEND TO ADMIN DASHBOARD BUTTON */}
+          <div className="pt-2">
+            {!sendSuccess ? (
+              <button
+                type="button"
+                onClick={handleSendToAdmin}
+                disabled={isSendingToAdmin}
+                className="w-full py-4 px-6 bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white font-black rounded-2xl shadow-xl shadow-sky-600/30 flex items-center justify-center gap-2.5 text-sm uppercase tracking-wider transition active:scale-[0.98] disabled:opacity-50"
+              >
+                <Send className={`w-5 h-5 ${isSendingToAdmin ? 'animate-bounce' : ''}`} />
+                <span>{isSendingToAdmin ? 'Submitting to Admin Portal...' : 'Send to Admin Dashboard'}</span>
+              </button>
+            ) : (
+              <div className="p-3.5 bg-emerald-950/60 border border-emerald-500/40 rounded-2xl flex items-center justify-center gap-2 text-emerald-300 text-xs font-bold font-mono">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <span>Status: PENDING ADMIN APPROVAL</span>
+              </div>
+            )}
+          </div>
+
+          {/* Secondary Actions */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2">
+            {nextConsumer ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (onSelectNextConsumer) {
+                    onSelectNextConsumer(nextConsumer);
+                  }
+                  // Reset state for next consumer
+                  setSavedReading(null);
+                  setCurrentReading('');
+                  setSendSuccess(false);
+                  setSendFeedback(null);
+                }}
+                className="p-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold flex items-center justify-center gap-2 transition border border-slate-700 active:scale-[0.98]"
+              >
+                <span>Next Meter: {nextConsumer.name.split(' ')[0]}</span>
+                <ChevronRight className="w-4 h-4 text-sky-400" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => onNavigate('consumers')}
+                className="p-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold flex items-center justify-center gap-2 transition border border-slate-700 active:scale-[0.98]"
+              >
+                <ChevronRight className="w-4 h-4 text-sky-400" />
+                <span>View Route Directory</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => onNavigate('dashboard')}
+              className="p-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-bold flex items-center justify-center gap-2 transition border border-slate-800 active:scale-[0.98]"
+            >
+              <Home className="w-4 h-4 text-slate-400" />
+              <span>Back to Dashboard</span>
+            </button>
+          </div>
+
+          {/* Optional manual receipt preview (NOT automatically opened) */}
+          {onViewReceipt && (
+            <div className="pt-2 text-center">
+              <button
+                type="button"
+                onClick={() => onViewReceipt(savedReading)}
+                className="text-[11px] text-slate-500 hover:text-slate-400 font-medium inline-flex items-center gap-1 transition"
+              >
+                <Printer className="w-3 h-3" />
+                <span>Optional: View Receipt Printout Spool</span>
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // -------------------------------------------------------------
+  // REGULAR READING ENTRY FORM
+  // -------------------------------------------------------------
   return (
     <div className="p-3 sm:p-4 max-w-3xl mx-auto w-full space-y-4 pb-20">
       {/* Top Header */}
@@ -349,7 +580,7 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
           className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3.5 rounded-2xl shadow-xl shadow-emerald-950/80 flex items-center justify-center gap-2 text-sm uppercase tracking-wider transition hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
         >
           <Save className="w-4 h-4" />
-          <span>{isSaving ? 'Saving to Offline Queue...' : 'Confirm & Save Reading'}</span>
+          <span>{isSaving ? 'Saving to Offline Storage...' : 'Confirm & Save Reading'}</span>
         </button>
       </form>
     </div>

@@ -340,3 +340,67 @@ export const INITIAL_READERS: DistrictReader[] = [
     createdAt: '2026-08-18T10:30:00Z',
   },
 ];
+
+// Global Shared Readers Registry across all Serverless Invocations
+declare global {
+  var __TWD_GLOBAL_READERS__: DistrictReader[] | undefined;
+}
+
+if (!globalThis.__TWD_GLOBAL_READERS__) {
+  globalThis.__TWD_GLOBAL_READERS__ = [...INITIAL_READERS];
+}
+
+export const SHARED_READERS_REGISTRY = globalThis.__TWD_GLOBAL_READERS__;
+
+export function getSharedReaders(): DistrictReader[] {
+  if (!globalThis.__TWD_GLOBAL_READERS__) {
+    globalThis.__TWD_GLOBAL_READERS__ = [...INITIAL_READERS];
+  }
+  return globalThis.__TWD_GLOBAL_READERS__;
+}
+
+export function upsertSharedReader(reader: Partial<DistrictReader> & { username: string; name: string }): DistrictReader {
+  const list = getSharedReaders();
+  const uname = reader.username.toLowerCase().trim();
+  const empId = reader.employeeId ? reader.employeeId.toLowerCase().trim() : '';
+  const rId = reader.id ? reader.id.toLowerCase().trim() : '';
+
+  const index = list.findIndex(r => 
+    r.username.toLowerCase().trim() === uname ||
+    (empId && r.employeeId && r.employeeId.toLowerCase().trim() === empId) ||
+    (rId && r.id && r.id.toLowerCase().trim() === rId)
+  );
+
+  if (index >= 0) {
+    const existing = list[index];
+    const updated: DistrictReader = {
+      ...existing,
+      ...reader,
+      // Retain approval status if already active
+      status: existing.status === 'active' ? 'active' : (reader.status || existing.status),
+      employmentStatus: existing.status === 'active' ? 'active' : (reader.status || existing.status),
+      assignedRoutes: reader.assignedRoutes && reader.assignedRoutes.length > 0 ? reader.assignedRoutes : existing.assignedRoutes,
+    };
+    list[index] = updated;
+    return updated;
+  } else {
+    const newReader: DistrictReader = {
+      id: reader.id || `RDR-${String(list.length + 1).padStart(3, '0')}`,
+      employeeId: reader.employeeId || `TWD-2026-${String(Math.floor(100 + Math.random() * 900))}`,
+      username: reader.username.trim(),
+      pin: reader.pin || '1234',
+      name: reader.name.trim(),
+      role: reader.role || 'Meter Reader I',
+      contactNumber: reader.contactNumber || '',
+      email: reader.email || `${reader.username.toLowerCase().trim()}@tagoloanwater.gov.ph`,
+      assignedRoutes: reader.assignedRoutes && reader.assignedRoutes.length > 0 ? reader.assignedRoutes : ['Poblacion'],
+      status: (reader.status as any) || 'pending',
+      employmentStatus: (reader.status as any) || 'pending',
+      deviceInfo: reader.deviceInfo || 'Mobile Reader App',
+      createdAt: reader.createdAt || new Date().toISOString(),
+    };
+    list.push(newReader);
+    return newReader;
+  }
+}
+
