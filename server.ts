@@ -426,7 +426,8 @@ app.all('/api/readers/:id/approve', (req, res) => {
 
   const reader = REGISTERED_READERS.find(
     r => r.id.toLowerCase() === id.toLowerCase() || 
-         r.username.toLowerCase() === id.toLowerCase()
+         r.username.toLowerCase() === id.toLowerCase() ||
+         (r.employeeId && r.employeeId.toLowerCase() === id.toLowerCase())
   );
 
   if (!reader) {
@@ -443,6 +444,8 @@ app.all('/api/readers/:id/approve', (req, res) => {
   // Broadcast WebSocket event so mobile app instantly unlocks
   broadcastWebSocketEvent('READER_APPROVED_ACTIVE', {
     readerId: reader.id,
+    employeeId: reader.employeeId,
+    username: reader.username,
     name: reader.name,
     status: 'active',
     assignedRoutes: reader.assignedRoutes,

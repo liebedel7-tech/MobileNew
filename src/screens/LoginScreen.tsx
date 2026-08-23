@@ -55,20 +55,33 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onBackToLandi
   useEffect(() => {
     const unsub = WebSocketService.subscribe((msg) => {
       if (msg.type === 'READER_APPROVED_ACTIVE' && pendingReader) {
-        if (msg.payload?.readerId === pendingReader.id || msg.payload?.name === pendingReader.name) {
+        const isMatch = 
+          (msg.payload?.readerId && (msg.payload.readerId === pendingReader.id || msg.payload.readerId === pendingReader.employeeId)) ||
+          (msg.payload?.employeeId && (msg.payload.employeeId === pendingReader.employeeId || msg.payload.employeeId === pendingReader.id)) ||
+          (msg.payload?.username && msg.payload.username.toLowerCase() === (pendingReader.username || '').toLowerCase()) ||
+          (msg.payload?.name && msg.payload.name.toLowerCase() === (pendingReader.name || '').toLowerCase());
+
+        if (isMatch) {
           setStatusMessage('🎉 Account APPROVED by Admin! Activating Mobile Terminal...');
+          DatabaseHelper.updateLocalReaderStatus(
+            pendingReader.id,
+            'active',
+            msg.payload.assignedRoutes,
+            msg.payload.approvedBy
+          ).catch(() => {});
+
           setTimeout(() => {
             onLogin({
-              id: pendingReader.id,
-              employeeId: pendingReader.employeeId,
-              username: pendingReader.username || pendingReader.name,
-              name: pendingReader.name,
+              id: msg.payload.readerId || pendingReader.id,
+              employeeId: msg.payload.employeeId || pendingReader.employeeId,
+              username: msg.payload.username || pendingReader.username || pendingReader.name,
+              name: msg.payload.name || pendingReader.name,
               role: 'Meter Reader I',
               zone: (msg.payload.assignedRoutes || [regSelectedRoute]).join(', '),
               assignedRoutes: msg.payload.assignedRoutes || [regSelectedRoute],
               status: 'active',
             });
-          }, 1200);
+          }, 1000);
         }
       }
     });
@@ -302,7 +315,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onBackToLandi
 
     // 2. Check Central Server API
     try {
-      const res = await fetch(getApiEndpoint(`/api/readers/check-status/${pendingReader.id || pendingReader.username}`));
+      const targetId = pendingReader.employeeId || pendingReader.id || pendingReader.username;
+      const res = await fetch(getApiEndpoint(`/api/readers/check-status/${encodeURIComponent(targetId)}`));
       if (res.ok) {
         const data = await res.json();
         if (data.status === 'active') {
@@ -315,10 +329,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onBackToLandi
           setStatusMessage('🎉 Your account is APPROVED! Opening Meter Reader Terminal...');
           setTimeout(() => {
             onLogin({
-              id: data.id,
-              employeeId: data.employeeId,
+              id: data.id || pendingReader.id,
+              employeeId: data.employeeId || pendingReader.employeeId,
               username: pendingReader.username,
-              name: data.name,
+              name: data.name || pendingReader.name,
               role: 'Meter Reader I',
               zone: (data.assignedRoutes || ['Poblacion']).join(', '),
               assignedRoutes: data.assignedRoutes || ['Poblacion'],
