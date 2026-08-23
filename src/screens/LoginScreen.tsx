@@ -152,7 +152,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onBackToLandi
         return;
       }
 
-      if (data?.message) {
+      // If server returned 401/403 with specific user error, show message only if not a 500 internal error
+      if (response.status < 500 && data?.message) {
         setError(data.message);
         return;
       }
