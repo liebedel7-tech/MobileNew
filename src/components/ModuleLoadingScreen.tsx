@@ -217,20 +217,6 @@ const MODULE_CONFIGS: Record<ActiveScreen, {
       'Finalizing configuration',
     ],
   },
-  admin_approvals: {
-    name: 'Admin Approvals & Dispatch Desk',
-    category: 'District Supervisor & Firestore Ops',
-    icon: ShieldAlert,
-    color: 'text-sky-400',
-    bgGlow: 'from-sky-500/20 to-blue-600/5',
-    borderColor: 'border-sky-500/40',
-    defaultSteps: [
-      'Querying registered meter readers queue',
-      'Checking pending billing approvals',
-      'Connecting to Firestore realtime listeners',
-      'Rendering Supervisor Operations Desk',
-    ],
-  },
   login: {
     name: 'Reader Terminal Authentication',
     category: 'Tagoloan Security Gateway',

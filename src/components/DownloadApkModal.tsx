@@ -27,11 +27,17 @@ export const DownloadApkModal: React.FC<DownloadApkModalProps> = ({
   const [copiedCmd, setCopiedCmd] = useState(false);
 
   const handleTriggerNativeInstall = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
-        setInstallStatus('INSTALLED');
+    if (deferredPrompt && typeof deferredPrompt.prompt === 'function') {
+      try {
+        await deferredPrompt.prompt();
+        if (deferredPrompt.userChoice) {
+          const { outcome } = await deferredPrompt.userChoice;
+          if (outcome === 'accepted') {
+            setInstallStatus('INSTALLED');
+          }
+        }
+      } catch (err) {
+        console.warn('Install prompt was already triggered or dismissed:', err);
       }
     } else {
       alert(

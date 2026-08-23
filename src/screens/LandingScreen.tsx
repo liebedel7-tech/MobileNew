@@ -240,7 +240,7 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
         </div>
 
         {/* Primary Mobile Call-To-Action Controls */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+        <div className="pt-1">
           {/* Main Login / Enter Terminal Button */}
           <button
             type="button"
@@ -250,16 +250,6 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
             <Gauge className="w-4 h-4 text-slate-950" />
             <span>{user ? 'Open Reader Terminal' : 'Staff Sign In / Register'}</span>
             <ArrowRight className="w-4 h-4" />
-          </button>
-
-          {/* Admin / Supervisor Desk Button */}
-          <button
-            type="button"
-            onClick={() => onNavigate('admin_approvals')}
-            className="w-full py-3.5 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-sky-500/60 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition active:scale-[0.98] cursor-pointer"
-          >
-            <ShieldCheck className="w-4 h-4 text-sky-400" />
-            <span>Admin Approvals Desk</span>
           </button>
         </div>
 

@@ -202,5 +202,4 @@ export type ActiveScreen =
   | 'audit_log'
   | 'debug'
   | 'flutter_config'
-  | 'admin_approvals'
   | 'token_setup'; // Backwards-compatible alias

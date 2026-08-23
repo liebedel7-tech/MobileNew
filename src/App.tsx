@@ -34,7 +34,6 @@ import { HistoryScreen } from './screens/HistoryScreen';
 import { AuditLogScreen } from './screens/AuditLogScreen';
 import { DebugScreen } from './screens/DebugScreen';
 import { FlutterConfigScreen } from './screens/FlutterConfigScreen';
-import { AdminApprovalScreen } from './screens/AdminApprovalScreen';
 
 export function App() {
   const [currentUser, setCurrentUser] = useState<StaffUser | null>(null);
@@ -551,13 +550,6 @@ export function App() {
               onNavigate={navigateTo}
               onOCRComplete={handleOCRComplete}
               onSelectConsumer={(c) => setSelectedConsumer(c)}
-            />
-          )}
-
-          {activeScreen === 'admin_approvals' && (
-            <AdminApprovalScreen
-              currentUser={currentUser}
-              onNavigateToScreen={navigateTo}
             />
           )}
 
