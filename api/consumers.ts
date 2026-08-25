@@ -1,4 +1,6 @@
 // Vercel Serverless Function: /api/consumers
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+
 export const CONSUMERS = [
   {
     id: 'WDT-ACC-01042',
@@ -242,7 +244,7 @@ export const CONSUMERS = [
   },
 ];
 
-export default function handler(req: any, res: any) {
+export default function handler(req: VercelRequest | any, res: VercelResponse | any) {
   // CORS Headers
   if (typeof res.setHeader === 'function') {
     res.setHeader('Access-Control-Allow-Origin', '*');
