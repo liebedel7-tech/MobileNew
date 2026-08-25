@@ -1,13 +1,15 @@
-import { INITIAL_CONSUMERS } from './seedData';
-import { sendJson, setCorsHeaders } from './_helper';
+// Vercel Serverless Function: /api/sync
+import { CONSUMERS } from './consumers';
 
 export default function handler(req: any, res: any) {
-  setCorsHeaders(res);
+  if (typeof res.setHeader === 'function') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', '*');
+  }
 
   if (req.method === 'OPTIONS') {
-    if (typeof res.status === 'function') {
-      return res.status(200).end();
-    }
+    if (typeof res.status === 'function') return res.status(200).end();
     res.statusCode = 200;
     return res.end();
   }
@@ -16,7 +18,7 @@ export default function handler(req: any, res: any) {
     const query = req.query || {};
     const zone = (query.zone || query.barangay || 'ALL') as string;
 
-    let consumers = [...INITIAL_CONSUMERS];
+    let consumers = [...CONSUMERS];
     if (zone && zone !== 'ALL' && zone !== 'All') {
       consumers = consumers.filter(c => 
         (c.barangay && c.barangay.toLowerCase().includes(zone.toLowerCase())) ||
@@ -24,7 +26,7 @@ export default function handler(req: any, res: any) {
       );
     }
 
-    return sendJson(res, 200, {
+    const payload = {
       success: true,
       district: 'Tagoloan Water District (WDT-MISOR)',
       zone,
@@ -32,13 +34,24 @@ export default function handler(req: any, res: any) {
       timestamp: new Date().toISOString(),
       consumers,
       data: consumers,
-    });
+    };
+
+    if (typeof res.status === 'function' && typeof res.json === 'function') {
+      return res.status(200).json(payload);
+    }
+    res.statusCode = 200;
+    return res.end(JSON.stringify(payload));
   } catch (err: any) {
-    return sendJson(res, 200, {
+    const fallback = {
       success: true,
       district: 'Tagoloan Water District (WDT-MISOR)',
-      count: INITIAL_CONSUMERS.length,
-      consumers: INITIAL_CONSUMERS,
-    });
+      count: CONSUMERS.length,
+      consumers: CONSUMERS,
+    };
+    if (typeof res.status === 'function' && typeof res.json === 'function') {
+      return res.status(200).json(fallback);
+    }
+    res.statusCode = 200;
+    return res.end(JSON.stringify(fallback));
   }
 }

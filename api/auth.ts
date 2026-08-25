@@ -1,23 +1,29 @@
-import { INITIAL_READERS } from './seedData';
-import { sendJson, setCorsHeaders, parseRequestBody } from './_helper';
+// Vercel Serverless Function: /api/auth
+import { READERS } from './readers';
 
 export default function handler(req: any, res: any) {
-  setCorsHeaders(res);
+  if (typeof res.setHeader === 'function') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', '*');
+  }
 
   if (req.method === 'OPTIONS') {
-    if (typeof res.status === 'function') {
-      return res.status(200).end();
-    }
+    if (typeof res.status === 'function') return res.status(200).end();
     res.statusCode = 200;
     return res.end();
   }
 
   try {
-    const body = parseRequestBody(req);
+    let body: any = {};
+    if (req.body) {
+      body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    }
+
     const username = (body.username || '').toString().trim();
     const pin = (body.pin || body.password || '').toString().trim();
 
-    const reader = INITIAL_READERS.find(
+    const reader = READERS.find(
       r => (r.username.toLowerCase() === username.toLowerCase() || 
             r.employeeId.toLowerCase() === username.toLowerCase() ||
             (r as any).name?.toLowerCase() === username.toLowerCase() ||
@@ -25,17 +31,12 @@ export default function handler(req: any, res: any) {
            (!pin || r.pin === pin || pin === '1234' || pin === 'password')
     );
 
-    if (reader) {
-      return sendJson(res, 200, {
-        success: true,
-        message: 'Authentication successful',
-        user: reader,
-        reader,
-      });
-    }
-
-    // Fallback reader profile
-    return sendJson(res, 200, {
+    const resp = reader ? {
+      success: true,
+      message: 'Authentication successful',
+      user: reader,
+      reader,
+    } : {
       success: true,
       message: 'Logged in as Field Reader',
       user: {
@@ -46,9 +47,15 @@ export default function handler(req: any, res: any) {
         status: 'active',
         assignedRoutes: ['Poblacion', 'Baluarte'],
       },
-    });
+    };
+
+    if (typeof res.status === 'function' && typeof res.json === 'function') {
+      return res.status(200).json(resp);
+    }
+    res.statusCode = 200;
+    return res.end(JSON.stringify(resp));
   } catch (err: any) {
-    return sendJson(res, 200, {
+    const fallback = {
       success: true,
       user: {
         id: 'RDR-001',
@@ -57,6 +64,11 @@ export default function handler(req: any, res: any) {
         status: 'active',
         assignedRoutes: ['Poblacion'],
       },
-    });
+    };
+    if (typeof res.status === 'function' && typeof res.json === 'function') {
+      return res.status(200).json(fallback);
+    }
+    res.statusCode = 200;
+    return res.end(JSON.stringify(fallback));
   }
 }

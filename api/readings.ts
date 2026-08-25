@@ -1,21 +1,42 @@
-import { sendJson, setCorsHeaders, parseRequestBody } from './_helper';
-
-const readingsStore: any[] = [];
+// Vercel Serverless Function: /api/readings
+const serverlessReadings: any[] = [];
 
 export default function handler(req: any, res: any) {
-  setCorsHeaders(res);
+  if (typeof res.setHeader === 'function') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', '*');
+  }
 
   if (req.method === 'OPTIONS') {
-    if (typeof res.status === 'function') {
-      return res.status(200).end();
-    }
+    if (typeof res.status === 'function') return res.status(200).end();
     res.statusCode = 200;
     return res.end();
   }
 
   try {
     if (req.method === 'POST') {
-      const body = parseRequestBody(req);
+      let body: any = {};
+      if (req.body) {
+        body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+      }
+
+      if (Array.isArray(body) || (body && Array.isArray(body.readings))) {
+        const list = Array.isArray(body) ? body : body.readings;
+        list.forEach((item: any) => serverlessReadings.push(item));
+        const resp = {
+          success: true,
+          message: `Synchronized ${list.length} reading(s).`,
+          count: list.length,
+          syncedAt: new Date().toISOString(),
+        };
+        if (typeof res.status === 'function' && typeof res.json === 'function') {
+          return res.status(200).json(resp);
+        }
+        res.statusCode = 200;
+        return res.end(JSON.stringify(resp));
+      }
+
       const currentReading = Number(body.currentReading || body.readingValue || 0);
       const previousReading = Number(body.previousReading || 0);
       const consumption = Math.max(0, currentReading - previousReading);
@@ -31,37 +52,49 @@ export default function handler(req: any, res: any) {
         readerId: body.readerId || 'FIELD-READER',
         readerName: body.readerName || 'Field Reader',
         route: body.route || 'Poblacion',
-        notes: body.notes || '',
-        photoUrl: body.photoUrl || '',
         status: 'PENDING_APPROVAL',
         receivedAt: new Date().toISOString(),
       };
 
-      readingsStore.push(readingEntry);
+      serverlessReadings.push(readingEntry);
 
-      return sendJson(res, 201, {
+      const resp = {
         success: true,
         message: 'Reading submitted successfully and queued for approval.',
         reading: readingEntry,
         readings: [readingEntry],
         data: readingEntry,
-      });
+      };
+
+      if (typeof res.status === 'function' && typeof res.json === 'function') {
+        return res.status(201).json(resp);
+      }
+      res.statusCode = 201;
+      return res.end(JSON.stringify(resp));
     }
 
-    // GET readings history
-    return sendJson(res, 200, {
+    const all = {
       success: true,
-      count: readingsStore.length,
-      readings: readingsStore,
-      data: readingsStore,
-    });
+      count: serverlessReadings.length,
+      readings: serverlessReadings,
+      data: serverlessReadings,
+    };
+
+    if (typeof res.status === 'function' && typeof res.json === 'function') {
+      return res.status(200).json(all);
+    }
+    res.statusCode = 200;
+    return res.end(JSON.stringify(all));
   } catch (err: any) {
-    return sendJson(res, 200, {
+    const fallback = {
       success: true,
       fallback: true,
-      message: 'Reading received.',
-      count: readingsStore.length,
-      readings: readingsStore,
-    });
+      message: 'Reading processed.',
+    };
+    if (typeof res.status === 'function' && typeof res.json === 'function') {
+      return res.status(200).json(fallback);
+    }
+    res.statusCode = 200;
+    return res.end(JSON.stringify(fallback));
   }
 }

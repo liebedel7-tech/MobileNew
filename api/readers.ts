@@ -1,167 +1,200 @@
-import { DistrictReader, getSharedReaders, upsertSharedReader } from './seedData';
-import { sendJson, setCorsHeaders, parseRequestBody } from './_helper';
+// Vercel Serverless Function: /api/readers
+export const READERS = [
+  {
+    id: 'RDR-001',
+    employeeId: 'TWD-2024-001',
+    username: 'jdelacruz',
+    pin: '1234',
+    name: 'Juan Dela Cruz',
+    role: 'Senior Meter Reader',
+    contactNumber: '+63 917 123 4567',
+    email: 'jdelacruz@tagoloanwater.gov.ph',
+    assignedRoutes: ['Poblacion', 'Baluarte'],
+    status: 'active',
+    employmentStatus: 'active',
+    deviceInfo: 'Samsung Galaxy A54 (TWD Field #1)',
+    createdAt: '2026-01-15T08:00:00Z',
+  },
+  {
+    id: 'RDR-002',
+    employeeId: 'TWD-2024-002',
+    username: 'msantos',
+    pin: '2345',
+    name: 'Maria Santos',
+    role: 'Meter Reader II',
+    contactNumber: '+63 918 234 5678',
+    email: 'msantos@tagoloanwater.gov.ph',
+    assignedRoutes: ['Casinglot', 'Natumolan', 'Mohon'],
+    status: 'active',
+    employmentStatus: 'active',
+    deviceInfo: 'Xiaomi Redmi Note 13 (TWD Field #2)',
+    createdAt: '2026-02-01T08:00:00Z',
+  },
+  {
+    id: 'RDR-003',
+    employeeId: 'TWD-2025-003',
+    username: 'rbautista',
+    pin: '3456',
+    name: 'Roberto Bautista',
+    role: 'Meter Reader I',
+    contactNumber: '+63 919 345 6789',
+    email: 'rbautista@tagoloanwater.gov.ph',
+    assignedRoutes: ['Sta. Ana', 'Sta. Cruz', 'Sugbongcogon'],
+    status: 'active',
+    employmentStatus: 'active',
+    deviceInfo: 'Realme 11 (TWD Field #3)',
+    createdAt: '2026-03-10T08:00:00Z',
+  },
+  {
+    id: 'RDR-004',
+    employeeId: 'TWD-2026-004',
+    username: 'cgomez',
+    pin: '4567',
+    name: 'Carlos Gomez',
+    role: 'Probationary Reader',
+    contactNumber: '+63 920 456 7890',
+    email: 'cgomez@tagoloanwater.gov.ph',
+    assignedRoutes: ['Gracia', 'Rosario'],
+    status: 'pending',
+    employmentStatus: 'pending',
+    deviceInfo: 'Vivo Y27 (Applicant Field Unit)',
+    createdAt: '2026-08-18T10:30:00Z',
+  },
+];
+
+declare global {
+  var __TWD_READERS_LIST__: any[] | undefined;
+}
+
+if (!globalThis.__TWD_READERS_LIST__) {
+  globalThis.__TWD_READERS_LIST__ = [...READERS];
+}
 
 export default function handler(req: any, res: any) {
-  setCorsHeaders(res);
+  if (typeof res.setHeader === 'function') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', '*');
+  }
 
   if (req.method === 'OPTIONS') {
-    if (typeof res.status === 'function') {
-      return res.status(200).end();
-    }
+    if (typeof res.status === 'function') return res.status(200).end();
     res.statusCode = 200;
     return res.end();
   }
 
   try {
-    const url = req.url || '';
+    const list = globalThis.__TWD_READERS_LIST__ || READERS;
+    const url = (req.url || '').toLowerCase();
     const query = req.query || {};
-    const readersStore = getSharedReaders();
 
-    // 1. Batch Reader Sync or Registration: POST /api/readers
-    if (req.method === 'POST') {
-      const body = parseRequestBody(req);
-
-      // Batch Readers Sync from Mobile local store
-      if (Array.isArray(body.readers) && body.readers.length > 0) {
-        const synced = body.readers.map((r: any) => {
-          return upsertSharedReader({
-            id: r.id,
-            employeeId: r.employeeId,
-            username: r.username,
-            name: r.name,
-            pin: r.pin,
-            contactNumber: r.contactNumber,
-            email: r.email,
-            assignedRoutes: r.assignedRoutes,
-            status: r.status,
-            deviceInfo: r.deviceInfo,
-            createdAt: r.createdAt,
-          });
-        });
-
-        const allReaders = getSharedReaders();
-        return sendJson(res, 200, {
-          success: true,
-          message: `Synchronized ${synced.length} reader account(s).`,
-          count: allReaders.length,
-          readers: allReaders,
-          data: allReaders,
-        });
-      }
-
-      // Single Registration
-      const name = body.name || body.fullName || body.fullname || body.employeeName || body.username || 'Field Staff';
-      const employeeId = body.employeeId || body.employee_id || body.id || body.badgeId;
-      const username = (body.username || body.id || body.employeeId || `reader_${Date.now()}`).toString().trim();
-      const pin = (body.pin || body.password || '1234').toString().trim();
-      const contactNumber = body.contactNumber || body.contact_number || body.phone || body.mobile || '';
-      const email = body.email || `${username.toLowerCase()}@tagoloanwater.gov.ph`;
-      const assignedRoutes = body.assignedRoutes || body.assignedZones || body.assignedBarangays || (body.zone ? [body.zone] : ['Poblacion']);
-      const deviceInfo = body.deviceInfo || 'Android Mobile Device';
-
-      const savedReader = upsertSharedReader({
-        id: body.id,
-        employeeId,
-        username,
-        name: name.toString().trim(),
-        pin,
-        contactNumber,
-        email,
-        assignedRoutes: Array.isArray(assignedRoutes) && assignedRoutes.length > 0 ? assignedRoutes : ['Poblacion'],
-        status: body.status || 'pending',
-        deviceInfo,
-      });
-
-      return sendJson(res, 201, {
-        success: true,
-        message: 'Meter reader registration submitted successfully.',
-        status: savedReader.status,
-        employmentStatus: savedReader.status,
-        reader: savedReader,
-        data: savedReader,
-        allReaders: getSharedReaders(),
-      });
-    }
-
-    // 2. Reader Status Check: GET /api/readers/check-status?id=... or /api/readers?checkStatus=...
-    const checkId = query.id || query.checkStatus || query.readerId;
+    // 1. Check Status
+    const checkId = (query.id || query.checkStatus || query.readerId || '').toString().toLowerCase().trim();
     if (checkId || url.includes('check-status')) {
       const parts = url.split('/');
       const pathId = parts[parts.length - 1]?.split('?')[0];
-      const targetId = (checkId || pathId || '').toString().toLowerCase().trim();
+      const target = checkId || pathId || '';
 
-      const reader = readersStore.find(r =>
-        (r.id && r.id.toLowerCase() === targetId) ||
-        (r.username && r.username.toLowerCase() === targetId) ||
-        (r.employeeId && r.employeeId.toLowerCase() === targetId)
+      const found = list.find((r: any) =>
+        (r.id && r.id.toLowerCase() === target) ||
+        (r.username && r.username.toLowerCase() === target) ||
+        (r.employeeId && r.employeeId.toLowerCase() === target)
       );
 
-      if (reader) {
-        return sendJson(res, 200, {
-          success: true,
-          status: reader.status,
-          employmentStatus: reader.status,
-          assignedRoutes: reader.assignedRoutes,
-          reader,
-          data: reader,
-        });
-      }
-
-      return sendJson(res, 200, {
+      const resp = found ? {
+        success: true,
+        status: found.status,
+        employmentStatus: found.status,
+        assignedRoutes: found.assignedRoutes,
+        reader: found,
+        data: found,
+      } : {
         success: true,
         status: 'pending',
         employmentStatus: 'pending',
         assignedRoutes: ['Poblacion'],
         message: 'Reader is pending approval.',
-      });
-    }
+      };
 
-    // 3. Status update / patch
-    if (req.method === 'PATCH' || req.method === 'PUT') {
-      const body = parseRequestBody(req);
-      const newStatus = body.status || (url.includes('reject') ? 'rejected' : 'active');
-      const parts = url.split('/');
-      const targetId = (parts[parts.length - 2] || parts[parts.length - 1] || body.id || '').toString().toLowerCase().trim();
-
-      const reader = readersStore.find(r =>
-        (r.id && r.id.toLowerCase() === targetId) ||
-        (r.username && r.username.toLowerCase() === targetId) ||
-        (r.employeeId && r.employeeId.toLowerCase() === targetId)
-      );
-
-      if (reader) {
-        reader.status = newStatus;
-        reader.employmentStatus = newStatus;
-        if (Array.isArray(body.assignedRoutes)) {
-          reader.assignedRoutes = body.assignedRoutes;
-        }
-        return sendJson(res, 200, {
-          success: true,
-          message: `Reader ${reader.name} status updated to ${newStatus}.`,
-          reader,
-          staff: reader,
-        });
+      if (typeof res.status === 'function' && typeof res.json === 'function') {
+        return res.status(200).json(resp);
       }
+      res.statusCode = 200;
+      return res.end(JSON.stringify(resp));
     }
 
-    // 4. Default: Return all readers
-    return sendJson(res, 200, {
+    // 2. Register / Add Reader
+    if (req.method === 'POST') {
+      let body: any = {};
+      if (req.body) {
+        body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+      }
+
+      const name = (body.name || body.fullName || body.username || 'Field Staff').trim();
+      const username = (body.username || body.id || `reader_${Date.now().toString().slice(-4)}`).trim();
+      const newReader = {
+        id: body.id || `RDR-${String(list.length + 1).padStart(3, '0')}`,
+        employeeId: body.employeeId || `TWD-2026-${Math.floor(100 + Math.random() * 900)}`,
+        username,
+        name,
+        pin: body.pin || '1234',
+        contactNumber: body.contactNumber || '',
+        email: body.email || `${username.toLowerCase()}@tagoloanwater.gov.ph`,
+        assignedRoutes: body.assignedRoutes || ['Poblacion'],
+        status: body.status || 'pending',
+        employmentStatus: body.status || 'pending',
+        deviceInfo: body.deviceInfo || 'Mobile Reader App',
+        createdAt: new Date().toISOString(),
+      };
+
+      list.push(newReader);
+
+      const resp = {
+        success: true,
+        message: 'Meter reader registration submitted successfully.',
+        status: newReader.status,
+        employmentStatus: newReader.status,
+        reader: newReader,
+        data: newReader,
+      };
+
+      if (typeof res.status === 'function' && typeof res.json === 'function') {
+        return res.status(201).json(resp);
+      }
+      res.statusCode = 201;
+      return res.end(JSON.stringify(resp));
+    }
+
+    // 3. Return all readers
+    const all = {
       success: true,
-      count: readersStore.length,
-      readers: readersStore,
-      data: readersStore,
-      staff: readersStore.map(r => ({
+      count: list.length,
+      readers: list,
+      data: list,
+      staff: list.map((r: any) => ({
         ...r,
         employmentStatus: r.status,
         zone: r.assignedRoutes?.join(', ') || 'Poblacion',
       })),
-    });
+    };
+
+    if (typeof res.status === 'function' && typeof res.json === 'function') {
+      return res.status(200).json(all);
+    }
+    res.statusCode = 200;
+    return res.end(JSON.stringify(all));
   } catch (err: any) {
-    return sendJson(res, 200, {
+    const list = globalThis.__TWD_READERS_LIST__ || READERS;
+    const fallback = {
       success: true,
-      fallback: true,
-      count: getSharedReaders().length,
-      readers: getSharedReaders(),
-    });
+      count: list.length,
+      readers: list,
+      data: list,
+    };
+    if (typeof res.status === 'function' && typeof res.json === 'function') {
+      return res.status(200).json(fallback);
+    }
+    res.statusCode = 200;
+    return res.end(JSON.stringify(fallback));
   }
 }
