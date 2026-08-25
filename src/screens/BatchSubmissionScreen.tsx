@@ -20,7 +20,6 @@ interface BatchSubmissionScreenProps {
   syncState: SyncState;
   onSyncTrigger: () => Promise<any>;
   onNavigate: (screen: ActiveScreen) => void;
-  onViewReceipt: (reading: MeterReading) => void;
 }
 
 export const BatchSubmissionScreen: React.FC<BatchSubmissionScreenProps> = ({
@@ -29,7 +28,6 @@ export const BatchSubmissionScreen: React.FC<BatchSubmissionScreenProps> = ({
   syncState,
   onSyncTrigger,
   onNavigate,
-  onViewReceipt,
 }) => {
   const [activeTab, setActiveTab] = useState<'PENDING' | 'SYNCED'>('PENDING');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -185,17 +183,13 @@ export const BatchSubmissionScreen: React.FC<BatchSubmissionScreenProps> = ({
                   </div>
                   <h4 className="font-bold text-xs text-white">{reading.consumerName}</h4>
                   <div className="text-[11px] text-slate-400 font-mono">
-                    Reading: {reading.currentReading} cu.m. • Used: {reading.consumption} cu.m. • ₱{reading.billCalculation.totalAmountDue.toFixed(2)}
+                    PREVIOUS: {reading.previousReading} • PRESENT: {reading.currentReading} • CONSUMPTION: {reading.consumption}
                   </div>
                 </div>
 
-                <button
-                  onClick={() => onViewReceipt(reading)}
-                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-sky-400 rounded-xl text-xs font-bold flex items-center gap-1 transition"
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  <span>Receipt</span>
-                </button>
+                <span className="text-[11px] font-mono text-amber-400 bg-amber-950 px-2.5 py-1 rounded-lg border border-amber-800 font-bold">
+                  Awaiting Sync
+                </span>
               </div>
             ))
           )
@@ -225,13 +219,9 @@ export const BatchSubmissionScreen: React.FC<BatchSubmissionScreenProps> = ({
                   </div>
                 </div>
 
-                <button
-                  onClick={() => onViewReceipt(reading)}
-                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-sky-400 rounded-xl text-xs font-bold flex items-center gap-1 transition"
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  <span>Receipt</span>
-                </button>
+                <span className="text-[11px] font-mono text-emerald-400 bg-emerald-950 px-2.5 py-1 rounded-lg border border-emerald-800 font-bold">
+                  Uploaded
+                </span>
               </div>
             ))
           )

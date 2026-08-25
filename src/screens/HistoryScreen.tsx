@@ -3,41 +3,37 @@ import {
   ArrowLeft, 
   Search, 
   History, 
-  FileText, 
   CheckCircle2, 
   Clock, 
   MapPin, 
   Droplet,
-  Printer,
-  Check,
   XCircle,
-  AlertTriangle
+  AlertCircle
 } from 'lucide-react';
-import { MeterReading, ActiveScreen, ApprovalStatus } from '../types';
-import { universalApiFetch } from '../services/apiConfig';
-import { DatabaseHelper } from '../services/databaseHelper';
-import { LoggerService } from '../services/loggerService';
+import { MeterReading, ActiveScreen } from '../types';
 
 interface HistoryScreenProps {
   readings: MeterReading[];
   onNavigate: (screen: ActiveScreen) => void;
-  onViewReceipt: (reading: MeterReading) => void;
   onReload?: () => void;
 }
 
 export const HistoryScreen: React.FC<HistoryScreenProps> = ({
   readings,
   onNavigate,
-  onViewReceipt,
-  onReload,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterApproval, setFilterApproval] = useState<'ALL' | 'pending' | 'approved' | 'rejected'>('ALL');
-  const [processingId, setProcessingId] = useState<string | null>(null);
 
-  const pendingCount = readings.filter(r => r.approvalStatus === 'pending_approval' || (r.status === 'PENDING_SYNC' && r.approvalStatus !== 'approved' && r.approvalStatus !== 'rejected')).length;
-  const approvedCount = readings.filter(r => r.approvalStatus === 'approved' || r.status === 'SYNCED').length;
-  const rejectedCount = readings.filter(r => r.approvalStatus === 'rejected').length;
+  const pendingCount = readings.filter(
+    (r) => r.approvalStatus === 'pending_approval' || (r.status === 'PENDING_SYNC' && r.approvalStatus !== 'approved' && r.approvalStatus !== 'rejected')
+  ).length;
+  const approvedCount = readings.filter(
+    (r) => r.approvalStatus === 'approved' || r.status === 'SYNCED'
+  ).length;
+  const rejectedCount = readings.filter(
+    (r) => r.approvalStatus === 'rejected'
+  ).length;
 
   const filteredReadings = useMemo(() => {
     return readings.filter((r) => {
@@ -56,61 +52,6 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
       return matchSearch && matchApproval;
     });
   }, [readings, searchTerm, filterApproval]);
-
-  const handleApprove = async (reading: MeterReading) => {
-    setProcessingId(reading.id);
-    try {
-      await universalApiFetch(`/api/readings/${reading.id}/approve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ approvedBy: 'Supervisor' }),
-      });
-      await DatabaseHelper.saveReading({
-        ...reading,
-        approvalStatus: 'approved',
-        status: 'SYNCED',
-      });
-      if (onReload) onReload();
-    } catch {
-      await DatabaseHelper.saveReading({
-        ...reading,
-        approvalStatus: 'approved',
-        status: 'SYNCED',
-      });
-      if (onReload) onReload();
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  const handleReject = async (reading: MeterReading) => {
-    const reason = window.prompt(`Enter reason for rejection:`, 'Re-check meter odometer');
-    if (!reason) return;
-
-    setProcessingId(reading.id);
-    try {
-      await universalApiFetch(`/api/readings/${reading.id}/reject`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ reason, rejectedBy: 'Supervisor' }),
-      });
-      await DatabaseHelper.saveReading({
-        ...reading,
-        approvalStatus: 'rejected',
-        remarks: `REJECTED: ${reason}`,
-      });
-      if (onReload) onReload();
-    } catch {
-      await DatabaseHelper.saveReading({
-        ...reading,
-        approvalStatus: 'rejected',
-        remarks: `REJECTED: ${reason}`,
-      });
-      if (onReload) onReload();
-    } finally {
-      setProcessingId(null);
-    }
-  };
 
   return (
     <div className="p-3 sm:p-4 max-w-4xl mx-auto w-full space-y-4 pb-20">
@@ -131,10 +72,10 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
 
       <div>
         <h2 className="text-lg font-black text-white uppercase tracking-tight">
-          Field Meter Readings History & Approvals
+          Field Meter Readings Log
         </h2>
         <p className="text-xs text-slate-400">
-          Logged meter readings, approval status, and consumption records
+          History of recorded meter readings and central approval verification status
         </p>
       </div>
 
@@ -187,8 +128,8 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
               : 'bg-slate-900 text-rose-400 border-slate-800 hover:border-rose-700'
           }`}
         >
-          <XCircle className="w-3.5 h-3.5" />
-          <span>Rejected ({rejectedCount})</span>
+          <AlertCircle className="w-3.5 h-3.5" />
+          <span>Flagged ({rejectedCount})</span>
         </button>
       </div>
 
@@ -249,8 +190,8 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
 
                     {isRejected && (
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-rose-950 text-rose-400 border border-rose-800 flex items-center gap-1">
-                        <XCircle className="w-3 h-3" />
-                        <span>Rejected</span>
+                        <AlertCircle className="w-3 h-3" />
+                        <span>Flagged / Rejected</span>
                       </span>
                     )}
                   </div>
@@ -258,9 +199,11 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                   <h4 className="font-bold text-xs text-white truncate">{reading.consumerName}</h4>
 
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-slate-400 font-mono">
-                    <span>Reading: <strong className="text-slate-200">{reading.currentReading} cu.m.</strong></span>
-                    <span>Used: <strong className="text-sky-400">{reading.consumption} cu.m.</strong></span>
-                    <span>Total: <strong className="text-emerald-400">₱{reading.billCalculation?.totalAmountDue?.toFixed(2) || '0.00'}</strong></span>
+                    <span>PREVIOUS: <strong className="text-slate-300">{reading.previousReading}</strong></span>
+                    <span>•</span>
+                    <span>PRESENT: <strong className="text-sky-300">{reading.currentReading}</strong></span>
+                    <span>•</span>
+                    <span>CONSUMPTION: <strong className="text-emerald-400">{reading.consumption}</strong></span>
                   </div>
 
                   <div className="text-[10px] text-slate-500 flex flex-wrap items-center gap-1 font-mono">
@@ -274,40 +217,6 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                       </>
                     )}
                   </div>
-                </div>
-
-                <div className="shrink-0 flex items-center gap-2 self-end sm:self-center">
-                  {isPending && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => handleApprove(reading)}
-                        disabled={processingId === reading.id}
-                        className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1 transition"
-                      >
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Approve</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleReject(reading)}
-                        disabled={processingId === reading.id}
-                        className="px-2.5 py-1.5 bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-800 rounded-xl text-xs font-bold flex items-center gap-1 transition"
-                      >
-                        <XCircle className="w-3.5 h-3.5" />
-                        <span>Reject</span>
-                      </button>
-                    </>
-                  )}
-
-                  <button
-                    onClick={() => onViewReceipt(reading)}
-                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-sky-400 rounded-xl text-xs font-bold flex items-center gap-1.5 transition border border-slate-700"
-                  >
-                    <Printer className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Receipt</span>
-                  </button>
                 </div>
               </div>
             );

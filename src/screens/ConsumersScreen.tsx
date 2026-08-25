@@ -77,7 +77,7 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
 
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-black text-white uppercase tracking-tight">
-          Consumer Accounts Directory
+          Consumer's List
         </h2>
       </div>
 
@@ -167,7 +167,7 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
                   ? 'border-emerald-900/50 bg-emerald-950/10'
                   : 'border-slate-800'
               }`}
-              onClick={() => onSelectConsumer(consumer)}
+              onClick={() => onStartReading(consumer)}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="space-y-1 flex-1 min-w-0">
@@ -198,10 +198,48 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
                     <span className="truncate">{consumer.address}</span>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-400 font-mono pt-1">
-                    <span>Tag/Meter: <strong className="text-sky-300">{consumer.meterNumber || consumer.meterSerial}</strong></span>
-                    <span>Prev: <strong className="text-slate-200">{consumer.previousReading} cu.m.</strong></span>
-                    <span>Avg: <strong className="text-slate-200">{consumer.averageConsumption} cu.m.</strong></span>
+                  {/* Reading & Consumption Block */}
+                  <div className="mt-2.5 pt-2 border-t border-slate-800/80 bg-slate-950/80 rounded-xl p-3 space-y-2 font-mono text-xs border border-slate-800/80">
+                    <div className="flex items-center justify-between text-slate-300">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                        PREVIOUS READING
+                      </span>
+                      <span className="font-bold text-slate-200 text-sm">
+                        {consumer.previousReading}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-slate-300">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                        PRESENT READING
+                      </span>
+                      <span className={`font-bold text-sm ${
+                        consumer.isReadThisMonth ? 'text-sky-300' : 'text-slate-500 italic text-xs'
+                      }`}>
+                        {consumer.isReadThisMonth && consumer.currentMonthReading
+                          ? consumer.currentMonthReading.currentReading
+                          : 'Pending'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1.5 border-t border-slate-800/80">
+                      <span className="text-[10px] uppercase font-bold text-emerald-400 tracking-wider">
+                        CONSUMPTION
+                      </span>
+                      <span className={`font-black text-sm ${
+                        consumer.isReadThisMonth ? 'text-emerald-400' : 'text-slate-400'
+                      }`}>
+                        {consumer.isReadThisMonth && consumer.currentMonthReading
+                          ? consumer.currentMonthReading.consumption
+                          : (consumer.previousConsumption ? `${consumer.previousConsumption} (Prev)` : '—')}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono pt-1">
+                    <span>Tag: <strong className="text-sky-300">{consumer.meterNumber || consumer.meterSerial}</strong></span>
+                    <span>•</span>
+                    <span>Rate: <strong className="text-slate-300">{consumer.rateCode}</strong></span>
                   </div>
                 </div>
 

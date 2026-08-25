@@ -15,10 +15,10 @@ import { WebSocketService, WSConnectionStatus } from './services/websocketServic
 import { WDTHeader } from './components/WDTHeader';
 import { WDTBottomNav } from './components/WDTBottomNav';
 import { MobileFrameWrapper } from './components/MobileFrameWrapper';
-import { ThermalReceiptModal } from './components/ThermalReceiptModal';
 import { DownloadApkModal } from './components/DownloadApkModal';
 import { ScreenTransition } from './components/ScreenTransition';
 import { ModuleLoadingScreen, LoadingProcessInfo } from './components/ModuleLoadingScreen';
+import { AppSplashScreen } from './components/AppSplashScreen';
 import { WebSocketActivityFeed } from './components/WebSocketActivityFeed';
 
 // Screens
@@ -47,12 +47,13 @@ export function App() {
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [syncState, setSyncState] = useState<SyncState>(SyncService.getSyncState());
   const [selectedConsumer, setSelectedConsumer] = useState<Consumer | null>(null);
-  const [activeReceiptReading, setActiveReceiptReading] = useState<MeterReading | null>(null);
   const [isMobileChassis, setIsMobileChassis] = useState<boolean>(true);
   const [isApkModalOpen, setIsApkModalOpen] = useState<boolean>(false);
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<any>(null);
   const [wsStatus, setWsStatus] = useState<WSConnectionStatus>('CONNECTING');
   const [loadingProcess, setLoadingProcess] = useState<LoadingProcessInfo | null>(null);
+  const [isBootSplash, setIsBootSplash] = useState<boolean>(true);
+  const [loginInitialMode, setLoginInitialMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
 
   // Clear any stale legacy hash from previous sessions so landing is always shown on boot
   useEffect(() => {
@@ -292,6 +293,12 @@ export function App() {
   };
 
   const handleSaveReading = async (reading: MeterReading) => {
+    // Strictly prevent saving if current reading is less than previous reading
+    if (reading.currentReading < reading.previousReading) {
+      console.error('Validation Error: Current reading cannot be less than previous reading');
+      return;
+    }
+
     // Save to local database (IndexedDB / SQLite)
     await DatabaseHelper.saveReading(reading);
     
@@ -387,6 +394,11 @@ export function App() {
   const pendingReadings = readings.filter((r) => r.status === 'PENDING_SYNC');
   const syncedReadings = readings.filter((r) => r.status === 'SYNCED');
 
+  // Initial App Opening Loading Screen with Official Logo & Dark Blue Screen
+  if (isBootSplash) {
+    return <AppSplashScreen onFinish={() => setIsBootSplash(false)} />;
+  }
+
   // If on Landing Screen, render the mobile-framed 3D Landing Page immediately
   if (activeScreen === 'landing') {
     return (
@@ -404,6 +416,10 @@ export function App() {
           user={currentUser}
           syncState={syncState}
           onNavigate={navigateTo}
+          onOpenLogin={(mode = 'LOGIN') => {
+            setLoginInitialMode(mode);
+            navigateTo('login');
+          }}
           onOpenApkModal={() => setIsApkModalOpen(true)}
           wsStatus={wsStatus}
           isMobileChassis={isMobileChassis}
@@ -462,6 +478,7 @@ export function App() {
         <LoginScreen 
           onLogin={handleLogin} 
           onBackToLanding={() => navigateTo('landing')}
+          initialMode={loginInitialMode}
         />
       </MobileFrameWrapper>
     );
@@ -502,6 +519,14 @@ export function App() {
               readings={readings}
               syncState={syncState}
               onNavigate={navigateTo}
+              onSelectConsumer={(c) => {
+                setSelectedConsumer(c);
+                navigateTo('consumer_details', {
+                  title: 'Loading Consumer Profile',
+                  subtitle: `${c.name} (${c.accountNumber})`,
+                });
+              }}
+              onStartReading={handleStartReading}
               onSyncTrigger={handleTriggerSync}
               onOpenApkModal={() => setIsApkModalOpen(true)}
             />
@@ -529,7 +554,6 @@ export function App() {
               onStartReading={handleStartReading}
               onScanMeter={handleScanMeter}
               onNavigate={navigateTo}
-              onViewReceipt={setActiveReceiptReading}
             />
           )}
 
@@ -545,16 +569,18 @@ export function App() {
               onNavigate={navigateTo}
               onScanWithCamera={handleScanMeter}
               onSelectNextConsumer={(c) => setSelectedConsumer(c)}
-              onViewReceipt={setActiveReceiptReading}
             />
           )}
 
           {activeScreen === 'scan_meter' && (
             <ScanMeterScreen
               consumer={selectedConsumer}
+              currentUser={currentUser}
               onNavigate={navigateTo}
               onOCRComplete={handleOCRComplete}
               onSelectConsumer={(c) => setSelectedConsumer(c)}
+              onSaveReading={handleSaveReading}
+              onReloadData={reloadData}
             />
           )}
 
@@ -565,7 +591,6 @@ export function App() {
               syncState={syncState}
               onSyncTrigger={handleTriggerSync}
               onNavigate={navigateTo}
-              onViewReceipt={setActiveReceiptReading}
             />
           )}
 
@@ -573,7 +598,6 @@ export function App() {
             <HistoryScreen
               readings={readings}
               onNavigate={navigateTo}
-              onViewReceipt={setActiveReceiptReading}
               onReload={reloadData}
             />
           )}
@@ -624,15 +648,6 @@ export function App() {
         onNavigate={navigateTo}
         pendingCount={pendingReadings.length}
       />
-
-      {/* Official Thermal Water Bill Receipt Modal */}
-      {activeReceiptReading && (
-        <ThermalReceiptModal
-          reading={activeReceiptReading}
-          consumer={selectedConsumer}
-          onClose={() => setActiveReceiptReading(null)}
-        />
-      )}
 
       {/* Android APK & Mobile Installation Modal */}
       {isApkModalOpen && (

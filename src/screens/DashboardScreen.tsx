@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { 
   CheckCircle2, 
   Camera, 
@@ -9,18 +9,15 @@ import {
   ChevronRight,
   Zap,
   RefreshCw,
-  UserCheck,
   Clock,
-  Check,
-  XCircle,
-  AlertTriangle,
+  AlertCircle,
   ShieldCheck,
-  CheckCheck
+  CheckCheck,
+  UserCheck,
+  CloudUpload,
+  Layers
 } from 'lucide-react';
 import { Consumer, MeterReading, StaffUser, SyncState, ActiveScreen } from '../types';
-import { universalApiFetch } from '../services/apiConfig';
-import { DatabaseHelper } from '../services/databaseHelper';
-import { LoggerService } from '../services/loggerService';
 
 interface DashboardScreenProps {
   user: StaffUser;
@@ -28,6 +25,8 @@ interface DashboardScreenProps {
   readings: MeterReading[];
   syncState: SyncState;
   onNavigate: (screen: ActiveScreen) => void;
+  onSelectConsumer?: (consumer: Consumer) => void;
+  onStartReading?: (consumer: Consumer) => void;
   onSyncTrigger: () => void;
   onOpenApkModal?: () => void;
 }
@@ -38,110 +37,173 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   readings,
   syncState,
   onNavigate,
+  onSelectConsumer,
+  onStartReading,
   onSyncTrigger,
   onOpenApkModal,
 }) => {
-  const [processingId, setProcessingId] = useState<string | null>(null);
-  const [actionFeedback, setActionFeedback] = useState<string | null>(null);
-
   const totalAssigned = consumers.length;
   const readCount = consumers.filter((c) => c.isReadThisMonth).length;
   const unreadCount = Math.max(0, totalAssigned - readCount);
   const percentComplete = totalAssigned > 0 ? Math.round((readCount / totalAssigned) * 100) : 0;
 
-  // Filter pending readings that await admin approval
+  // Filter pending and recent readings for field reader tracking
   const pendingApprovalReadings = readings.filter(
     (r) => r.approvalStatus === 'pending_approval' || (r.status === 'PENDING_SYNC' && r.approvalStatus !== 'approved' && r.approvalStatus !== 'rejected')
   );
 
-  // Handle Admin Approval
-  const handleApprove = async (reading: MeterReading) => {
-    setProcessingId(reading.id);
-    setActionFeedback(null);
-
-    try {
-      // 1. Send approval to Central Server
-      const res = await universalApiFetch(`/api/readings/${reading.id}/approve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ approvedBy: user.name }),
-      });
-
-      // 2. Update local DB
-      await DatabaseHelper.saveReading({
-        ...reading,
-        approvalStatus: 'approved',
-        status: 'SYNCED',
-      });
-
-      await LoggerService.log(
-        'READING_ADMIN_APPROVED',
-        `Admin ${user.name} approved reading ${reading.currentReading} m³ for Account #${reading.accountNumber} (${reading.consumerName}). Billing posted.`,
-        user.id,
-        user.name
-      );
-
-      setActionFeedback(`✓ Approved reading for ${reading.consumerName} (${reading.accountNumber}). Billing statement published.`);
-      onSyncTrigger();
-    } catch (err: any) {
-      // Update locally even if offline
-      await DatabaseHelper.saveReading({
-        ...reading,
-        approvalStatus: 'approved',
-        status: 'SYNCED',
-      });
-      setActionFeedback(`✓ Approved locally: ${reading.accountNumber}`);
-      onSyncTrigger();
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  // Handle Admin Rejection
-  const handleReject = async (reading: MeterReading) => {
-    const reason = window.prompt(`Enter reason for rejecting reading for ${reading.consumerName}:`, 'Dial number unclear / high consumption variance');
-    if (!reason) return;
-
-    setProcessingId(reading.id);
-    setActionFeedback(null);
-
-    try {
-      await universalApiFetch(`/api/readings/${reading.id}/reject`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ reason, rejectedBy: user.name }),
-      });
-
-      await DatabaseHelper.saveReading({
-        ...reading,
-        approvalStatus: 'rejected',
-        remarks: `REJECTED: ${reason}`,
-      });
-
-      await LoggerService.log(
-        'READING_ADMIN_REJECTED',
-        `Admin ${user.name} rejected reading for Account #${reading.accountNumber}. Reason: ${reason}`,
-        user.id,
-        user.name
-      );
-
-      setActionFeedback(`Rejected reading for ${reading.accountNumber}. Flagged for field re-inspection.`);
-      onSyncTrigger();
-    } catch (err: any) {
-      await DatabaseHelper.saveReading({
-        ...reading,
-        approvalStatus: 'rejected',
-        remarks: `REJECTED: ${reason}`,
-      });
-      setActionFeedback(`Rejected reading for ${reading.accountNumber}`);
-      onSyncTrigger();
-    } finally {
-      setProcessingId(null);
-    }
-  };
+  const recentReadings = [...readings].slice(0, 5);
 
   return (
     <div className="flex-1 p-3.5 sm:p-5 lg:p-7 flex flex-col gap-4 max-w-7xl mx-auto w-full">
+      {/* FIELD TERMINAL MODULES (Prominently Showcased on Sign In) */}
+      <section className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-lg space-y-3.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-sky-500/10 border border-sky-500/30 text-sky-400 flex items-center justify-center">
+              <Layers className="w-4 h-4" />
+            </div>
+            <div>
+              <h2 className="text-xs sm:text-sm font-black text-white uppercase tracking-wider flex items-center gap-1.5">
+                <span>Field Terminal Modules</span>
+                <span className="px-1.5 py-0.2 rounded-full bg-emerald-950 text-emerald-400 text-[9px] font-mono font-bold border border-emerald-800">
+                  ACTIVE
+                </span>
+              </h2>
+              <p className="text-[10.5px] text-slate-400 font-mono">
+                Authorized Reader: {user.name} • {user.zone}
+              </p>
+            </div>
+          </div>
+
+          <span className="text-[10px] text-sky-400 font-mono bg-sky-950/80 px-2 py-0.5 rounded border border-sky-800 hidden sm:inline-block">
+            6 Operational Modules
+          </span>
+        </div>
+
+        {/* 6 Grid Module Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
+          {/* Module 1: Optical Odometer Vision Scanner */}
+          <button
+            type="button"
+            onClick={() => onNavigate('scan_meter')}
+            className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 hover:border-sky-500/60 hover:bg-slate-900/60 transition-all flex flex-col items-start gap-2.5 group text-left active:scale-[0.98] shadow-sm cursor-pointer"
+          >
+            <div className="w-9 h-9 rounded-xl bg-sky-500/10 border border-sky-500/30 text-sky-400 flex items-center justify-center group-hover:scale-105 transition-transform shrink-0">
+              <Camera className="w-4 h-4" />
+            </div>
+            <div>
+              <span className="text-xs font-bold text-white block group-hover:text-sky-300 transition">
+                Optical Odometer Scanner
+              </span>
+              <span className="text-[10px] text-slate-400 block mt-0.5">
+                Camera OCR & 5-digit capture
+              </span>
+            </div>
+          </button>
+
+          {/* Module 2: Zone Consumer Directory */}
+          <button
+            type="button"
+            onClick={() => onNavigate('consumers')}
+            className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 hover:border-emerald-500/60 hover:bg-slate-900/60 transition-all flex flex-col items-start gap-2.5 group text-left active:scale-[0.98] shadow-sm cursor-pointer"
+          >
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center group-hover:scale-105 transition-transform shrink-0">
+              <Users className="w-4 h-4" />
+            </div>
+            <div>
+              <span className="text-xs font-bold text-white block group-hover:text-emerald-300 transition">
+                Zone Consumer Directory
+              </span>
+              <span className="text-[10px] text-slate-400 block mt-0.5">
+                12-zone route sequence & tags
+              </span>
+            </div>
+          </button>
+
+          {/* Module 3: Manual Reading Entry */}
+          <button
+            type="button"
+            onClick={() => onNavigate('reading_entry')}
+            className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 hover:border-amber-500/60 hover:bg-slate-900/60 transition-all flex flex-col items-start gap-2.5 group text-left active:scale-[0.98] shadow-sm cursor-pointer"
+          >
+            <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center group-hover:scale-105 transition-transform shrink-0">
+              <FileText className="w-4 h-4" />
+            </div>
+            <div>
+              <span className="text-xs font-bold text-white block group-hover:text-amber-300 transition">
+                Manual Reading Entry
+              </span>
+              <span className="text-[10px] text-slate-400 block mt-0.5">
+                Direct odometer index logging & remarks
+              </span>
+            </div>
+          </button>
+
+          {/* Module 4: Central Batch Sync Gateway */}
+          <button
+            type="button"
+            onClick={() => onNavigate('batch_submission')}
+            className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 hover:border-purple-500/60 hover:bg-slate-900/60 transition-all flex flex-col items-start gap-2.5 group text-left active:scale-[0.98] shadow-sm relative cursor-pointer"
+          >
+            <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-400 flex items-center justify-center group-hover:scale-105 transition-transform shrink-0">
+              <CloudUpload className="w-4 h-4" />
+            </div>
+            {syncState.pendingCount > 0 && (
+              <span className="absolute top-3 right-3 px-1.5 py-0.5 rounded-full bg-amber-500 text-slate-950 text-[9px] font-black animate-pulse">
+                {syncState.pendingCount}
+              </span>
+            )}
+            <div>
+              <span className="text-xs font-bold text-white block group-hover:text-purple-300 transition">
+                Central Batch Sync
+              </span>
+              <span className="text-[10px] text-slate-400 block mt-0.5">
+                WebSocket ledger sync & upload
+              </span>
+            </div>
+          </button>
+
+          {/* Module 5: Reading Logs & Submittal History */}
+          <button
+            type="button"
+            onClick={() => onNavigate('history')}
+            className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 hover:border-sky-500/60 hover:bg-slate-900/60 transition-all flex flex-col items-start gap-2.5 group text-left active:scale-[0.98] shadow-sm cursor-pointer"
+          >
+            <div className="w-9 h-9 rounded-xl bg-sky-500/10 border border-sky-500/30 text-sky-400 flex items-center justify-center group-hover:scale-105 transition-transform shrink-0">
+              <Send className="w-4 h-4" />
+            </div>
+            <div>
+              <span className="text-xs font-bold text-white block group-hover:text-sky-300 transition">
+                Reading Logs & Status
+              </span>
+              <span className="text-[10px] text-slate-400 block mt-0.5">
+                Admin review & approval history
+              </span>
+            </div>
+          </button>
+
+          {/* Module 6: Meter Readers & Staff Directory */}
+          <button
+            type="button"
+            onClick={() => onNavigate('meter_readers')}
+            className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 hover:border-emerald-500/60 hover:bg-slate-900/60 transition-all flex flex-col items-start gap-2.5 group text-left active:scale-[0.98] shadow-sm cursor-pointer"
+          >
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center group-hover:scale-105 transition-transform shrink-0">
+              <UserCheck className="w-4 h-4" />
+            </div>
+            <div>
+              <span className="text-xs font-bold text-white block group-hover:text-emerald-300 transition">
+                Staff & Reader Directory
+              </span>
+              <span className="text-[10px] text-slate-400 block mt-0.5">
+                Staff accounts & route assignments
+              </span>
+            </div>
+          </button>
+        </div>
+      </section>
+
       {/* Shift Progress Card */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm">
         <div className="flex items-center justify-between mb-3">
@@ -150,7 +212,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               Shift Progress • {user.zone}
             </h2>
             <p className="text-[11px] text-slate-500 font-mono mt-0.5">
-              Assigned Field Reading Route
+              Assigned Consumer's List
             </p>
           </div>
 
@@ -166,8 +228,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </span>
           <div className="flex items-center gap-3 sm:gap-4 text-right">
             <div>
-              <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold block">Pending Approval</span>
-              <span className="text-sm font-semibold text-amber-400 font-mono">{pendingApprovalReadings.length}</span>
+              <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold block">Sent to Admin</span>
+              <span className="text-sm font-semibold text-sky-400 font-mono">{readCount}</span>
             </div>
             <div>
               <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold block">Remaining</span>
@@ -185,110 +247,88 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         </div>
       </div>
 
-      {/* Admin Action Notification Banner */}
-      {actionFeedback && (
-        <div className="p-3 bg-emerald-950/80 border border-emerald-800 text-emerald-300 rounded-xl text-xs font-medium flex items-center justify-between animate-in fade-in">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>{actionFeedback}</span>
-          </div>
-          <button 
-            onClick={() => setActionFeedback(null)}
-            className="text-[11px] text-slate-400 hover:text-white"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
-
-      {/* Admin Approval Queue Section */}
+      {/* Field Submission Status Tracker (Read-Only Status for Reader) */}
       <section className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center">
-              <Clock className="w-4 h-4" />
+            <div className="w-7 h-7 rounded-lg bg-sky-500/10 border border-sky-500/30 text-sky-400 flex items-center justify-center">
+              <Send className="w-4 h-4" />
             </div>
             <div>
               <h2 className="text-xs font-bold text-white uppercase tracking-wider">
-                Field Readings Pending Admin Approval
+                Recent Meter Submissions & Status
               </h2>
               <p className="text-[10px] text-slate-400 font-mono">
-                Submitted by readers • Verify and Approve to publish consumer billings
+                Dispatched to Central Admin Dashboard • Live status tracking
               </p>
             </div>
           </div>
 
-          <span className="px-2.5 py-0.5 bg-amber-950/80 border border-amber-800/80 text-amber-400 rounded-full text-xs font-mono font-bold">
-            {pendingApprovalReadings.length} Pending
-          </span>
+          <button
+            type="button"
+            onClick={() => onNavigate('history')}
+            className="text-xs font-bold text-sky-400 hover:text-sky-300 transition flex items-center gap-1"
+          >
+            <span>View All ({readings.length})</span>
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
         </div>
 
-        {pendingApprovalReadings.length === 0 ? (
+        {recentReadings.length === 0 ? (
           <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-4 text-center text-slate-400 flex items-center justify-center gap-2">
-            <CheckCheck className="w-4 h-4 text-emerald-400" />
-            <span className="text-xs">All submitted field meter readings have been approved and posted.</span>
+            <Clock className="w-4 h-4 text-slate-500" />
+            <span className="text-xs">No meter readings recorded on this terminal yet. Select a consumer to begin.</span>
           </div>
         ) : (
           <div className="space-y-2.5">
-            {pendingApprovalReadings.slice(0, 5).map((reading) => (
-              <div
-                key={reading.id}
-                className="bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl p-3 sm:p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition"
-              >
-                <div className="space-y-1 flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs font-bold text-sky-400 bg-sky-950 px-2 py-0.5 rounded border border-sky-800">
-                      {reading.accountNumber}
-                    </span>
-                    <span className="text-xs font-bold text-white truncate">{reading.consumerName}</span>
-                    <span className="text-[10px] px-2 py-0.5 bg-amber-950 text-amber-400 border border-amber-800/80 rounded-full font-mono font-bold">
-                      Pending Approval
-                    </span>
-                  </div>
+            {recentReadings.map((reading) => {
+              const isPending = reading.approvalStatus === 'pending_approval' || (reading.status === 'PENDING_SYNC' && reading.approvalStatus !== 'approved' && reading.approvalStatus !== 'rejected');
+              const isApproved = reading.approvalStatus === 'approved' || reading.status === 'SYNCED';
+              const isRejected = reading.approvalStatus === 'rejected';
 
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-400 font-mono">
-                    <span>Reading: <strong className="text-slate-200">{reading.currentReading} m³</strong></span>
-                    <span>Used: <strong className="text-sky-400">{reading.consumption} m³</strong></span>
-                    <span>Tariff: <strong className="text-emerald-400">₱{reading.billCalculation?.totalAmountDue?.toFixed(2) || '0.00'}</strong></span>
-                    <span className="text-[11px] text-slate-500">Reader: {reading.readerName || reading.readerId}</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                  <button
-                    type="button"
-                    onClick={() => handleApprove(reading)}
-                    disabled={processingId === reading.id}
-                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition active:scale-95 disabled:opacity-50 shadow-md shadow-emerald-950"
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                    <span>{processingId === reading.id ? 'Approving...' : 'Approve & Post'}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleReject(reading)}
-                    disabled={processingId === reading.id}
-                    className="px-3 py-1.5 bg-rose-950 hover:bg-rose-900 border border-rose-800 text-rose-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition active:scale-95 disabled:opacity-50"
-                  >
-                    <XCircle className="w-3.5 h-3.5" />
-                    <span>Reject</span>
-                  </button>
-                </div>
-              </div>
-            ))}
-
-            {pendingApprovalReadings.length > 5 && (
-              <div className="text-center pt-1">
-                <button
-                  type="button"
-                  onClick={() => onNavigate('history')}
-                  className="text-xs font-bold text-sky-400 hover:text-sky-300 transition"
+              return (
+                <div
+                  key={reading.id}
+                  className="bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl p-3 sm:p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition"
                 >
-                  View all {pendingApprovalReadings.length} pending readings in History →
-                </button>
-              </div>
-            )}
+                  <div className="space-y-1 flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono text-xs font-bold text-sky-400 bg-sky-950 px-2 py-0.5 rounded border border-sky-800">
+                        {reading.accountNumber}
+                      </span>
+                      <span className="text-xs font-bold text-white truncate">{reading.consumerName}</span>
+                      
+                      {isPending && (
+                        <span className="text-[10px] px-2 py-0.5 bg-amber-950 text-amber-400 border border-amber-800/80 rounded-full font-mono font-bold flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          <span>Pending Admin Approval</span>
+                        </span>
+                      )}
+
+                      {isApproved && (
+                        <span className="text-[10px] px-2 py-0.5 bg-emerald-950 text-emerald-400 border border-emerald-800/80 rounded-full font-mono font-bold flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span>Approved by Admin</span>
+                        </span>
+                      )}
+
+                      {isRejected && (
+                        <span className="text-[10px] px-2 py-0.5 bg-rose-950 text-rose-400 border border-rose-800/80 rounded-full font-mono font-bold flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" />
+                          <span>Flagged by Admin</span>
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-400 font-mono">
+                      <span>Reading: <strong className="text-slate-200">{reading.currentReading} m³</strong></span>
+                      <span>Used: <strong className="text-sky-400">{reading.consumption} m³</strong></span>
+                      <span className="text-[11px] text-slate-500">{reading.readingDate} • {reading.readingTime}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </section>
@@ -298,12 +338,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         <div className="flex items-center justify-between">
           <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
             <Zap className="w-3.5 h-3.5 text-sky-400" />
-            <span>Quick Actions</span>
+            <span>Field Terminal Actions</span>
           </h2>
-          <span className="text-[10px] text-slate-500 font-mono">Field Shortcuts</span>
+          <span className="text-[10px] text-slate-500 font-mono">Shortcuts</span>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
           {/* Action 1: Camera Meter Scan */}
           <button
             type="button"
@@ -321,7 +361,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             </div>
           </button>
 
-          {/* Action 2: Route Consumers */}
+          {/* Action 2: Consumer's List */}
           <button
             type="button"
             onClick={() => onNavigate('consumers')}
@@ -332,9 +372,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             </div>
             <div>
               <span className="text-xs font-bold text-white block group-hover:text-emerald-300 transition">
-                Find Consumer
+                Consumer's List
               </span>
-              <span className="text-[10px] text-slate-400">Route Directory</span>
+              <span className="text-[10px] text-slate-400">Directory</span>
             </div>
           </button>
 
@@ -360,37 +400,20 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             </div>
           </button>
 
-          {/* Action 4: Staff & Meter Readers Module */}
+          {/* Action 4: Reading History */}
           <button
             type="button"
-            onClick={() => onNavigate('meter_readers')}
-            className="p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-cyan-500/50 transition-all flex flex-col items-center justify-center gap-2 group text-center active:scale-[0.98]"
-          >
-            <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 flex items-center justify-center group-hover:scale-110 transition-transform">
-              <UserCheck className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="text-xs font-bold text-white block group-hover:text-cyan-300 transition">
-                Meter Readers
-              </span>
-              <span className="text-[10px] text-slate-400">Staff Approval</span>
-            </div>
-          </button>
-
-          {/* Action 5: Mobile App / Flutter Config */}
-          <button
-            type="button"
-            onClick={() => (onOpenApkModal ? onOpenApkModal() : onNavigate('flutter_config'))}
+            onClick={() => onNavigate('history')}
             className="p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-purple-500/50 transition-all flex flex-col items-center justify-center gap-2 group text-center active:scale-[0.98]"
           >
             <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-400 flex items-center justify-center group-hover:scale-110 transition-transform">
-              <Smartphone className="w-5 h-5" />
+              <FileText className="w-5 h-5" />
             </div>
             <div>
               <span className="text-xs font-bold text-white block group-hover:text-purple-300 transition">
-                Mobile APK
+                Reading Logs
               </span>
-              <span className="text-[10px] text-slate-400">Android Build</span>
+              <span className="text-[10px] text-slate-400">History & Status</span>
             </div>
           </button>
         </div>
@@ -402,10 +425,10 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between gap-3 shrink-0">
           <div>
             <h2 className="font-bold text-white text-base">
-              Assigned Consumer Route
+              Consumer's List
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              Sequential walking order for meter reading & billing
+              Assigned accounts for meter reading & billing
             </p>
           </div>
 
@@ -422,8 +445,10 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             <thead className="bg-slate-950/70 text-[10px] uppercase text-slate-500 font-bold sticky top-0 z-10 backdrop-blur-sm">
               <tr>
                 <th className="px-4 py-3">Account / Name</th>
-                <th className="px-4 py-3">Meter Serial</th>
-                <th className="px-4 py-3">Previous Reading</th>
+                <th className="px-4 py-3">Meter Tag / SN</th>
+                <th className="px-3 py-3 text-center">Previous Reading</th>
+                <th className="px-3 py-3 text-center">Present Reading</th>
+                <th className="px-3 py-3 text-center">Consumption</th>
                 <th className="px-4 py-3 text-right">Status / Action</th>
               </tr>
             </thead>
@@ -434,9 +459,15 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 return (
                   <tr
                     key={consumer.id}
-                    onClick={() => onNavigate('consumers')}
+                    onClick={() => {
+                      if (onStartReading) {
+                        onStartReading(consumer);
+                      } else if (onSelectConsumer) {
+                        onSelectConsumer(consumer);
+                      }
+                    }}
                     className={`transition-colors cursor-pointer hover:bg-slate-800/60 ${
-                      isNext ? 'bg-sky-500/5 font-medium' : consumer.isReadThisMonth ? 'opacity-80' : ''
+                      isNext ? 'bg-sky-500/5 font-medium' : consumer.isReadThisMonth ? 'opacity-90' : ''
                     }`}
                   >
                     {/* Account & Name */}
@@ -449,22 +480,44 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                           #{consumer.sequenceNo}
                         </span>
                       </div>
-                      <p className="text-xs text-slate-400 truncate max-w-[180px] sm:max-w-xs">
+                      <p className="text-xs text-slate-400 truncate max-w-[150px] sm:max-w-xs">
                         {consumer.name}
                       </p>
                     </td>
 
                     {/* Serial */}
                     <td className="px-4 py-3.5 font-mono text-xs text-slate-300">
-                      {consumer.meterSerial}
+                      <span className="text-sky-300 font-bold block">{consumer.meterNumber || 'TAG-N/A'}</span>
+                      <span className="text-[10px] text-slate-500 block">{consumer.meterSerial}</span>
                     </td>
 
-                    {/* Last Reading */}
-                    <td className="px-4 py-3.5 text-xs font-mono">
-                      <span className="text-slate-100 font-semibold">{consumer.previousReading} m³</span>
-                      <span className="text-slate-500 text-[10px] block font-sans">
-                        Avg: {consumer.averageConsumption} m³
-                      </span>
+                    {/* Previous Reading */}
+                    <td className="px-3 py-3.5 text-sm font-mono text-center">
+                      <span className="text-slate-200 font-bold">{consumer.previousReading}</span>
+                    </td>
+
+                    {/* Present Reading */}
+                    <td className="px-3 py-3.5 text-sm font-mono text-center">
+                      {consumer.isReadThisMonth && consumer.currentMonthReading ? (
+                        <span className="text-sky-400 font-bold bg-sky-950/60 px-2.5 py-1 rounded border border-sky-800/60 inline-block">
+                          {consumer.currentMonthReading.currentReading}
+                        </span>
+                      ) : (
+                        <span className="text-slate-500 text-xs italic">Pending</span>
+                      )}
+                    </td>
+
+                    {/* Consumption */}
+                    <td className="px-3 py-3.5 text-sm font-mono text-center">
+                      {consumer.isReadThisMonth && consumer.currentMonthReading ? (
+                        <span className="text-emerald-400 font-black bg-emerald-950/60 px-2.5 py-1 rounded border border-emerald-800/60 inline-block">
+                          {consumer.currentMonthReading.consumption}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 text-xs font-mono">
+                          {consumer.previousConsumption ? `${consumer.previousConsumption} (Prev)` : '—'}
+                        </span>
+                      )}
                     </td>
 
                     {/* Status / Action Button */}
@@ -472,11 +525,11 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                       {consumer.isReadThisMonth ? (
                         <span className="inline-flex items-center gap-1 text-emerald-400 text-xs font-bold bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-md">
                           <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Billed</span>
+                          <span>Logged</span>
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 text-sky-400 text-xs font-bold bg-sky-500/10 border border-sky-500/20 px-2.5 py-1 rounded-md hover:bg-sky-500/20 transition">
-                          <span>Read</span>
+                          <span>Enter Reading</span>
                           <ChevronRight className="w-3.5 h-3.5" />
                         </span>
                       )}

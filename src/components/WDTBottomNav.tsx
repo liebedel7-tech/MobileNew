@@ -27,7 +27,7 @@ export const WDTBottomNav: React.FC<WDTBottomNavProps> = ({
     },
     {
       id: 'consumers',
-      label: 'Routes',
+      label: "Consumer's List",
       icon: <Users className="w-5 h-5" />,
     },
     {

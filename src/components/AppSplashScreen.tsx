@@ -1,143 +1,109 @@
 import React, { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { Droplet, ShieldCheck, Wifi, Database, CheckCircle2, Sparkles } from 'lucide-react';
-import { WSConnectionStatus } from '../services/websocketService';
+import { motion } from 'motion/react';
+import { OfficialLogo } from './OfficialLogo';
+import { APP_OFFICIAL_TITLE } from '../constants/branding';
 
 interface AppSplashScreenProps {
-  wsStatus: WSConnectionStatus;
-  onFinishLoading: () => void;
+  onFinish: () => void;
+  minDurationMs?: number;
 }
 
 export const AppSplashScreen: React.FC<AppSplashScreenProps> = ({
-  wsStatus,
-  onFinishLoading,
+  onFinish,
+  minDurationMs = 5500,
 }) => {
-  const [loadStep, setLoadStep] = useState<number>(1);
-  const [loadText, setLoadText] = useState<string>('Initializing Flutter Mobile Engine...');
+  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    const t1 = setTimeout(() => {
-      setLoadStep(2);
-      setLoadText('Mounting Offline SQLite Database Vault...');
-    }, 450);
+    const steps = [
+      { progress: 18, delay: 500 },
+      { progress: 38, delay: 1500 },
+      { progress: 62, delay: 2800 },
+      { progress: 85, delay: 4200 },
+      { progress: 100, delay: 5100 },
+    ];
 
-    const t2 = setTimeout(() => {
-      setLoadStep(3);
-      setLoadText('Establishing Real-Time Central WebSocket Channel...');
-    }, 900);
+    const timeouts: NodeJS.Timeout[] = [];
 
-    const t3 = setTimeout(() => {
-      setLoadStep(4);
-      setLoadText('Ready! Tagoloan Field System Active.');
-    }, 1350);
+    steps.forEach((step) => {
+      const t = setTimeout(() => {
+        setProgress(step.progress);
+      }, step.delay);
+      timeouts.push(t);
+    });
 
-    const t4 = setTimeout(() => {
-      onFinishLoading();
-    }, 1650);
+    const endTimer = setTimeout(() => {
+      onFinish();
+    }, Math.max(minDurationMs, 5500));
+    timeouts.push(endTimer);
 
     return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-      clearTimeout(t4);
+      timeouts.forEach((t) => clearTimeout(t));
     };
-  }, [onFinishLoading]);
+  }, [onFinish, minDurationMs]);
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0, scale: 0.98, filter: 'blur(4px)' }}
-      transition={{ duration: 0.35, ease: 'easeInOut' }}
-      className="fixed inset-0 z-50 bg-slate-950 flex flex-col items-center justify-between p-6 select-none"
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.4, ease: 'easeInOut' }}
+      className="fixed inset-0 z-[100] w-full h-full bg-[#07193f] flex flex-col items-center justify-center p-6 select-none overflow-hidden"
+      style={{
+        background: 'radial-gradient(ellipse at center, #0c2b64 0%, #07193f 60%, #030d24 100%)',
+      }}
     >
-      {/* Top Status Bar Placeholder */}
-      <div className="w-full flex justify-between items-center text-[10px] text-slate-500 font-mono">
-        <span className="flex items-center gap-1">
-          <ShieldCheck className="w-3.5 h-3.5 text-sky-400" />
-          <span>LWUA WDT SECURE CONTAINER</span>
-        </span>
-        <span>v2.4.0 APK</span>
-      </div>
+      {/* Background Soft Blue Ambient Glows */}
+      <div className="absolute w-96 h-96 bg-sky-500/15 rounded-full blur-3xl pointer-events-none -z-10" />
+      <div className="absolute w-64 h-64 bg-blue-600/20 rounded-full blur-2xl pointer-events-none -z-10" />
 
-      {/* Center Emblem */}
-      <div className="flex flex-col items-center text-center space-y-4 max-w-xs">
+      {/* Center Container */}
+      <div className="flex flex-col items-center justify-center text-center space-y-6 max-w-sm px-4">
+        {/* Official Logo with Soft Pulse */}
         <motion.div
-          initial={{ scale: 0.8, rotate: -8 }}
-          animate={{ scale: 1, rotate: 0 }}
-          transition={{ duration: 0.5, type: 'spring', damping: 14 }}
-          className="relative"
+          initial={{ scale: 0.85, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.5, ease: 'easeOut' }}
+          className="relative flex items-center justify-center"
         >
-          <div className="w-24 h-24 rounded-3xl bg-gradient-to-tr from-sky-600 via-blue-700 to-indigo-900 p-0.5 shadow-2xl shadow-sky-600/40 flex items-center justify-center">
-            <div className="w-full h-full bg-slate-950 rounded-[22px] flex items-center justify-center border border-sky-400/30 relative overflow-hidden">
-              <motion.div
-                animate={{ y: [0, -4, 0] }}
-                transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
-              >
-                <Droplet className="w-12 h-12 text-sky-400 fill-sky-400/20" />
-              </motion.div>
-              <div className="absolute inset-0 bg-gradient-to-t from-sky-500/10 to-transparent pointer-events-none" />
-            </div>
-          </div>
+          {/* Subtle Radiant Ring */}
+          <motion.div
+            animate={{ scale: [1, 1.12, 1], opacity: [0.35, 0.7, 0.35] }}
+            transition={{ repeat: Infinity, duration: 2.4, ease: 'easeInOut' }}
+            className="absolute -inset-4 rounded-full bg-sky-500/30 blur-lg -z-10"
+          />
+          
+          <OfficialLogo size="2xl" glow className="shadow-2xl" />
         </motion.div>
 
-        <div className="space-y-1">
-          <motion.h1
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="text-xl font-black tracking-tight text-white uppercase"
-          >
-            Tagoloan Water District
-          </motion.h1>
-          <p className="text-xs text-sky-400 font-semibold tracking-wide uppercase">
-            Field Meter Reading & Billing
-          </p>
-          <p className="text-[11px] text-slate-400 font-mono">
-            Province of Misamis Oriental
-          </p>
-        </div>
+        {/* Official Name */}
+        <motion.div
+          initial={{ y: 15, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.2, duration: 0.5, ease: 'easeOut' }}
+          className="space-y-1.5"
+        >
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white uppercase drop-shadow-md">
+            {APP_OFFICIAL_TITLE}
+          </h1>
+        </motion.div>
 
-        {/* Progress Bar & Status */}
-        <div className="w-full space-y-2.5 pt-2">
-          <div className="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+        {/* Minimalist Loading Bar */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.35, duration: 0.4 }}
+          className="w-56 space-y-2 pt-3"
+        >
+          <div className="h-1.5 w-full bg-[#030e24] rounded-full overflow-hidden border border-sky-900/60 shadow-inner">
             <motion.div
-              initial={{ width: '10%' }}
-              animate={{ width: `${loadStep * 25}%` }}
-              transition={{ duration: 0.35, ease: 'easeOut' }}
-              className="h-full bg-gradient-to-r from-sky-500 to-blue-500 rounded-full"
+              className="h-full bg-gradient-to-r from-sky-400 via-cyan-300 to-sky-500 rounded-full shadow-[0_0_10px_rgba(56,189,248,0.5)]"
+              initial={{ width: '0%' }}
+              animate={{ width: `${progress}%` }}
+              transition={{ duration: 0.3, ease: 'easeOut' }}
             />
           </div>
-
-          <div className="text-[11px] text-slate-300 font-mono flex items-center justify-center gap-1.5 h-5">
-            {loadStep === 4 ? (
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-            ) : (
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
-                className="w-3 h-3 border-2 border-sky-400 border-t-transparent rounded-full"
-              />
-            )}
-            <span>{loadText}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Bottom Hardware Handshake Indicators */}
-      <div className="grid grid-cols-3 gap-2 w-full max-w-sm text-[10px] text-slate-400 font-mono">
-        <div className="bg-slate-900/80 border border-slate-800 p-2 rounded-xl flex items-center gap-1.5 justify-center">
-          <Database className="w-3 h-3 text-sky-400" />
-          <span>SQLite OK</span>
-        </div>
-        <div className="bg-slate-900/80 border border-slate-800 p-2 rounded-xl flex items-center gap-1.5 justify-center">
-          <Wifi className={`w-3 h-3 ${wsStatus === 'CONNECTED' ? 'text-emerald-400' : 'text-amber-400'}`} />
-          <span>WS {wsStatus}</span>
-        </div>
-        <div className="bg-slate-900/80 border border-slate-800 p-2 rounded-xl flex items-center gap-1.5 justify-center">
-          <Sparkles className="w-3 h-3 text-sky-400" />
-          <span>Flutter UI</span>
-        </div>
+        </motion.div>
       </div>
     </motion.div>
   );

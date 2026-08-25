@@ -55,6 +55,7 @@ export interface Consumer {
   status: ConnectionStatus;
   previousReading: number;
   previousReadingDate: string;
+  previousConsumption?: number; // Previous month consumption volume (cu.m.)
   averageConsumption: number;
   rateCode: string;
   gpsCoordinates: GPSLocation;

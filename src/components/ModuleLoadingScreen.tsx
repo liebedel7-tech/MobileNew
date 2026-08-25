@@ -23,6 +23,8 @@ import {
 } from 'lucide-react';
 import { ActiveScreen, StaffUser } from '../types';
 import { WebSocketService, WSTelemetryStats } from '../services/websocketService';
+import { OfficialLogo } from './OfficialLogo';
+import { APP_OFFICIAL_TITLE } from '../constants/branding';
 
 export interface LoadingProcessInfo {
   type: 'module_transition' | 'batch_sync' | 'save_reading' | 'ocr_scan' | 'print_receipt' | 'reset_database' | 'login' | 'logout';
@@ -330,15 +332,13 @@ export const ModuleLoadingScreen: React.FC<ModuleLoadingScreenProps> = ({
           {/* Top Tagoloan Water District Header */}
           <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-lg bg-sky-500 text-slate-950 flex items-center justify-center font-bold text-xs italic">
-                W
-              </div>
+              <OfficialLogo size="xs" glow />
               <div>
                 <span className="text-[11px] font-bold tracking-wider text-white uppercase block leading-none">
-                  Tagoloan Water District
+                  {APP_OFFICIAL_TITLE}
                 </span>
                 <span className="text-[9px] text-slate-400 font-mono">
-                  Misamis Oriental • Field Terminal
+                  Official Mobile App • Field Terminal
                 </span>
               </div>
             </div>

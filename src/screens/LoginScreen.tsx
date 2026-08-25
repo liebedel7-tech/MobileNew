@@ -15,21 +15,35 @@ import {
   BadgeCheck, 
   RefreshCw,
   Smartphone,
-  AlertCircle
+  AlertCircle,
+  Sparkles
 } from 'lucide-react';
 import { StaffUser, ReaderAccount } from '../types';
 import { WebSocketService } from '../services/websocketService';
 import { DatabaseHelper } from '../services/databaseHelper';
 import { SyncService } from '../services/syncService';
 import { universalApiFetch, getApiEndpoint } from '../services/apiConfig';
+import { OfficialLogo } from '../components/OfficialLogo';
+import { APP_OFFICIAL_BADGE, APP_OFFICIAL_TITLE } from '../constants/branding';
 
 interface LoginScreenProps {
   onLogin: (user: StaffUser) => void;
   onBackToLanding?: () => void;
+  initialMode?: 'LOGIN' | 'REGISTER';
 }
 
-export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onBackToLanding }) => {
-  const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER' | 'PENDING_APPROVAL'>('LOGIN');
+export const LoginScreen: React.FC<LoginScreenProps> = ({ 
+  onLogin, 
+  onBackToLanding,
+  initialMode = 'LOGIN',
+}) => {
+  const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER' | 'PENDING_APPROVAL'>(initialMode);
+
+  useEffect(() => {
+    if (initialMode) {
+      setAuthMode(initialMode);
+    }
+  }, [initialMode]);
 
   // Sign In State
   const [username, setUsername] = useState('');
@@ -415,21 +429,24 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onBackToLandi
       )}
 
       {/* Official District Emblem */}
-      <div className="text-center mb-4">
-        <div className="inline-flex p-2.5 rounded-2xl bg-gradient-to-tr from-sky-600 to-blue-800 shadow-xl shadow-sky-950/60 mb-2">
-          <div className="w-12 h-12 bg-slate-900 rounded-xl flex items-center justify-center border border-sky-400/30">
-            <Droplet className="w-6 h-6 text-sky-400 fill-sky-400/20" />
-          </div>
+      <div className="text-center mb-4 flex flex-col items-center">
+        <div className="mb-2">
+          <OfficialLogo size="xl" glow />
+        </div>
+
+        <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-sky-500/10 border border-sky-500/30 text-sky-300 text-[9.5px] font-mono font-medium mb-1">
+          <Sparkles className="w-3 h-3 text-sky-400 animate-pulse" />
+          <span>{APP_OFFICIAL_BADGE}</span>
         </div>
 
         <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white uppercase">
-          Tagoloan Water District
+          {APP_OFFICIAL_TITLE}
         </h1>
         <p className="text-xs text-sky-400 font-semibold mt-0.5">
           Field Meter Reader & Billing System (WDT)
         </p>
         <p className="text-[10.5px] text-slate-400">
-          Cloud Firestore Integrated • Province of Misamis Oriental
+          Offline SQLite & Central Ledger • Province of Misamis Oriental
         </p>
       </div>
 
@@ -542,6 +559,39 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onBackToLandi
                 <ArrowRight className="w-4 h-4" />
               </button>
             </form>
+
+            {/* Quick Demo Staff Credentials Selector */}
+            <div className="pt-2 border-t border-slate-800 space-y-1.5">
+              <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                <span>Quick Sign-In Profiles:</span>
+                <span className="text-sky-400 font-semibold">One-Tap Fill</span>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUsername('supervisor');
+                    setPin('5678');
+                  }}
+                  className="p-2 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-left transition text-[10px]"
+                >
+                  <span className="font-bold text-sky-400 block truncate">Engr. Roberto (Supv)</span>
+                  <span className="text-slate-500 font-mono">supervisor / 5678</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUsername('reader04');
+                    setPin('1234');
+                  }}
+                  className="p-2 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-left transition text-[10px]"
+                >
+                  <span className="font-bold text-emerald-400 block truncate">Field Reader 04</span>
+                  <span className="text-slate-500 font-mono">reader04 / 1234</span>
+                </button>
+              </div>
+            </div>
           </>
         )}
 

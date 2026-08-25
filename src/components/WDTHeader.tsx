@@ -6,9 +6,12 @@ import {
   LogOut, 
   Sliders, 
   Send,
-  Home
+  Home,
+  Smartphone
 } from 'lucide-react';
 import { StaffUser, SyncState, ActiveScreen } from '../types';
+import { OfficialLogo } from './OfficialLogo';
+import { APP_OFFICIAL_TITLE } from '../constants/branding';
 
 interface WDTHeaderProps {
   user: StaffUser | null;
@@ -35,31 +38,19 @@ export const WDTHeader: React.FC<WDTHeaderProps> = ({
   onOpenApkModal,
   wsStatus = 'CONNECTED',
 }) => {
-  const initials = user
-    ? user.name
-        .split(' ')
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((n) => n[0])
-        .join('')
-        .toUpperCase()
-    : 'WD';
-
   return (
-    <header className="flex items-center justify-between px-3 sm:px-5 py-2.5 bg-slate-900 border-b border-slate-800 text-slate-100 select-none sticky top-0 z-40 shadow-sm shrink-0">
-      {/* Brand Identity */}
+    <header className="flex items-center justify-between px-3 sm:px-4 py-2.5 bg-slate-900 border-b border-slate-800 text-slate-100 select-none sticky top-0 z-40 shadow-sm shrink-0">
+      {/* Brand Identity with Official Logo */}
       <div 
         onClick={() => onNavigate('landing')}
-        className="flex items-center gap-2 cursor-pointer group min-w-0"
+        className="flex items-center gap-2.5 cursor-pointer group min-w-0"
         title="Go to Tagoloan Water District Portal"
       >
-        <div className="w-8 h-8 bg-sky-500 rounded-xl flex items-center justify-center font-black text-slate-950 text-base italic shadow-sm shrink-0 group-hover:scale-105 transition-transform">
-          W
-        </div>
+        <OfficialLogo size="sm" glow />
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">
             <h1 className="text-xs sm:text-sm font-bold tracking-tight text-white truncate">
-              Tagoloan Water District
+              {APP_OFFICIAL_TITLE}
             </h1>
             <span className={`inline-flex items-center gap-1 text-[8px] sm:text-[9px] font-mono px-1.5 py-0.2 rounded-full border shrink-0 ${
               wsStatus === 'CONNECTED'
@@ -71,7 +62,7 @@ export const WDTHeader: React.FC<WDTHeaderProps> = ({
             </span>
           </div>
           <p className="text-[9px] sm:text-[10px] text-slate-400 uppercase tracking-wider truncate">
-            {user ? `${user.zone} • ${user.name}` : 'Field Reader'}
+            {user ? `${user.zone} • ${user.name}` : 'Official Mobile App'}
           </p>
         </div>
       </div>
@@ -98,6 +89,15 @@ export const WDTHeader: React.FC<WDTHeaderProps> = ({
           title="Synchronize Database"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${syncState.syncInProgress ? 'animate-spin text-sky-400' : ''}`} />
+        </button>
+
+        {/* Download / Install Mobile App Button */}
+        <button
+          onClick={onOpenApkModal}
+          className="p-2 rounded-lg bg-slate-800 hover:bg-slate-750 border border-slate-700 text-emerald-400 hover:text-emerald-300 transition"
+          title="Download Android APK / Install App"
+        >
+          <Smartphone className="w-3.5 h-3.5" />
         </button>
 
         {/* Diagnostics / Settings */}

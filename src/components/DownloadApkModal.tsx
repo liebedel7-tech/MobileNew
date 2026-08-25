@@ -10,8 +10,11 @@ import {
   Terminal,
   HelpCircle,
   Layers,
-  Copy
+  Copy,
+  Sparkles
 } from 'lucide-react';
+import { OfficialLogo } from './OfficialLogo';
+import { APP_OFFICIAL_TITLE, APP_OFFICIAL_BADGE } from '../constants/branding';
 
 interface DownloadApkModalProps {
   onClose: () => void;
@@ -88,12 +91,10 @@ export const DownloadApkModal: React.FC<DownloadApkModalProps> = ({
         {/* Modal Top Header */}
         <div className="p-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-sky-500 rounded-lg flex items-center justify-center font-bold text-slate-950 text-base italic shadow-sm">
-              W
-            </div>
+            <OfficialLogo size="sm" glow />
             <div>
               <h2 className="text-sm font-black text-white uppercase tracking-tight flex items-center gap-1.5">
-                <span>Flutter Android APK</span>
+                <span>{APP_OFFICIAL_TITLE}</span>
                 <span className="text-[9px] bg-sky-950 text-sky-400 border border-sky-800 px-1.5 py-0.2 rounded font-mono">
                   v2.4.0
                 </span>
@@ -155,24 +156,22 @@ export const DownloadApkModal: React.FC<DownloadApkModalProps> = ({
               {/* Feature Hero Box */}
               <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-sky-950/40 p-4 rounded-2xl border border-sky-900/50 space-y-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-sky-500 rounded-2xl flex items-center justify-center font-black text-slate-950 text-2xl italic shadow-md shadow-sky-500/20 shrink-0">
-                    W
-                  </div>
+                  <OfficialLogo size="md" glow />
                   <div>
                     <h3 className="text-base font-black text-white">
-                      Tagoloan Water District
+                      {APP_OFFICIAL_TITLE}
                     </h3>
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className="bg-emerald-950 text-emerald-300 border border-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                        Flutter Mobile App
+                        Official Mobile App
                       </span>
-                      <span className="text-[11px] text-slate-400">Offline SQLite</span>
+                      <span className="text-[11px] text-slate-400">Offline SQLite & Central Sync</span>
                     </div>
                   </div>
                 </div>
 
                 <p className="text-slate-300 leading-relaxed text-[11.5px]">
-                  Installs as a native full-screen Flutter Android APK on any smartphone or rugged field device. Performs OCR scans, GPS geotagging, and print receipts offline.
+                  Installs as a native full-screen Android application on any smartphone or field terminal. Operates 100% offline for OCR dial scans, GPS geotagging, graduated tariff calculation, and Bluetooth receipt printing.
                 </p>
               </div>
 

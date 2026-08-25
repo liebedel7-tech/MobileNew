@@ -48,6 +48,26 @@ const TARIFF_SCHEDULE: Record<ConsumerCategory, TariffRate> = {
 
 export class CalculationService {
   /**
+   * Validates that Present Reading is not less than Previous Reading.
+   * Business Rule: Present Reading must be >= Previous Reading.
+   */
+  static validateReading(
+    previousReading: number,
+    currentReading: number
+  ): { valid: boolean; error?: string } {
+    if (isNaN(currentReading) || currentReading === null || currentReading === undefined) {
+      return { valid: false, error: 'Please enter a valid meter reading value.' };
+    }
+    if (currentReading < previousReading) {
+      return {
+        valid: false,
+        error: `Strict Rule Violation: Present reading (${currentReading} cu.m.) cannot be less than Previous reading (${previousReading} cu.m.). Negative consumption is not permitted.`,
+      };
+    }
+    return { valid: true };
+  }
+
+  /**
    * Computes the full water bill according to LWUA & Tagoloan Water District tariff schedules.
    */
   static calculateWaterBill(
