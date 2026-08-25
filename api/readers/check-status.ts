@@ -1,13 +1,15 @@
 import { DistrictReader, getSharedReaders } from '../seedData';
+import { sendJson, setCorsHeaders } from '../_helper';
 
 export default function handler(req: any, res: any) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  res.setHeader('Content-Type', 'application/json');
+  setCorsHeaders(res);
 
   if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+    if (typeof res.status === 'function') {
+      return res.status(200).end();
+    }
+    res.statusCode = 200;
+    return res.end();
   }
 
   try {
@@ -25,7 +27,7 @@ export default function handler(req: any, res: any) {
     );
 
     if (reader) {
-      return res.status(200).json({
+      return sendJson(res, 200, {
         success: true,
         status: reader.status,
         employmentStatus: reader.status,
@@ -35,7 +37,7 @@ export default function handler(req: any, res: any) {
       });
     }
 
-    return res.status(200).json({
+    return sendJson(res, 200, {
       success: true,
       status: 'pending',
       employmentStatus: 'pending',
@@ -43,7 +45,7 @@ export default function handler(req: any, res: any) {
       message: 'Reader is pending approval.',
     });
   } catch (err: any) {
-    return res.status(200).json({
+    return sendJson(res, 200, {
       success: true,
       status: 'pending',
       employmentStatus: 'pending',
@@ -51,4 +53,3 @@ export default function handler(req: any, res: any) {
     });
   }
 }
-

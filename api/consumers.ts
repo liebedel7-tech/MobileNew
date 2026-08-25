@@ -1,24 +1,25 @@
 import { INITIAL_CONSUMERS } from './seedData';
+import { sendJson, setCorsHeaders, parseRequestBody } from './_helper';
 
 export default function handler(req: any, res: any) {
-  // Universal CORS Headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  res.setHeader('Content-Type', 'application/json');
+  setCorsHeaders(res);
 
   if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+    if (typeof res.status === 'function') {
+      return res.status(200).end();
+    }
+    res.statusCode = 200;
+    return res.end();
   }
 
   try {
-    if (req.method === 'GET') {
+    if (req.method === 'GET' || !req.method) {
       const query = req.query || {};
       const { zone, barangay, route, search, q, status, category } = query;
       let filtered = Array.isArray(INITIAL_CONSUMERS) ? [...INITIAL_CONSUMERS] : [];
 
       const searchTerm = (search || q || '') as string;
-      if (searchTerm.trim()) {
+      if (searchTerm && typeof searchTerm === 'string' && searchTerm.trim()) {
         const term = searchTerm.toLowerCase().trim();
         filtered = filtered.filter(c =>
           (c.name && c.name.toLowerCase().includes(term)) ||
@@ -51,7 +52,7 @@ export default function handler(req: any, res: any) {
         filtered = filtered.filter(c => c.category && c.category.toLowerCase().includes(category.toLowerCase()));
       }
 
-      return res.status(200).json({
+      return sendJson(res, 200, {
         success: true,
         district: 'Tagoloan Water District (WDT-MISOR)',
         zone: zoneFilter || 'ALL',
@@ -63,7 +64,7 @@ export default function handler(req: any, res: any) {
     }
 
     if (req.method === 'POST') {
-      const data = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+      const data = parseRequestBody(req);
       const newConsumer = {
         id: data.id || `WDT-ACC-${Date.now().toString().slice(-5)}`,
         accountNumber: data.accountNumber || `01-${Math.floor(100 + Math.random() * 900)}-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -85,7 +86,7 @@ export default function handler(req: any, res: any) {
         lastSyncDate: new Date().toISOString(),
       };
 
-      return res.status(201).json({
+      return sendJson(res, 201, {
         success: true,
         message: 'Consumer saved successfully',
         consumer: newConsumer,
@@ -93,7 +94,7 @@ export default function handler(req: any, res: any) {
       });
     }
 
-    return res.status(200).json({
+    return sendJson(res, 200, {
       success: true,
       district: 'Tagoloan Water District (WDT-MISOR)',
       count: INITIAL_CONSUMERS.length,
@@ -101,8 +102,8 @@ export default function handler(req: any, res: any) {
       data: INITIAL_CONSUMERS,
     });
   } catch (err: any) {
-    // Fail-safe: Always return 200 with fallback seed data rather than 500
-    return res.status(200).json({
+    // Guaranteed fail-safe return
+    return sendJson(res, 200, {
       success: true,
       fallback: true,
       district: 'Tagoloan Water District (WDT-MISOR)',

@@ -1,18 +1,18 @@
 import { INITIAL_CONSUMERS, DistrictReader, getSharedReaders, upsertSharedReader } from './seedData';
+import { sendJson, setCorsHeaders, parseRequestBody } from './_helper';
 
 // Serverless persistent stores for warm invocations
 const serverlessReadings: any[] = [];
 
-
 export default function handler(req: any, res: any) {
-  // Set CORS headers unconditionally for all origins
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  res.setHeader('Content-Type', 'application/json');
+  setCorsHeaders(res);
 
   if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+    if (typeof res.status === 'function') {
+      return res.status(200).end();
+    }
+    res.statusCode = 200;
+    return res.end();
   }
 
   try {
@@ -28,7 +28,7 @@ export default function handler(req: any, res: any) {
         let filtered = [...INITIAL_CONSUMERS];
 
         const searchTerm = (search || q || '') as string;
-        if (searchTerm.trim()) {
+        if (searchTerm && typeof searchTerm === 'string' && searchTerm.trim()) {
           const term = searchTerm.toLowerCase().trim();
           filtered = filtered.filter(c =>
             (c.name && c.name.toLowerCase().includes(term)) ||
@@ -61,7 +61,7 @@ export default function handler(req: any, res: any) {
           filtered = filtered.filter(c => c.category && c.category.toLowerCase().includes(category.toLowerCase()));
         }
 
-        return res.status(200).json({
+        return sendJson(res, 200, {
           success: true,
           district: 'Tagoloan Water District (WDT-MISOR)',
           zone: zoneFilter || 'ALL',
@@ -75,7 +75,7 @@ export default function handler(req: any, res: any) {
 
     // 2. Meter Reader Registration
     if (url.includes('register') || (url.includes('reader') && req.method === 'POST')) {
-      const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+      const body = parseRequestBody(req);
       const { name, username, id, employeeId, pin, contactNumber, email, zone, assignedRoutes, deviceInfo } = body;
       const readerUsername = username || id || employeeId || `reader_${Date.now()}`;
       const readerName = name || username || 'Field Staff';
@@ -93,7 +93,7 @@ export default function handler(req: any, res: any) {
         deviceInfo: deviceInfo || 'Android Mobile Device',
       });
 
-      return res.status(201).json({
+      return sendJson(res, 201, {
         success: true,
         message: 'Meter reader registration submitted successfully. Awaiting Administrator approval.',
         status: savedReader.status,
@@ -118,7 +118,7 @@ export default function handler(req: any, res: any) {
       );
 
       if (reader) {
-        return res.status(200).json({
+        return sendJson(res, 200, {
           success: true,
           status: reader.status,
           employmentStatus: reader.status,
@@ -128,7 +128,7 @@ export default function handler(req: any, res: any) {
         });
       }
 
-      return res.status(200).json({
+      return sendJson(res, 200, {
         success: true,
         status: 'pending',
         employmentStatus: 'pending',
@@ -141,7 +141,7 @@ export default function handler(req: any, res: any) {
     if (url.includes('reader') || url.includes('staff')) {
       const currentReaders = getSharedReaders();
       if (req.method === 'GET') {
-        return res.status(200).json({
+        return sendJson(res, 200, {
           success: true,
           count: currentReaders.length,
           readers: currentReaders,
@@ -156,7 +156,7 @@ export default function handler(req: any, res: any) {
 
       // Approve / Reject
       if (req.method === 'PATCH' || req.method === 'POST') {
-        const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+        const body = parseRequestBody(req);
         const newStatus = body.status || (url.includes('reject') ? 'rejected' : 'active');
         const parts = rawUrl.split('/');
         const cleanId = (parts[parts.length - 2] || parts[parts.length - 1] || body.id || '').toLowerCase().trim();
@@ -173,7 +173,7 @@ export default function handler(req: any, res: any) {
           if (Array.isArray(body.assignedRoutes)) {
             reader.assignedRoutes = body.assignedRoutes;
           }
-          return res.status(200).json({
+          return sendJson(res, 200, {
             success: true,
             message: `Reader ${reader.name} status updated to ${newStatus}.`,
             reader,
@@ -183,11 +183,10 @@ export default function handler(req: any, res: any) {
       }
     }
 
-
     // 5. Submit Meter Reading: /api/readings/submit or /api/sync/push
     if (url.includes('reading') || url.includes('push') || url.includes('submit')) {
       if (req.method === 'POST') {
-        const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+        const body = parseRequestBody(req);
         const currentReading = Number(body.currentReading || body.readingValue || 0);
         const previousReading = Number(body.previousReading || 0);
         const consumption = Math.max(0, currentReading - previousReading);
@@ -209,7 +208,7 @@ export default function handler(req: any, res: any) {
 
         serverlessReadings.push(readingEntry);
 
-        return res.status(201).json({
+        return sendJson(res, 201, {
           success: true,
           message: 'Reading submitted and queued for approval.',
           reading: readingEntry,
@@ -217,7 +216,7 @@ export default function handler(req: any, res: any) {
         });
       }
 
-      return res.status(200).json({
+      return sendJson(res, 200, {
         success: true,
         count: serverlessReadings.length,
         readings: serverlessReadings,
@@ -226,7 +225,7 @@ export default function handler(req: any, res: any) {
     }
 
     // 6. Health & Status Check Fallback
-    return res.status(200).json({
+    return sendJson(res, 200, {
       status: 'ok',
       success: true,
       district: 'Tagoloan Water District (WDT-MISOR)',
@@ -238,7 +237,7 @@ export default function handler(req: any, res: any) {
     });
   } catch (err: any) {
     // Fail-safe response - Never return 500
-    return res.status(200).json({
+    return sendJson(res, 200, {
       success: true,
       status: 'ok',
       district: 'Tagoloan Water District (WDT-MISOR)',
@@ -247,4 +246,3 @@ export default function handler(req: any, res: any) {
     });
   }
 }
-

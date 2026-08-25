@@ -1,17 +1,20 @@
+import { sendJson, setCorsHeaders, parseRequestBody } from '../_helper';
+
 const readingsStore: any[] = [];
 
 export default function handler(req: any, res: any) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  res.setHeader('Content-Type', 'application/json');
+  setCorsHeaders(res);
 
   if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+    if (typeof res.status === 'function') {
+      return res.status(200).end();
+    }
+    res.statusCode = 200;
+    return res.end();
   }
 
   try {
-    const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+    const body = parseRequestBody(req);
     const currentReading = Number(body.currentReading || body.readingValue || 0);
     const previousReading = Number(body.previousReading || 0);
     const consumption = Math.max(0, currentReading - previousReading);
@@ -35,7 +38,7 @@ export default function handler(req: any, res: any) {
 
     readingsStore.push(readingEntry);
 
-    return res.status(201).json({
+    return sendJson(res, 201, {
       success: true,
       message: 'Reading submitted successfully and queued for approval.',
       reading: readingEntry,
@@ -43,7 +46,7 @@ export default function handler(req: any, res: any) {
       data: readingEntry,
     });
   } catch (err: any) {
-    return res.status(200).json({
+    return sendJson(res, 200, {
       success: true,
       fallback: true,
       message: 'Reading received.',

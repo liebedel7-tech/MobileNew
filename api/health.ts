@@ -1,16 +1,18 @@
 import { INITIAL_CONSUMERS, INITIAL_READERS } from './seedData';
+import { sendJson, setCorsHeaders } from './_helper';
 
 export default function handler(req: any, res: any) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  res.setHeader('Content-Type', 'application/json');
+  setCorsHeaders(res);
 
   if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+    if (typeof res.status === 'function') {
+      return res.status(200).end();
+    }
+    res.statusCode = 200;
+    return res.end();
   }
 
-  return res.status(200).json({
+  return sendJson(res, 200, {
     status: 'ok',
     district: 'Tagoloan Water District',
     code: 'WDT-MISOR',

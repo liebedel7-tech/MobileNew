@@ -1,25 +1,28 @@
+import { sendJson, setCorsHeaders, parseRequestBody } from '../_helper';
+
 export default function handler(req: any, res: any) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  res.setHeader('Content-Type', 'application/json');
+  setCorsHeaders(res);
 
   if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+    if (typeof res.status === 'function') {
+      return res.status(200).end();
+    }
+    res.statusCode = 200;
+    return res.end();
   }
 
   try {
-    const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+    const body = parseRequestBody(req);
     const items = Array.isArray(body) ? body : (body.readings || [body]);
 
-    return res.status(200).json({
+    return sendJson(res, 200, {
       success: true,
       message: `Successfully synchronized ${items.length} readings.`,
       count: items.length,
       syncedAt: new Date().toISOString(),
     });
   } catch (err: any) {
-    return res.status(200).json({
+    return sendJson(res, 200, {
       success: true,
       fallback: true,
       message: 'Readings synced.',

@@ -1,13 +1,15 @@
 import { DistrictReader, getSharedReaders, upsertSharedReader } from './seedData';
+import { sendJson, setCorsHeaders, parseRequestBody } from './_helper';
 
 export default function handler(req: any, res: any) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  res.setHeader('Content-Type', 'application/json');
+  setCorsHeaders(res);
 
   if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+    if (typeof res.status === 'function') {
+      return res.status(200).end();
+    }
+    res.statusCode = 200;
+    return res.end();
   }
 
   try {
@@ -17,7 +19,7 @@ export default function handler(req: any, res: any) {
 
     // 1. Batch Reader Sync or Registration: POST /api/readers
     if (req.method === 'POST') {
-      const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+      const body = parseRequestBody(req);
 
       // Batch Readers Sync from Mobile local store
       if (Array.isArray(body.readers) && body.readers.length > 0) {
@@ -38,7 +40,7 @@ export default function handler(req: any, res: any) {
         });
 
         const allReaders = getSharedReaders();
-        return res.status(200).json({
+        return sendJson(res, 200, {
           success: true,
           message: `Synchronized ${synced.length} reader account(s).`,
           count: allReaders.length,
@@ -70,7 +72,7 @@ export default function handler(req: any, res: any) {
         deviceInfo,
       });
 
-      return res.status(201).json({
+      return sendJson(res, 201, {
         success: true,
         message: 'Meter reader registration submitted successfully.',
         status: savedReader.status,
@@ -95,7 +97,7 @@ export default function handler(req: any, res: any) {
       );
 
       if (reader) {
-        return res.status(200).json({
+        return sendJson(res, 200, {
           success: true,
           status: reader.status,
           employmentStatus: reader.status,
@@ -105,7 +107,7 @@ export default function handler(req: any, res: any) {
         });
       }
 
-      return res.status(200).json({
+      return sendJson(res, 200, {
         success: true,
         status: 'pending',
         employmentStatus: 'pending',
@@ -114,10 +116,12 @@ export default function handler(req: any, res: any) {
       });
     }
 
-    // 3. Admin Approval / Update: PATCH or PUT or POST with status
+    // 3. Status update / patch
     if (req.method === 'PATCH' || req.method === 'PUT') {
-      const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
-      const targetId = (query.id || body.id || body.readerId || '').toString().toLowerCase().trim();
+      const body = parseRequestBody(req);
+      const newStatus = body.status || (url.includes('reject') ? 'rejected' : 'active');
+      const parts = url.split('/');
+      const targetId = (parts[parts.length - 2] || parts[parts.length - 1] || body.id || '').toString().toLowerCase().trim();
 
       const reader = readersStore.find(r =>
         (r.id && r.id.toLowerCase() === targetId) ||
@@ -126,42 +130,38 @@ export default function handler(req: any, res: any) {
       );
 
       if (reader) {
-        const newStatus = body.status || 'active';
         reader.status = newStatus;
         reader.employmentStatus = newStatus;
         if (Array.isArray(body.assignedRoutes)) {
           reader.assignedRoutes = body.assignedRoutes;
         }
-        return res.status(200).json({
+        return sendJson(res, 200, {
           success: true,
           message: `Reader ${reader.name} status updated to ${newStatus}.`,
           reader,
+          staff: reader,
         });
       }
     }
 
-    // 4. List All Readers: GET /api/readers
-    const allReaders = getSharedReaders();
-    return res.status(200).json({
+    // 4. Default: Return all readers
+    return sendJson(res, 200, {
       success: true,
-      count: allReaders.length,
-      readers: allReaders,
-      data: allReaders,
-      staff: allReaders.map(r => ({
+      count: readersStore.length,
+      readers: readersStore,
+      data: readersStore,
+      staff: readersStore.map(r => ({
         ...r,
         employmentStatus: r.status,
         zone: r.assignedRoutes?.join(', ') || 'Poblacion',
       })),
     });
   } catch (err: any) {
-    const allReaders = getSharedReaders();
-    return res.status(200).json({
+    return sendJson(res, 200, {
       success: true,
       fallback: true,
-      count: allReaders.length,
-      readers: allReaders,
-      data: allReaders,
+      count: getSharedReaders().length,
+      readers: getSharedReaders(),
     });
   }
 }
-

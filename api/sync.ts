@@ -1,13 +1,15 @@
 import { INITIAL_CONSUMERS } from './seedData';
+import { sendJson, setCorsHeaders } from './_helper';
 
 export default function handler(req: any, res: any) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  res.setHeader('Content-Type', 'application/json');
+  setCorsHeaders(res);
 
   if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+    if (typeof res.status === 'function') {
+      return res.status(200).end();
+    }
+    res.statusCode = 200;
+    return res.end();
   }
 
   try {
@@ -22,7 +24,7 @@ export default function handler(req: any, res: any) {
       );
     }
 
-    return res.status(200).json({
+    return sendJson(res, 200, {
       success: true,
       district: 'Tagoloan Water District (WDT-MISOR)',
       zone,
@@ -32,7 +34,7 @@ export default function handler(req: any, res: any) {
       data: consumers,
     });
   } catch (err: any) {
-    return res.status(200).json({
+    return sendJson(res, 200, {
       success: true,
       district: 'Tagoloan Water District (WDT-MISOR)',
       count: INITIAL_CONSUMERS.length,

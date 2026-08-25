@@ -1,7 +1,10 @@
 // Central API & System Connect Cycle for Tagoloan Water District
 // Handles Multi-Deployment discovery, CORS preflight failovers, and offline resiliency
 
-export const LIVE_BACKEND_URL = 'https://ais-pre-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app';
+export const LIVE_BACKEND_URL = typeof window !== 'undefined' && window.location?.origin 
+  ? window.location.origin 
+  : 'https://ais-pre-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app';
+
 export const DEFAULT_SERVER_URL = LIVE_BACKEND_URL;
 
 let cachedWorkingBaseUrl: string | null = null;
@@ -41,7 +44,7 @@ export function getApiBaseUrl(): string {
     // Ignore in non-vite environments
   }
 
-  // 3. Current window origin (Works directly on Cloud Run, Localhost, or on Vercel with rewrites)
+  // 3. Current window origin (Works directly on Vercel, Cloud Run, or Localhost)
   if (typeof window !== 'undefined' && window.location && window.location.origin) {
     const origin = window.location.origin;
     if (origin.startsWith('http://') || origin.startsWith('https://')) {
@@ -66,7 +69,7 @@ export function getCandidateBackendUrls(): string[] {
     }
   }
 
-  // Candidate 2: Current origin (relative / same domain)
+  // Candidate 2: Current origin (relative / same domain) - HIGHEST PRIORITY FOR DEPLOYED APPS
   if (typeof window !== 'undefined' && window.location && window.location.origin) {
     const origin = window.location.origin;
     if (origin.startsWith('http') && !candidates.includes(origin)) {
@@ -74,12 +77,7 @@ export function getCandidateBackendUrls(): string[] {
     }
   }
 
-  // Candidate 3: Live Central Cloud Backend
-  if (!candidates.includes(LIVE_BACKEND_URL)) {
-    candidates.push(LIVE_BACKEND_URL);
-  }
-
-  return candidates;
+  return candidates.length > 0 ? candidates : [''];
 }
 
 export function getApiEndpoint(path: string): string {
@@ -90,8 +88,6 @@ export function getApiEndpoint(path: string): string {
 
 /**
  * Universal smart fetch that executes through the System Connect Cycle.
- * If the current origin or primary candidate is unreachable or encounters a CORS/network error,
- * it seamlessly fails over to the live cloud backend and saves the working connection.
  */
 export async function universalApiFetch(path: string, init?: RequestInit): Promise<Response> {
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
@@ -100,7 +96,7 @@ export async function universalApiFetch(path: string, init?: RequestInit): Promi
   let lastError: any = null;
 
   for (const base of candidates) {
-    const fullUrl = `${base.replace(/\/+$/, '').replace(/\/api$/, '')}${cleanPath}`;
+    const fullUrl = base ? `${base.replace(/\/+$/, '').replace(/\/api$/, '')}${cleanPath}` : cleanPath;
     try {
       const response = await fetch(fullUrl, {
         ...init,
@@ -110,7 +106,6 @@ export async function universalApiFetch(path: string, init?: RequestInit): Promi
         },
       });
 
-      // If server returned valid status (even 400/401/403 business response, but not 502/503/504 gateway dead), mark working
       if (response.status < 500) {
         cachedWorkingBaseUrl = base;
         lastHealthCheckTime = Date.now();
@@ -118,14 +113,18 @@ export async function universalApiFetch(path: string, init?: RequestInit): Promi
       }
     } catch (err) {
       lastError = err;
-      console.warn(`[System Connect Cycle] Failed to connect to ${fullUrl}, cycling to next candidate...`, err);
     }
   }
 
-  // If all failed, attempt direct default endpoint
+  // If all candidates fail, perform relative request
   if (lastError) {
-    throw lastError;
+    try {
+      return await fetch(cleanPath, init);
+    } catch {
+      throw lastError;
+    }
   }
+
   return fetch(getApiEndpoint(path), init);
 }
 
@@ -153,6 +152,3 @@ export function resetApiBaseUrl(): void {
     window.location.reload();
   }
 }
-
-
-

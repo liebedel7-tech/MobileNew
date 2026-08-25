@@ -1,17 +1,19 @@
 import { INITIAL_READERS } from './seedData';
+import { sendJson, setCorsHeaders, parseRequestBody } from './_helper';
 
 export default function handler(req: any, res: any) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  res.setHeader('Content-Type', 'application/json');
+  setCorsHeaders(res);
 
   if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+    if (typeof res.status === 'function') {
+      return res.status(200).end();
+    }
+    res.statusCode = 200;
+    return res.end();
   }
 
   try {
-    const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+    const body = parseRequestBody(req);
     const username = (body.username || '').toString().trim();
     const pin = (body.pin || body.password || '').toString().trim();
 
@@ -24,7 +26,7 @@ export default function handler(req: any, res: any) {
     );
 
     if (reader) {
-      return res.status(200).json({
+      return sendJson(res, 200, {
         success: true,
         message: 'Authentication successful',
         user: reader,
@@ -32,8 +34,8 @@ export default function handler(req: any, res: any) {
       });
     }
 
-    // Return guest reader profile
-    return res.status(200).json({
+    // Fallback reader profile
+    return sendJson(res, 200, {
       success: true,
       message: 'Logged in as Field Reader',
       user: {
@@ -46,7 +48,7 @@ export default function handler(req: any, res: any) {
       },
     });
   } catch (err: any) {
-    return res.status(200).json({
+    return sendJson(res, 200, {
       success: true,
       user: {
         id: 'RDR-001',

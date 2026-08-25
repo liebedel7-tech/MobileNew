@@ -1,17 +1,19 @@
 import { DistrictReader, getSharedReaders, upsertSharedReader } from '../seedData';
+import { sendJson, setCorsHeaders, parseRequestBody } from '../_helper';
 
 export default function handler(req: any, res: any) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  res.setHeader('Content-Type', 'application/json');
+  setCorsHeaders(res);
 
   if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+    if (typeof res.status === 'function') {
+      return res.status(200).end();
+    }
+    res.statusCode = 200;
+    return res.end();
   }
 
   try {
-    const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+    const body = parseRequestBody(req);
     const name = body.name || body.fullName || body.fullname || body.employeeName || body.username || 'Field Staff';
     const employeeId = body.employeeId || body.employee_id || body.id || body.badgeId;
     const username = (body.username || body.id || body.employeeId || `reader_${Date.now()}`).toString().trim();
@@ -21,14 +23,11 @@ export default function handler(req: any, res: any) {
     const assignedRoutes = body.assignedRoutes || body.assignedZones || body.assignedBarangays || (body.zone ? [body.zone] : ['Poblacion']);
     const deviceInfo = body.deviceInfo || 'Android Mobile Device';
 
-    const readerUsername = username;
-    const readerName = name.toString().trim();
-
     const savedReader = upsertSharedReader({
       id: body.id,
       employeeId,
-      username: readerUsername,
-      name: readerName,
+      username,
+      name: name.toString().trim(),
       pin,
       contactNumber,
       email,
@@ -37,7 +36,7 @@ export default function handler(req: any, res: any) {
       deviceInfo,
     });
 
-    return res.status(201).json({
+    return sendJson(res, 201, {
       success: true,
       message: 'Meter reader registration saved successfully. Awaiting Administrator approval.',
       status: savedReader.status,
@@ -47,7 +46,7 @@ export default function handler(req: any, res: any) {
       allReaders: getSharedReaders(),
     });
   } catch (err: any) {
-    return res.status(200).json({
+    return sendJson(res, 200, {
       success: true,
       status: 'pending',
       employmentStatus: 'pending',
@@ -55,4 +54,3 @@ export default function handler(req: any, res: any) {
     });
   }
 }
-
