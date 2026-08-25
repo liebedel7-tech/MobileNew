@@ -10,6 +10,21 @@ export const DEFAULT_SERVER_URL = LIVE_BACKEND_URL;
 let cachedWorkingBaseUrl: string | null = null;
 let lastHealthCheckTime = 0;
 
+function isObsoleteOrCrossDomain(url: string): boolean {
+  if (!url) return true;
+  const lower = url.toLowerCase();
+  if (lower.includes('twd-zeta') || lower.includes('ui6fsepfskrowqsfycbac7')) return true;
+  
+  // If running on Vercel, localhost, or custom domain, do not connect to transient Cloud Run preview URLs
+  if (typeof window !== 'undefined' && window.location && window.location.origin) {
+    const currentOrigin = window.location.origin.toLowerCase();
+    if (!currentOrigin.includes('run.app') && lower.includes('run.app')) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /**
  * Resolves the primary base URL based on environment, localStorage override, and origin
  */
@@ -22,8 +37,7 @@ export function getApiBaseUrl(): string {
   // 1. User manual server override in localStorage
   if (typeof window !== 'undefined' && window.localStorage) {
     const stored = window.localStorage.getItem('TWD_API_BASE_URL') || window.localStorage.getItem('twd_api_base_url');
-    // Clear known obsolete/broken dev instances
-    if (stored && (stored.includes('twd-zeta') || stored.includes('ui6fsepfskrowqsfycbac7'))) {
+    if (stored && isObsoleteOrCrossDomain(stored)) {
       window.localStorage.removeItem('TWD_API_BASE_URL');
       window.localStorage.removeItem('twd_api_base_url');
     } else if (stored && stored.trim()) {
@@ -36,7 +50,7 @@ export function getApiBaseUrl(): string {
     const meta = import.meta as any;
     if (meta && meta.env) {
       const envUrl = meta.env.VITE_API_URL || meta.env.VITE_CENTRAL_API_URL;
-      if (envUrl && typeof envUrl === 'string' && envUrl.trim() && !envUrl.includes('twd-zeta') && !envUrl.includes('ui6fsepfskrowqsfycbac7')) {
+      if (envUrl && typeof envUrl === 'string' && envUrl.trim() && !isObsoleteOrCrossDomain(envUrl)) {
         return envUrl.trim().replace(/\/+$/, '').replace(/\/api$/, '');
       }
     }
@@ -61,19 +75,22 @@ export function getApiBaseUrl(): string {
 export function getCandidateBackendUrls(): string[] {
   const candidates: string[] = [];
 
-  // Candidate 1: Stored custom URL
-  if (typeof window !== 'undefined' && window.localStorage) {
-    const stored = window.localStorage.getItem('TWD_API_BASE_URL') || window.localStorage.getItem('twd_api_base_url');
-    if (stored && stored.trim() && !stored.includes('ui6fsepfskrowqsfycbac7') && !stored.includes('twd-zeta')) {
-      candidates.push(stored.trim().replace(/\/+$/, '').replace(/\/api$/, ''));
-    }
-  }
-
-  // Candidate 2: Current origin (relative / same domain) - HIGHEST PRIORITY FOR DEPLOYED APPS
+  // Candidate 1: Current origin (relative / same domain) - HIGHEST PRIORITY
   if (typeof window !== 'undefined' && window.location && window.location.origin) {
     const origin = window.location.origin;
     if (origin.startsWith('http') && !candidates.includes(origin)) {
       candidates.push(origin);
+    }
+  }
+
+  // Candidate 2: Stored custom URL (if valid and not cross-domain obsolete)
+  if (typeof window !== 'undefined' && window.localStorage) {
+    const stored = window.localStorage.getItem('TWD_API_BASE_URL') || window.localStorage.getItem('twd_api_base_url');
+    if (stored && stored.trim() && !isObsoleteOrCrossDomain(stored)) {
+      const clean = stored.trim().replace(/\/+$/, '').replace(/\/api$/, '');
+      if (!candidates.includes(clean)) {
+        candidates.push(clean);
+      }
     }
   }
 
