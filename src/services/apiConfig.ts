@@ -3,7 +3,7 @@
 
 export const LIVE_BACKEND_URL = typeof window !== 'undefined' && window.location?.origin 
   ? window.location.origin 
-  : 'https://ais-pre-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app';
+  : '';
 
 export const DEFAULT_SERVER_URL = LIVE_BACKEND_URL;
 
