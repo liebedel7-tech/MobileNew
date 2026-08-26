@@ -12,10 +12,12 @@ let lastHealthCheckTime = 0;
 
 function isObsoleteOrCrossDomain(url: string): boolean {
   if (!url) return true;
-  const lower = url.toLowerCase();
-  if (lower.includes('twd-zeta') || lower.includes('ui6fsepfskrowqsfycbac7')) return true;
+  const lower = url.toLowerCase().trim();
+  if (lower.includes('twd-zeta') || lower.includes('ui6fsepfskrowqsfycbac7') || lower.includes('6cykzmqeda3wtxfpbqbxts')) {
+    return true;
+  }
   
-  // If running on Vercel, localhost, or custom domain, do not connect to transient Cloud Run preview URLs
+  // If running on Vercel, localhost, or any custom domain, strictly NEVER connect to transient Cloud Run preview URLs
   if (typeof window !== 'undefined' && window.location && window.location.origin) {
     const currentOrigin = window.location.origin.toLowerCase();
     if (!currentOrigin.includes('run.app') && lower.includes('run.app')) {
@@ -23,6 +25,19 @@ function isObsoleteOrCrossDomain(url: string): boolean {
     }
   }
   return false;
+}
+
+// Proactively purge obsolete Cloud Run dev URLs from localStorage immediately upon module load
+if (typeof window !== 'undefined' && window.localStorage) {
+  try {
+    const stored = window.localStorage.getItem('TWD_API_BASE_URL') || window.localStorage.getItem('twd_api_base_url');
+    if (stored && isObsoleteOrCrossDomain(stored)) {
+      window.localStorage.removeItem('TWD_API_BASE_URL');
+      window.localStorage.removeItem('twd_api_base_url');
+    }
+  } catch {
+    // Ignore localStorage access issues
+  }
 }
 
 /**
@@ -110,6 +125,7 @@ export async function universalApiFetch(path: string, init?: RequestInit): Promi
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
   const candidates = getCandidateBackendUrls();
 
+  let lastResponse: Response | null = null;
   let lastError: any = null;
 
   for (const base of candidates) {
@@ -123,6 +139,8 @@ export async function universalApiFetch(path: string, init?: RequestInit): Promi
         },
       });
 
+      lastResponse = response;
+
       if (response.status < 500) {
         cachedWorkingBaseUrl = base;
         lastHealthCheckTime = Date.now();
@@ -133,16 +151,23 @@ export async function universalApiFetch(path: string, init?: RequestInit): Promi
     }
   }
 
-  // If all candidates fail, perform relative request
-  if (lastError) {
-    try {
-      return await fetch(cleanPath, init);
-    } catch {
-      throw lastError;
-    }
+  // If we received a response (even 500), return it so caller can handle JSON or graceful fallback
+  if (lastResponse) {
+    return lastResponse;
   }
 
-  return fetch(getApiEndpoint(path), init);
+  // Fallback: direct relative request without cross-domain cycling
+  try {
+    return await fetch(cleanPath, {
+      ...init,
+      headers: {
+        'Accept': 'application/json',
+        ...(init?.headers || {}),
+      },
+    });
+  } catch (finalErr) {
+    throw lastError || finalErr;
+  }
 }
 
 export function setCustomApiBaseUrl(url: string): void {
