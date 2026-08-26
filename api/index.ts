@@ -26,23 +26,45 @@ const CONSUMERS = [
   }
 ];
 
-export default function handler(req: any, res: any) {
-  if (typeof res.setHeader === 'function') {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', '*');
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  }
+export default function handler(req: any, res?: any) {
+  const send = (status: number, payload: any) => {
+    const json = JSON.stringify(payload);
+    if (res) {
+      try {
+        if (typeof res.setHeader === 'function') {
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+          res.setHeader('Access-Control-Allow-Headers', '*');
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        }
+        if (typeof res.status === 'function') {
+          if (typeof res.json === 'function') return res.status(status).json(payload);
+          return res.status(status).end(json);
+        }
+        res.statusCode = status;
+        if (typeof res.end === 'function') return res.end(json);
+      } catch {
+        // ignore
+      }
+    }
+    return new Response(json, {
+      status,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
+        'Access-Control-Allow-Headers': '*',
+        'Content-Type': 'application/json; charset=utf-8',
+      },
+    });
+  };
 
-  if (req.method === 'OPTIONS') {
-    if (typeof res.status === 'function') return res.status(200).end();
-    res.statusCode = 200;
-    return res.end();
+  const method = req?.method || 'GET';
+  if (method === 'OPTIONS') {
+    return send(200, { ok: true });
   }
 
   try {
-    const rawUrl = req.url || '';
-    const query = req.query || {};
+    const rawUrl = req?.url || '';
     const url = rawUrl.toLowerCase();
 
     if (url.includes('consumer') || url.includes('pull')) {
@@ -53,9 +75,7 @@ export default function handler(req: any, res: any) {
         consumers: CONSUMERS,
         data: CONSUMERS,
       };
-      if (typeof res.status === 'function' && typeof res.json === 'function') return res.status(200).json(resp);
-      res.statusCode = 200;
-      return res.end(JSON.stringify(resp));
+      return send(200, resp);
     }
 
     const health = {
@@ -64,17 +84,13 @@ export default function handler(req: any, res: any) {
       district: 'Tagoloan Water District (WDT-MISOR)',
       consumersCount: CONSUMERS.length,
     };
-    if (typeof res.status === 'function' && typeof res.json === 'function') return res.status(200).json(health);
-    res.statusCode = 200;
-    return res.end(JSON.stringify(health));
+    return send(200, health);
   } catch (err: any) {
     const fallback = {
       success: true,
       district: 'Tagoloan Water District (WDT-MISOR)',
       consumers: CONSUMERS,
     };
-    if (typeof res.status === 'function' && typeof res.json === 'function') return res.status(200).json(fallback);
-    res.statusCode = 200;
-    return res.end(JSON.stringify(fallback));
+    return send(200, fallback);
   }
 }
