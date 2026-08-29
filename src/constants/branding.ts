@@ -7,5 +7,5 @@ export const OFFICIAL_TAGOLOAN_LOGO_FALLBACK = `https://drive.google.com/thumbna
 export const OFFICIAL_TAGOLOAN_LOGO_DIRECT = `https://drive.google.com/uc?export=view&id=${OFFICIAL_TAGOLOAN_LOGO_ID}`;
 
 export const APP_OFFICIAL_TITLE = 'Tagoloan Water District';
-export const APP_OFFICIAL_BADGE = 'OFFICIAL TAGOLOAN WATER DISTRICT MOBILE APP';
-export const APP_OFFICIAL_SUBTITLE = 'Field Operations Terminal';
+export const APP_OFFICIAL_BADGE = 'FIELD METER READER MOBILE TERMINAL';
+export const APP_OFFICIAL_SUBTITLE = 'Field Meter Reader Mobile App';

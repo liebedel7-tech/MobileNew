@@ -231,10 +231,10 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
           <div className="space-y-3.5 pt-2">
             <div className="text-center space-y-1">
               <h2 className="text-sm font-bold text-white uppercase tracking-wider">
-                Staff Authentication
+                Meter Reader Authentication
               </h2>
               <p className="text-[11px] text-slate-400">
-                Official Mobile Terminal for Meter Reading & Billing
+                Official Mobile Terminal • Authorized Field Meter Readers Only
               </p>
             </div>
 
@@ -426,33 +426,33 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
                 <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-purple-400 group-hover:translate-x-0.5 transition" />
               </div>
 
-              {/* Module 5: Meter Readers & Staff Approval */}
+              {/* Module 5: Reading Logs & Submittal History */}
               <div 
-                onClick={() => onNavigate('meter_readers')}
+                onClick={() => handleModuleClick('history')}
                 className="p-3 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-sky-500/50 transition cursor-pointer flex items-center justify-between group active:scale-[0.99]"
               >
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-xl bg-sky-500/10 border border-sky-500/30 text-sky-400 flex items-center justify-center shrink-0">
-                    <Users className="w-4 h-4" />
+                    <FileText className="w-4 h-4" />
                   </div>
                   <div className="text-left">
                     <div className="flex items-center gap-1.5">
                       <h3 className="text-xs font-bold text-white group-hover:text-sky-300 transition">
-                        Meter Readers & Staff Directory
+                        Reading Logs & History
                       </h3>
                       <span className="px-1.5 py-0.2 rounded-full bg-sky-500/20 text-sky-300 text-[9px] font-mono font-bold">
-                        Admin Approval
+                        Logs
                       </span>
                     </div>
                     <p className="text-[10px] text-slate-400">
-                      Manage field readers, approval status & routes
+                      Audit history, bill summaries & sync records
                     </p>
                   </div>
                 </div>
                 <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-sky-400 group-hover:translate-x-0.5 transition" />
               </div>
 
-              {/* Module 6: Android APK Installation */}
+              {/* Module 6: Android APK & Diagnostics */}
               <div 
                 onClick={onOpenApkModal}
                 className="p-3 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-emerald-500/50 transition cursor-pointer flex items-center justify-between group active:scale-[0.99]"

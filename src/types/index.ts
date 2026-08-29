@@ -18,7 +18,7 @@ export type ReadingStatus =
   | 'FAILED' 
   | 'DRAFT';
 
-export type ReaderStatus = 'pending' | 'active' | 'rejected';
+export type ReaderStatus = 'pending' | 'active' | 'rejected' | 'terminated';
 
 export type ApprovalStatus = 'pending_approval' | 'approved' | 'rejected';
 

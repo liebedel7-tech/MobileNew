@@ -152,34 +152,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     const cleanPin = pin.trim();
 
     if (!cleanUsername) {
-      setError('Please enter your Staff Username or Employee ID');
+      setError('Please enter your username');
       return;
     }
     if (!cleanPin) {
-      setError('Please enter your Security PIN / Password');
+      setError('Please enter your password');
       return;
     }
 
     setLoading(true);
     setError(null);
-
-    // 1. Check for Supervisor / Admin credentials offline or static fallback
-    if (
-      (cleanUsername.toLowerCase() === 'supervisor' && (cleanPin === '5678' || cleanPin === '1234')) ||
-      (cleanUsername.toLowerCase() === 'admin' && (cleanPin === 'admin123' || cleanPin === '5678' || cleanPin === '1234'))
-    ) {
-      setLoading(false);
-      onLogin({
-        id: 'WDT-ADM-01',
-        username: cleanUsername.toLowerCase(),
-        name: cleanUsername.toLowerCase() === 'supervisor' ? 'Engr. Roberto M. Dacer' : 'Central Administrator',
-        role: 'District Metering Supervisor',
-        zone: 'All Districts (Central Tagoloan)',
-        assignedRoutes: ['Poblacion', 'Baluarte', 'Casinglot', 'Mohon', 'Natumolan', 'Sta. Cruz'],
-        status: 'active',
-      });
-      return;
-    }
 
     try {
       const response = await universalApiFetch('/api/auth/login', {
@@ -196,14 +178,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         data = null;
       }
 
-      if (response.status === 403 && data?.status === 'pending') {
-        // Reader is pending approval
-        setPendingReader(data.reader || { name: cleanUsername, employeeId: cleanUsername, username: cleanUsername });
-        setAuthMode('PENDING_APPROVAL');
+      if (response.status === 403 && (data?.status === 'terminated' || data?.status === 'rejected')) {
+        setError('This account has been terminated or revoked by administration. Please contact the Tagoloan Water District office.');
         return;
       }
 
       if (response.ok && data?.user) {
+        if (data.user.status === 'terminated' || data.user.status === 'rejected') {
+          setError('This account has been terminated or revoked by administration. Please contact the Tagoloan Water District office.');
+          return;
+        }
         onLogin(data.user);
         return;
       }
@@ -229,44 +213,41 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
       if (matched) {
         if (matched.pin && matched.pin !== cleanPin && cleanPin !== '1234') {
-          setError('Incorrect Security PIN / Password. Please try again.');
+          setError('Incorrect password. Please try again.');
           return;
         }
 
-        if (matched.status === 'pending') {
-          setPendingReader(matched);
-          setAuthMode('PENDING_APPROVAL');
-          setStatusMessage('Status: Awaiting Administrator approval in the Admin Portal.');
+        if (matched.status === 'rejected' || matched.status === 'terminated') {
+          setError('This account has been terminated or revoked by administration. Please contact the Tagoloan Water District office.');
           return;
         }
 
-        if (matched.status === 'active') {
-          onLogin({
-            id: matched.id,
-            employeeId: matched.employeeId,
-            username: matched.username,
-            name: matched.name,
-            role: 'Meter Reader I',
-            zone: (matched.assignedRoutes || ['Poblacion']).join(', '),
-            assignedRoutes: matched.assignedRoutes || ['Poblacion'],
-            status: 'active',
-          });
-          return;
-        }
+        // Automatic access: newly registered and active readers can log right in
+        onLogin({
+          id: matched.id,
+          employeeId: matched.employeeId,
+          username: matched.username,
+          name: matched.name,
+          role: 'Meter Reader I',
+          zone: (matched.assignedRoutes || ['Poblacion']).join(', '),
+          assignedRoutes: matched.assignedRoutes || ['Poblacion'],
+          status: 'active',
+        });
+        return;
       }
     } catch (localErr) {
       console.warn('Local auth lookup error:', localErr);
     }
 
-    setError('Authentication failed. Verify your username & PIN, or register as a new Meter Reader below.');
+    setError('Invalid username or password. Please try again.');
     setLoading(false);
   };
 
-  // Handle New Meter Reader Registration
+  // Handle New Meter Reader Registration - Instant Access + Background Admin Sync
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!regName.trim() || !regUsername.trim() || !regPin.trim()) {
-      setError('Please fill in Name, Username, and Security PIN');
+      setError('Please fill in Name, Username, and Password');
       return;
     }
 
@@ -283,58 +264,45 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       contactNumber: regContact.trim(),
       email: regEmail.trim() || `${regUsername.toLowerCase()}@tagoloanwater.gov.ph`,
       assignedRoutes: [regSelectedRoute],
-      status: 'pending',
+      status: 'active', // Automatically active immediately upon creation
       deviceInfo: navigator.userAgent || 'Field Mobile Device',
       createdAt: new Date().toISOString(),
     };
 
-    try {
-      const res = await universalApiFetch('/api/readers/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: localReaderRecord.name,
-          employeeId: localReaderRecord.employeeId,
-          username: localReaderRecord.username,
-          pin: localReaderRecord.pin,
-          contactNumber: localReaderRecord.contactNumber,
-          email: localReaderRecord.email,
-          assignedRoutes: localReaderRecord.assignedRoutes,
-          deviceInfo: localReaderRecord.deviceInfo,
-        }),
-      });
-
-      let data: any = null;
-      try {
-        const text = await res.text();
-        data = JSON.parse(text);
-      } catch {
-        data = null;
-      }
-
-      if (res.ok && data?.success) {
-        const savedReader = data.reader || localReaderRecord;
-        await DatabaseHelper.saveLocalReader(savedReader);
-        setPendingReader(savedReader);
-        setAuthMode('PENDING_APPROVAL');
-        setStatusMessage('Registration submitted to Central Web Portal. Awaiting Supervisor approval.');
-        SyncService.syncReaders().catch(() => {});
-        return;
-      } else if (data?.message && !data?.success) {
-        setError(data.message);
-        return;
-      }
-    } catch {
-      // Backend not available (Vercel static or offline). Proceed smoothly with local vault registration.
-    }
-
-    // Always guarantee registration is stored in local database
+    // 1. Instantly save to local database
     await DatabaseHelper.saveLocalReader(localReaderRecord);
-    setPendingReader(localReaderRecord);
-    setAuthMode('PENDING_APPROVAL');
-    setStatusMessage('Registration saved securely! Awaiting Administrator approval in the Admin Portal.');
+
+    // 2. Dispatch background synchronization to central admin
+    universalApiFetch('/api/readers/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: localReaderRecord.id,
+        name: localReaderRecord.name,
+        employeeId: localReaderRecord.employeeId,
+        username: localReaderRecord.username,
+        pin: localReaderRecord.pin,
+        contactNumber: localReaderRecord.contactNumber,
+        email: localReaderRecord.email,
+        assignedRoutes: localReaderRecord.assignedRoutes,
+        deviceInfo: localReaderRecord.deviceInfo,
+        status: 'active',
+      }),
+    }).catch(() => {});
     SyncService.syncReaders().catch(() => {});
+
+    // 3. Immediately launch meter reader terminal for instant operational use
     setIsRegistering(false);
+    onLogin({
+      id: localReaderRecord.id,
+      employeeId: localReaderRecord.employeeId,
+      username: localReaderRecord.username,
+      name: localReaderRecord.name,
+      role: 'Meter Reader I',
+      zone: (localReaderRecord.assignedRoutes || [regSelectedRoute]).join(', '),
+      assignedRoutes: localReaderRecord.assignedRoutes || [regSelectedRoute],
+      status: 'active',
+    });
   };
 
   // Check Approval Status manually
@@ -466,7 +434,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             }`}
           >
             <ShieldCheck className="w-3.5 h-3.5" />
-            <span>Staff Sign In</span>
+            <span>Sign In</span>
           </button>
 
           <button
@@ -482,7 +450,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             }`}
           >
             <UserPlus className="w-3.5 h-3.5" />
-            <span>Register New Reader</span>
+            <span>Register</span>
           </button>
         </div>
       )}
@@ -496,11 +464,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-sky-400" />
                 <h2 className="text-xs font-bold text-white uppercase tracking-wider">
-                  Field Reader Authentication
+                  Sign In
                 </h2>
               </div>
               <span className="text-[10px] text-emerald-400 font-mono font-bold bg-emerald-950 px-2 py-0.5 rounded border border-emerald-800">
-                Official Portal
+                Meter Reader
               </span>
             </div>
 
@@ -514,7 +482,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             <form onSubmit={handleLoginSubmit} className="space-y-3.5">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Staff Username or Reader ID
+                  Username
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
@@ -524,7 +492,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    placeholder="e.g. reader04 or WDT-MR04"
+                    placeholder="Username"
                     required
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2.5 text-xs text-white focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition font-mono"
                   />
@@ -533,7 +501,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Security PIN / Password
+                  Password
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
@@ -543,7 +511,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     type="password"
                     value={pin}
                     onChange={(e) => setPin(e.target.value)}
-                    placeholder="••••"
+                    placeholder="Password"
                     required
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2.5 text-xs text-white focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition font-mono tracking-widest"
                   />
@@ -555,43 +523,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 disabled={loading}
                 className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-sky-600/30 flex items-center justify-center gap-2 text-xs uppercase tracking-wider transition cursor-pointer disabled:opacity-50 active:scale-[0.99]"
               >
-                <span>{loading ? 'Authenticating...' : 'Sign In to Terminal'}</span>
+                <span>{loading ? 'Logging in...' : 'Log In'}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </form>
-
-            {/* Quick Demo Staff Credentials Selector */}
-            <div className="pt-2 border-t border-slate-800 space-y-1.5">
-              <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
-                <span>Quick Sign-In Profiles:</span>
-                <span className="text-sky-400 font-semibold">One-Tap Fill</span>
-              </div>
-              <div className="grid grid-cols-2 gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUsername('supervisor');
-                    setPin('5678');
-                  }}
-                  className="p-2 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-left transition text-[10px]"
-                >
-                  <span className="font-bold text-sky-400 block truncate">Engr. Roberto (Supv)</span>
-                  <span className="text-slate-500 font-mono">supervisor / 5678</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUsername('reader04');
-                    setPin('1234');
-                  }}
-                  className="p-2 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-left transition text-[10px]"
-                >
-                  <span className="font-bold text-emerald-400 block truncate">Field Reader 04</span>
-                  <span className="text-slate-500 font-mono">reader04 / 1234</span>
-                </button>
-              </div>
-            </div>
           </>
         )}
 
@@ -602,16 +537,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               <div className="flex items-center gap-2">
                 <UserPlus className="w-4 h-4 text-sky-400" />
                 <h2 className="text-xs font-bold text-white uppercase tracking-wider">
-                  New Meter Reader Registration
+                  Create Account
                 </h2>
               </div>
-              <span className="text-[10px] text-amber-400 font-mono font-bold bg-amber-950 px-2 py-0.5 rounded border border-amber-800">
-                Requires Admin Approval
+              <span className="text-[10px] text-emerald-400 font-mono font-bold bg-emerald-950 px-2 py-0.5 rounded border border-emerald-800">
+                Instant Access
               </span>
             </div>
 
             <p className="text-[11px] text-slate-400 leading-relaxed">
-              Register your field terminal profile. Once submitted, your account will be sent to the Web Admin for verification and route assignment.
+              Create your meter reader account to start field operations immediately. Profile is automatically synced with Central Admin.
             </p>
 
             {error && (
@@ -634,7 +569,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     type="text"
                     value={regName}
                     onChange={(e) => setRegName(e.target.value)}
-                    placeholder="e.g. Arnel Mendoza"
+                    placeholder="Full name"
                     required
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500 transition"
                   />
@@ -644,36 +579,21 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Employee ID <span className="text-slate-500 font-normal">(Optional)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={regEmployeeId}
-                    onChange={(e) => setRegEmployeeId(e.target.value)}
-                    placeholder="TWD-2026-089"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-sky-500 transition"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
                     Username <span className="text-rose-400">*</span>
                   </label>
                   <input
                     type="text"
                     value={regUsername}
                     onChange={(e) => setRegUsername(e.target.value)}
-                    placeholder="arnel_reader"
+                    placeholder="Username"
                     required
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-sky-500 transition"
                   />
                 </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Security PIN (4-Digits) <span className="text-rose-400">*</span>
+                    Password <span className="text-rose-400">*</span>
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
@@ -683,28 +603,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                       type="password"
                       value={regPin}
                       onChange={(e) => setRegPin(e.target.value)}
-                      placeholder="1234"
+                      placeholder="Password"
                       required
-                      maxLength={6}
                       className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white font-mono tracking-widest focus:outline-none focus:border-sky-500 transition"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Contact Number
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
-                      <Phone className="w-3.5 h-3.5" />
-                    </div>
-                    <input
-                      type="text"
-                      value={regContact}
-                      onChange={(e) => setRegContact(e.target.value)}
-                      placeholder="0917-123-4567"
-                      className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-sky-500 transition"
                     />
                   </div>
                 </div>
@@ -741,7 +642,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 disabled={isRegistering}
                 className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 text-xs uppercase tracking-wider transition cursor-pointer disabled:opacity-50 active:scale-[0.99]"
               >
-                <span>{isRegistering ? 'Submitting Registration...' : 'Submit Meter Reader Registration'}</span>
+                <span>{isRegistering ? 'Creating Account...' : 'Create Account & Start Reading'}</span>
                 <BadgeCheck className="w-4 h-4" />
               </button>
             </form>

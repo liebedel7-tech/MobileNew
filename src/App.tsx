@@ -440,29 +440,6 @@ export function App() {
     );
   }
 
-  // If navigating to meter readers directory without being logged in
-  if (!currentUser && activeScreen === 'meter_readers') {
-    return (
-      <MobileFrameWrapper isMobileChassis={isMobileChassis}>
-        {loadingProcess && (
-          <ModuleLoadingScreen
-            processInfo={loadingProcess}
-            currentUser={currentUser}
-            onFinished={handleFinishLoadingProcess}
-          />
-        )}
-        <MeterReadersScreen
-          currentUser={currentUser}
-          onNavigate={navigateTo}
-          onSwitchUser={(user) => {
-            setCurrentUser(user);
-            navigateTo('dashboard');
-          }}
-        />
-      </MobileFrameWrapper>
-    );
-  }
-
   // If no user is logged in or user explicitly navigates to login, show Login Screen
   if (!currentUser || activeScreen === 'login') {
     return (

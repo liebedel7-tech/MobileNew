@@ -15,7 +15,8 @@ import {
   CheckCheck,
   UserCheck,
   CloudUpload,
-  Layers
+  Layers,
+  Sliders
 } from 'lucide-react';
 import { Consumer, MeterReading, StaffUser, SyncState, ActiveScreen } from '../types';
 
@@ -183,21 +184,21 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             </div>
           </button>
 
-          {/* Module 6: Meter Readers & Staff Directory */}
+          {/* Module 6: Diagnostics & System Settings */}
           <button
             type="button"
-            onClick={() => onNavigate('meter_readers')}
-            className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 hover:border-emerald-500/60 hover:bg-slate-900/60 transition-all flex flex-col items-start gap-2.5 group text-left active:scale-[0.98] shadow-sm cursor-pointer"
+            onClick={() => onNavigate('debug')}
+            className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 hover:border-sky-500/60 hover:bg-slate-900/60 transition-all flex flex-col items-start gap-2.5 group text-left active:scale-[0.98] shadow-sm cursor-pointer"
           >
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center group-hover:scale-105 transition-transform shrink-0">
-              <UserCheck className="w-4 h-4" />
+            <div className="w-9 h-9 rounded-xl bg-sky-500/10 border border-sky-500/30 text-sky-400 flex items-center justify-center group-hover:scale-105 transition-transform shrink-0">
+              <Sliders className="w-4 h-4" />
             </div>
             <div>
-              <span className="text-xs font-bold text-white block group-hover:text-emerald-300 transition">
-                Staff & Reader Directory
+              <span className="text-xs font-bold text-white block group-hover:text-sky-300 transition">
+                Device & Diagnostics
               </span>
               <span className="text-[10px] text-slate-400 block mt-0.5">
-                Staff accounts & route assignments
+                Offline database & sync health
               </span>
             </div>
           </button>
