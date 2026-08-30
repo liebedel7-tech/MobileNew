@@ -624,15 +624,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     onChange={(e) => setRegSelectedRoute(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500 transition"
                   >
-                    <option value="Poblacion">Zone 1-4: Poblacion (Main Central)</option>
-                    <option value="Baluarte">Zone 2: Baluarte (East Coastal)</option>
-                    <option value="Casinglot">Zone 5: Casinglot (Highway Strip)</option>
-                    <option value="Mohon">Zone 6: Mohon (South Valley)</option>
-                    <option value="Natumolan">Zone 3: Natumolan (Residential)</option>
-                    <option value="Sta. Cruz">Zone 7: Sta. Cruz (North Route)</option>
-                    <option value="Sta. Ana">Zone 8: Sta. Ana (Upper District)</option>
-                    <option value="Sugbongcogon">Zone 9: Sugbongcogon (Industrial PHIVIDEC)</option>
-                    <option value="Gracia">Zone 10: Gracia (Sitio Hills)</option>
+                    <option value="Poblacion">Poblacion</option>
+                    <option value="Baluarte">Baluarte</option>
+                    <option value="Casinglot">Casinglot</option>
+                    <option value="Mohon">Mohon</option>
+                    <option value="Natumolan">Natumolan</option>
+                    <option value="Sta. Cruz">Sta. Cruz</option>
+                    <option value="Sta. Ana">Sta. Ana</option>
+                    <option value="Sugbongcogon">Sugbongcogon</option>
+                    <option value="Gracia">Gracia</option>
                   </select>
                 </div>
               </div>
