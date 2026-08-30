@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Loader2 } from 'lucide-react';
 import { ActiveScreen, StaffUser } from '../types';
 import { OfficialLogo } from './OfficialLogo';
-import { APP_OFFICIAL_TITLE } from '../constants/branding';
 
 export interface LoadingProcessInfo {
   type: 'module_transition' | 'batch_sync' | 'save_reading' | 'ocr_scan' | 'print_receipt' | 'reset_database' | 'login' | 'logout';
@@ -25,7 +24,7 @@ export const ModuleLoadingScreen: React.FC<ModuleLoadingScreenProps> = ({
   processInfo,
   onFinished,
 }) => {
-  const [progress, setProgress] = useState(20);
+  const [progress, setProgress] = useState<number>(20);
 
   useEffect(() => {
     if (!processInfo) return;
@@ -34,7 +33,7 @@ export const ModuleLoadingScreen: React.FC<ModuleLoadingScreenProps> = ({
     const duration = processInfo.durationMs || 250; // Fast, snappy, native feel
 
     const progressTimer = setInterval(() => {
-      setProgress((prev) => (prev < 90 ? prev + 25 : prev));
+      setProgress((prev: number) => (prev < 90 ? prev + 25 : prev));
     }, duration / 4);
 
     const finishTimer = setTimeout(() => {

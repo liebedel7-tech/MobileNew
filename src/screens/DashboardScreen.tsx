@@ -44,13 +44,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   onOpenApkModal,
 }) => {
   const totalAssigned = consumers.length;
-  const readCount = consumers.filter((c) => c.isReadThisMonth).length;
+  const readCount = consumers.filter((c: Consumer) => c.isReadThisMonth).length;
   const unreadCount = Math.max(0, totalAssigned - readCount);
   const percentComplete = totalAssigned > 0 ? Math.round((readCount / totalAssigned) * 100) : 0;
 
   // Filter pending and recent readings for field reader tracking
   const pendingApprovalReadings = readings.filter(
-    (r) => r.approvalStatus === 'pending_approval' || (r.status === 'PENDING_SYNC' && r.approvalStatus !== 'approved' && r.approvalStatus !== 'rejected')
+    (r: MeterReading) => r.approvalStatus === 'pending_approval' || (r.status === 'PENDING_SYNC' && r.approvalStatus !== 'approved' && r.approvalStatus !== 'rejected')
   );
 
   const recentReadings = [...readings].slice(0, 5);
@@ -454,8 +454,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800 text-slate-200">
-              {consumers.map((consumer, index) => {
-                const isNext = !consumer.isReadThisMonth && index === consumers.findIndex((c) => !c.isReadThisMonth);
+              {consumers.map((consumer: Consumer, index: number) => {
+                const isNext = !consumer.isReadThisMonth && index === consumers.findIndex((c: Consumer) => !c.isReadThisMonth);
                 
                 return (
                   <tr

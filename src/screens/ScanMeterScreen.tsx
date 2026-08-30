@@ -36,7 +36,7 @@ interface ScanMeterScreenProps {
   consumer?: Consumer | null;
   currentUser?: StaffUser | null;
   onNavigate: (screen: ActiveScreen) => void;
-  onOCRComplete?: (consumer: Consumer, readingValue: number, photoUrl: string, confidence: number) => void;
+  onOCRComplete?: (data: { readingValue: number; photoUrl: string; confidence: number }) => void;
   onSelectConsumer?: (consumer: Consumer) => void;
   onSaveReading?: (reading: MeterReading) => Promise<void> | void;
   onReloadData?: () => void;

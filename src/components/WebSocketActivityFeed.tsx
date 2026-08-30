@@ -48,9 +48,10 @@ export const WebSocketActivityFeed: React.FC = () => {
         text = `👤 Staff: ${packet.payload?.readerName} (${packet.payload?.action})`;
       }
 
-      setLatestToast({ id: Date.now(), text, type: packet.type });
+      const toastId = Date.now();
+      setLatestToast({ id: toastId, text, type: packet.type });
       setTimeout(() => {
-        setLatestToast((prev) => (prev?.id === packet.timestamp ? null : prev));
+        setLatestToast((prev: { id: number; text: string; type: string } | null) => (prev?.id === toastId ? null : prev));
       }, 4000);
     });
 
@@ -181,7 +182,7 @@ export const WebSocketActivityFeed: React.FC = () => {
                     Listening for WebSocket events...
                   </div>
                 ) : (
-                  recentEvents.map((evt, idx) => (
+                  recentEvents.map((evt: WSEventPacket, idx: number) => (
                     <div
                       key={idx}
                       className="p-2 rounded-xl bg-slate-950 border border-slate-800/80 text-[10px] font-mono space-y-1"

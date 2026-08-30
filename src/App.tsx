@@ -391,8 +391,8 @@ export function App() {
     }, 450);
   };
 
-  const pendingReadings = readings.filter((r) => r.status === 'PENDING_SYNC');
-  const syncedReadings = readings.filter((r) => r.status === 'SYNCED');
+  const pendingReadings = readings.filter((r: MeterReading) => r.status === 'PENDING_SYNC');
+  const syncedReadings = readings.filter((r: MeterReading) => r.status === 'SYNCED');
 
   // Initial App Opening Loading Screen with Official Logo & Dark Blue Screen
   if (isBootSplash) {
@@ -496,7 +496,7 @@ export function App() {
               readings={readings}
               syncState={syncState}
               onNavigate={navigateTo}
-              onSelectConsumer={(c) => {
+              onSelectConsumer={(c: Consumer) => {
                 setSelectedConsumer(c);
                 navigateTo('consumer_details', {
                   title: 'Loading Consumer Profile',
@@ -512,7 +512,7 @@ export function App() {
           {activeScreen === 'consumers' && (
             <ConsumersScreen
               consumers={consumers}
-              onSelectConsumer={(c) => {
+              onSelectConsumer={(c: Consumer) => {
                 setSelectedConsumer(c);
                 navigateTo('consumer_details', {
                   title: 'Loading Consumer Profile',
@@ -545,7 +545,7 @@ export function App() {
               onSaveReading={handleSaveReading}
               onNavigate={navigateTo}
               onScanWithCamera={handleScanMeter}
-              onSelectNextConsumer={(c) => setSelectedConsumer(c)}
+              onSelectNextConsumer={(c: Consumer) => setSelectedConsumer(c)}
             />
           )}
 
@@ -555,7 +555,7 @@ export function App() {
               currentUser={currentUser}
               onNavigate={navigateTo}
               onOCRComplete={handleOCRComplete}
-              onSelectConsumer={(c) => setSelectedConsumer(c)}
+              onSelectConsumer={(c: Consumer) => setSelectedConsumer(c)}
               onSaveReading={handleSaveReading}
               onReloadData={reloadData}
             />
@@ -590,7 +590,7 @@ export function App() {
             <MeterReadersScreen
               currentUser={currentUser}
               onNavigate={navigateTo}
-              onSwitchUser={(user) => {
+              onSwitchUser={(user: StaffUser) => {
                 setCurrentUser(user);
                 navigateTo('dashboard');
               }}

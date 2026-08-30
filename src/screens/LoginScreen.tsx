@@ -491,7 +491,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   <input
                     type="text"
                     value={username}
-                    onChange={(e) => setUsername(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)}
                     placeholder="Username"
                     required
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2.5 text-xs text-white focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition font-mono"
@@ -510,7 +510,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   <input
                     type="password"
                     value={pin}
-                    onChange={(e) => setPin(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPin(e.target.value)}
                     placeholder="Password"
                     required
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2.5 text-xs text-white focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition font-mono tracking-widest"
@@ -568,7 +568,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   <input
                     type="text"
                     value={regName}
-                    onChange={(e) => setRegName(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegName(e.target.value)}
                     placeholder="Full name"
                     required
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500 transition"
@@ -584,7 +584,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   <input
                     type="text"
                     value={regUsername}
-                    onChange={(e) => setRegUsername(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegUsername(e.target.value)}
                     placeholder="Username"
                     required
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-sky-500 transition"
@@ -602,7 +602,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     <input
                       type="password"
                       value={regPin}
-                      onChange={(e) => setRegPin(e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegPin(e.target.value)}
                       placeholder="Password"
                       required
                       className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white font-mono tracking-widest focus:outline-none focus:border-sky-500 transition"
@@ -621,7 +621,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   </div>
                   <select
                     value={regSelectedRoute}
-                    onChange={(e) => setRegSelectedRoute(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setRegSelectedRoute(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500 transition"
                   >
                     <option value="Poblacion">Poblacion</option>
