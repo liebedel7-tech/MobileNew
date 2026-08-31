@@ -177,10 +177,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
     if (!cleanUsername) {
       setError('Please enter your username');
+      setLoading(false);
       return;
     }
     if (!cleanPin) {
       setError('Please enter your password');
+      setLoading(false);
       return;
     }
 
@@ -188,83 +190,147 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     setError(null);
 
     try {
-      const response = await universalApiFetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: cleanUsername, pin: cleanPin }),
-      });
-
-      const text = await response.text();
-      let data: any = null;
+      // 1. Try server API login
       try {
-        data = JSON.parse(text);
-      } catch {
-        data = null;
-      }
+        const response = await universalApiFetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: cleanUsername, pin: cleanPin }),
+        });
 
-      if (response.status === 403 && (data?.status === 'terminated' || data?.status === 'rejected')) {
-        setError('This account has been terminated or revoked by administration. Please contact the Tagoloan Water District office.');
-        return;
-      }
+        const text = await response.text();
+        let data: any = null;
+        try {
+          data = JSON.parse(text);
+        } catch {
+          data = null;
+        }
 
-      if (response.ok && data?.user) {
-        if (data.user.status === 'terminated' || data.user.status === 'rejected') {
+        if (response.status === 403 && (data?.status === 'terminated' || data?.status === 'rejected')) {
           setError('This account has been terminated or revoked by administration. Please contact the Tagoloan Water District office.');
+          setLoading(false);
           return;
         }
-        onLogin(data.user);
-        return;
+
+        if (response.ok && data?.user) {
+          if (data.user.status === 'terminated' || data.user.status === 'rejected') {
+            setError('This account has been terminated or revoked by administration. Please contact the Tagoloan Water District office.');
+            setLoading(false);
+            return;
+          }
+          setLoading(false);
+          onLogin(data.user);
+          return;
+        }
+
+        // If server returned 401/403 with specific user error, show message
+        if (response.status < 500 && data?.message) {
+          setError(data.message);
+          setLoading(false);
+          return;
+        }
+      } catch {
+        // Backend not available (Vercel static or offline). Fallback to local vault verification.
       }
 
-      // If server returned 401/403 with specific user error, show message only if not a 500 internal error
-      if (response.status < 500 && data?.message) {
-        setError(data.message);
-        return;
-      }
-    } catch {
-      // Backend not available (Vercel static or offline). Fallback to local vault verification.
-    }
+      // 2. Check local database for registered readers
+      try {
+        const localReaders = await DatabaseHelper.getLocalReaders();
+        const matched = localReaders.find(
+          (r) =>
+            r.username.toLowerCase() === cleanUsername.toLowerCase() ||
+            r.id.toLowerCase() === cleanUsername.toLowerCase() ||
+            (r.employeeId && r.employeeId.toLowerCase() === cleanUsername.toLowerCase())
+        );
 
-    // 2. Check local database for registered readers
-    try {
-      const localReaders = await DatabaseHelper.getLocalReaders();
-      const matched = localReaders.find(
-        (r) =>
-          r.username.toLowerCase() === cleanUsername.toLowerCase() ||
-          r.id.toLowerCase() === cleanUsername.toLowerCase() ||
-          (r.employeeId && r.employeeId.toLowerCase() === cleanUsername.toLowerCase())
+        if (matched) {
+          if (matched.pin && matched.pin !== cleanPin) {
+            setError('Incorrect password. Please try again.');
+            setLoading(false);
+            return;
+          }
+
+          if (matched.status === 'rejected' || matched.status === 'terminated') {
+            setError('This account has been terminated or revoked by administration. Please contact the Tagoloan Water District office.');
+            setLoading(false);
+            return;
+          }
+
+          // Automatic access: newly registered and active readers can log right in
+          setLoading(false);
+          onLogin({
+            id: matched.id,
+            employeeId: matched.employeeId,
+            username: matched.username,
+            name: matched.name,
+            role: 'Meter Reader I',
+            zone: (matched.assignedRoutes || ['Poblacion']).join(', '),
+            assignedRoutes: matched.assignedRoutes || ['Poblacion'],
+            status: 'active',
+          });
+          return;
+        }
+      } catch (localErr) {
+        console.warn('Local auth lookup error:', localErr);
+      }
+
+      // 3. Check default known readers for offline fallback
+      const DEFAULT_STAFF: StaffUser[] = [
+        {
+          id: 'WDT-MR04',
+          employeeId: 'TWD-2026-088',
+          username: 'reader04',
+          name: 'Juan Carlo Bautista',
+          role: 'Meter Reader III',
+          zone: 'Poblacion, Baluarte',
+          assignedRoutes: ['Poblacion', 'Baluarte'],
+          status: 'active',
+        },
+        {
+          id: 'WDT-MR02',
+          employeeId: 'TWD-2026-042',
+          username: 'reader02',
+          name: 'Maria Lourdes Santos',
+          role: 'Meter Reader II',
+          zone: 'Casinglot, Mohon',
+          assignedRoutes: ['Casinglot', 'Mohon'],
+          status: 'active',
+        }
+      ];
+
+      const seedMatched = DEFAULT_STAFF.find(
+        (s) =>
+          s.username.toLowerCase() === cleanUsername.toLowerCase() ||
+          s.id.toLowerCase() === cleanUsername.toLowerCase() ||
+          (s.employeeId && s.employeeId.toLowerCase() === cleanUsername.toLowerCase())
       );
 
-      if (matched) {
-        if (matched.pin && matched.pin !== cleanPin) {
+      if (seedMatched) {
+        if (cleanPin === '1234') {
+          setLoading(false);
+          onLogin(seedMatched);
+          return;
+        } else {
           setError('Incorrect password. Please try again.');
+          setLoading(false);
           return;
         }
-
-        if (matched.status === 'rejected' || matched.status === 'terminated') {
-          setError('This account has been terminated or revoked by administration. Please contact the Tagoloan Water District office.');
-          return;
-        }
-
-        // Automatic access: newly registered and active readers can log right in
-        onLogin({
-          id: matched.id,
-          employeeId: matched.employeeId,
-          username: matched.username,
-          name: matched.name,
-          role: 'Meter Reader I',
-          zone: (matched.assignedRoutes || ['Poblacion']).join(', '),
-          assignedRoutes: matched.assignedRoutes || ['Poblacion'],
-          status: 'active',
-        });
-        return;
       }
-    } catch (localErr) {
-      console.warn('Local auth lookup error:', localErr);
-    }
 
-    setError('Invalid username or password. Please try again.');
-    setLoading(false);
+      setError('Invalid username or password. Please verify your credentials or register as a new reader.');
+    } catch (err: any) {
+      setError(err?.message || 'Invalid username or password. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Quick fill recommended accounts into input fields without auto-submitting
+  const handleSelectRecommendedAccount = (accountUsername: string, accountPin: string) => {
+    setUsername(accountUsername);
+    setPin(accountPin);
+    setError(null);
+    // Explicitly do NOT auto-login. The user can review the inputs and tap the "Log In" button.
   };
 
   // Handle New Meter Reader Registration - Instant Access + Background Admin Sync
@@ -515,7 +581,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   <input
                     type="text"
                     value={username}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                      setUsername(e.target.value);
+                      if (error) setError(null);
+                    }}
                     placeholder="Username"
                     required
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition font-mono"
@@ -534,7 +603,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   <input
                     type="password"
                     value={pin}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPin(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                      setPin(e.target.value);
+                      if (error) setError(null);
+                    }}
                     placeholder="Password"
                     required
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition font-mono tracking-widest"
@@ -547,10 +619,63 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 disabled={loading}
                 className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 rounded-xl shadow-lg shadow-sky-600/30 flex items-center justify-center gap-2 text-xs uppercase tracking-wider transition cursor-pointer disabled:opacity-50 active:scale-[0.99]"
               >
+                {loading && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
                 <span>{loading ? 'Logging in...' : 'Log In'}</span>
-                <ArrowRight className="w-4 h-4" />
+                {!loading && <ArrowRight className="w-4 h-4" />}
               </button>
             </form>
+
+            {/* Recommended Official Reader Accounts (Fills fields only, requires pressing Log In) */}
+            <div className="pt-2.5 border-t border-slate-800 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-slate-300">
+                  Recommended Accounts
+                </span>
+                <span className="text-[9.5px] text-sky-400 font-mono">
+                  Tap to fill • Click Log In
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleSelectRecommendedAccount('reader04', '1234')}
+                  className={`p-2 rounded-xl text-left border transition cursor-pointer ${
+                    username.toLowerCase() === 'reader04'
+                      ? 'bg-sky-950/70 border-sky-500 ring-1 ring-sky-500/50'
+                      : 'bg-slate-950/80 border-slate-800 hover:border-slate-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-white font-mono">reader04</span>
+                    <span className="text-[9px] font-mono text-emerald-400 bg-emerald-950/80 px-1.5 py-0.2 rounded border border-emerald-800/60">
+                      PIN: 1234
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 truncate mt-0.5 font-medium">Juan Carlo Bautista</p>
+                  <p className="text-[9px] text-sky-400/80 font-mono truncate">Poblacion, Baluarte</p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSelectRecommendedAccount('reader02', '1234')}
+                  className={`p-2 rounded-xl text-left border transition cursor-pointer ${
+                    username.toLowerCase() === 'reader02'
+                      ? 'bg-sky-950/70 border-sky-500 ring-1 ring-sky-500/50'
+                      : 'bg-slate-950/80 border-slate-800 hover:border-slate-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-white font-mono">reader02</span>
+                    <span className="text-[9px] font-mono text-emerald-400 bg-emerald-950/80 px-1.5 py-0.2 rounded border border-emerald-800/60">
+                      PIN: 1234
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 truncate mt-0.5 font-medium">Maria Lourdes Santos</p>
+                  <p className="text-[9px] text-sky-400/80 font-mono truncate">Casinglot, Mohon</p>
+                </button>
+              </div>
+            </div>
           </>
         )}
 
