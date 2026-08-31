@@ -66,7 +66,7 @@ export const WDTBottomNav: React.FC<WDTBottomNavProps> = ({
   ];
 
   return (
-    <nav className="w-full bg-slate-900 border-t border-slate-800 grid grid-cols-5 px-1 sm:px-3 shrink-0 select-none z-40 shadow-2xl relative">
+    <nav className="w-full bg-slate-900 border-t border-slate-800 grid grid-cols-5 px-1 sm:px-3 shrink-0 select-none z-40 shadow-2xl sticky bottom-0 left-0 right-0 overscroll-none [overscroll-behavior:none] touch-none pb-[env(safe-area-inset-bottom)]">
       {NAV_ITEMS.map((item) => {
         const isActive = currentTab === item.id;
 

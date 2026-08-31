@@ -39,7 +39,7 @@ export const WDTHeader: React.FC<WDTHeaderProps> = ({
   wsStatus = 'CONNECTED',
 }) => {
   return (
-    <header className="flex items-center justify-between px-3 sm:px-4 py-2.5 bg-slate-900 border-b border-slate-800 text-slate-100 select-none sticky top-0 z-40 shadow-sm shrink-0">
+    <header className="w-full flex items-center justify-between px-3 sm:px-4 py-2.5 bg-slate-900 border-b border-slate-800 text-slate-100 select-none sticky top-0 left-0 right-0 z-40 shadow-md shrink-0 overscroll-none [overscroll-behavior:none] touch-none">
       {/* Brand Identity with Official Logo */}
       <div 
         onClick={() => onNavigate('landing')}

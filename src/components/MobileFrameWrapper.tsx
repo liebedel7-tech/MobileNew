@@ -12,8 +12,8 @@ export const MobileFrameWrapper: React.FC<MobileFrameWrapperProps> = ({
 }) => {
   if (!isMobileChassis) {
     return (
-      <div className="h-[100dvh] max-h-[100dvh] w-full bg-slate-950 text-slate-100 flex flex-col items-center justify-start overflow-hidden">
-        <div className="w-full max-w-md h-full flex flex-col bg-slate-950 shadow-2xl overflow-hidden relative">
+      <div className="h-screen w-full bg-slate-950 text-slate-100 flex flex-col items-center justify-start overflow-hidden overscroll-none [overscroll-behavior:none]">
+        <div className="w-full max-w-md h-full flex flex-col bg-slate-950 shadow-2xl overflow-hidden relative overscroll-none [overscroll-behavior:none]">
           {children}
         </div>
       </div>
@@ -21,12 +21,12 @@ export const MobileFrameWrapper: React.FC<MobileFrameWrapperProps> = ({
   }
 
   return (
-    <div className="h-[100dvh] sm:min-h-screen w-full bg-slate-950 p-0 sm:py-4 sm:px-4 flex items-center justify-center overflow-hidden sm:overflow-auto">
+    <div className="h-screen w-full bg-slate-950 p-0 sm:py-4 sm:px-4 flex items-center justify-center overflow-hidden sm:overflow-auto overscroll-none [overscroll-behavior:none]">
       {/* Mobile Device Bezel Frame */}
-      <div className="w-full max-w-[420px] h-[100dvh] sm:h-[840px] sm:max-h-[92vh] bg-slate-900 sm:border-[10px] border-slate-800 sm:rounded-[44px] shadow-[0_25px_70px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col relative ring-1 ring-slate-700/80">
+      <div className="w-full max-w-[420px] h-screen sm:h-[840px] sm:max-h-[92vh] bg-slate-900 sm:border-[10px] border-slate-800 sm:rounded-[44px] shadow-[0_25px_70px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col relative ring-1 ring-slate-700/80 overscroll-none [overscroll-behavior:none]">
         
         {/* Mobile Device Status Bar & Dynamic Island */}
-        <div className="hidden sm:flex h-8 bg-slate-950 w-full items-center justify-between px-6 shrink-0 select-none border-b border-slate-900/50">
+        <div className="hidden sm:flex h-8 bg-slate-950 w-full items-center justify-between px-6 shrink-0 select-none border-b border-slate-900/50 touch-none">
           <span className="text-[11px] font-semibold text-slate-300 font-mono">09:41</span>
           
           {/* Dynamic Island Pill */}
@@ -44,7 +44,7 @@ export const MobileFrameWrapper: React.FC<MobileFrameWrapperProps> = ({
         </div>
 
         {/* Device Screen Content Container: overflow-hidden ensures pinned header and bottom nav */}
-        <div className="flex-1 min-h-0 flex flex-col bg-slate-950 relative overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col bg-slate-950 relative overflow-hidden overscroll-none [overscroll-behavior:none]">
           {children}
         </div>
       </div>

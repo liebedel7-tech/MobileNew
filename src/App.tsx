@@ -509,8 +509,8 @@ export function App() {
       <main
         className={`flex-1 min-h-0 flex flex-col bg-slate-950 ${
           activeScreen === 'scan_meter'
-            ? 'h-full overflow-hidden p-0 m-0'
-            : 'overflow-y-auto overflow-x-hidden pb-3'
+            ? 'h-full overflow-hidden p-0 m-0 [overscroll-behavior:none]'
+            : 'overflow-y-auto overflow-x-hidden [overscroll-behavior:contain] pb-4'
         }`}
       >
         <ScreenTransition screenKey={activeScreen}>
