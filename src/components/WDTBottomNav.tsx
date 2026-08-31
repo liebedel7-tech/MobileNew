@@ -19,6 +19,15 @@ export const WDTBottomNav: React.FC<WDTBottomNavProps> = ({
   onNavigate,
   pendingCount = 0,
 }) => {
+  // Map sub-screens to main bottom navigation tabs
+  const getMappedActiveTab = (screen: ActiveScreen): ActiveScreen => {
+    if (screen === 'consumer_details' || screen === 'reading_entry') return 'consumers';
+    if (screen === 'audit_log' || screen === 'meter_readers' || screen === 'flutter_config' || screen === 'token_setup') return 'debug';
+    return screen;
+  };
+
+  const currentTab = getMappedActiveTab(activeScreen);
+
   const NAV_ITEMS: { id: ActiveScreen; label: string; icon: React.ReactNode }[] = [
     {
       id: 'dashboard',
@@ -34,11 +43,11 @@ export const WDTBottomNav: React.FC<WDTBottomNavProps> = ({
       id: 'batch_submission',
       label: 'Sync Queue',
       icon: (
-        <div className="relative">
+        <div className="relative flex items-center justify-center">
           <Send className="w-5 h-5" />
           {pendingCount > 0 && (
-            <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-amber-500 text-slate-950 text-[9px] font-black flex items-center justify-center animate-pulse">
-              {pendingCount}
+            <span className="absolute -top-1.5 -right-2.5 min-w-[17px] h-4 px-1 rounded-full bg-amber-400 text-slate-950 text-[9px] font-black flex items-center justify-center shadow-md animate-pulse">
+              {pendingCount > 99 ? '99+' : pendingCount}
             </span>
           )}
         </div>
@@ -57,22 +66,30 @@ export const WDTBottomNav: React.FC<WDTBottomNavProps> = ({
   ];
 
   return (
-    <nav className="h-16 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 grid grid-cols-5 px-1 sm:px-4 shrink-0 select-none z-30 shadow-lg">
+    <nav className="w-full bg-slate-900 border-t border-slate-800 grid grid-cols-5 px-1 sm:px-3 shrink-0 select-none z-40 shadow-2xl relative">
       {NAV_ITEMS.map((item) => {
-        const isActive = activeScreen === item.id;
+        const isActive = currentTab === item.id;
 
         return (
           <button
             key={item.id}
+            type="button"
             onClick={() => onNavigate(item.id)}
-            className={`flex flex-col items-center justify-center gap-1 transition-all py-1 px-0.5 relative ${
+            className={`flex flex-col items-center justify-center gap-1 transition-colors py-2.5 px-0.5 relative touch-manipulation cursor-pointer ${
               isActive
-                ? 'text-sky-400 font-bold bg-sky-500/10'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'text-sky-400 font-bold'
+                : 'text-slate-400 hover:text-slate-200 active:text-slate-100'
             }`}
           >
-            <span className="shrink-0">{item.icon}</span>
-            <span className="text-[10px] leading-none whitespace-nowrap tracking-tight">
+            {/* Active Top Bar Indicator */}
+            {isActive && (
+              <span className="absolute top-0 left-2 right-2 h-0.5 bg-sky-400 rounded-full shadow-[0_0_8px_rgba(56,189,248,0.8)]" />
+            )}
+
+            <span className={`shrink-0 transition-transform ${isActive ? 'scale-105' : ''}`}>
+              {item.icon}
+            </span>
+            <span className="text-[10px] sm:text-[11px] leading-tight whitespace-nowrap tracking-tight font-medium">
               {item.label}
             </span>
           </button>
@@ -81,3 +98,4 @@ export const WDTBottomNav: React.FC<WDTBottomNavProps> = ({
     </nav>
   );
 };
+

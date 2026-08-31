@@ -504,7 +504,7 @@ export function App() {
       />
 
       {/* Main Dynamic View with Flutter Material 3 Screen Transitions */}
-      <main className="flex-1 overflow-y-auto flex flex-col bg-slate-950 pb-20">
+      <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden flex flex-col bg-slate-950 pb-3">
         <ScreenTransition screenKey={activeScreen}>
           {activeScreen === 'dashboard' && (
             <DashboardScreen
@@ -625,12 +625,14 @@ export function App() {
       {/* Real-time WebSocket Live Activity Toast & Telemetry Drawer */}
       <WebSocketActivityFeed />
 
-      {/* Elegant Dark Persistent Navigation Bar */}
-      <WDTBottomNav
-        activeScreen={activeScreen}
-        onNavigate={navigateTo}
-        pendingCount={pendingReadings.length}
-      />
+      {/* Elegant Dark Persistent Navigation Bar (Pinned and Locked) */}
+      {activeScreen !== 'scan_meter' && (
+        <WDTBottomNav
+          activeScreen={activeScreen}
+          onNavigate={navigateTo}
+          pendingCount={pendingReadings.length}
+        />
+      )}
 
       {/* Android APK & Mobile Installation Modal */}
       {isApkModalOpen && (
