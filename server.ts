@@ -1068,10 +1068,10 @@ const handleRejectReading = (req: any, res: any) => {
 app.post('/api/readings/:id/reject', handleRejectReading);
 app.patch('/api/readings/:id/reject', handleRejectReading);
 
-// 📷 Real Camera Optical Vision Analysis with Strict 5-Digit Validation
+// 📷 Real Camera Optical Vision Analysis: Exclusively Tag Numbers and 5-Digit Meter Readings
 app.post('/api/ocr/analyze', async (req, res) => {
   try {
-    const { imageBase64, previousReading, meterSerial } = req.body;
+    const { imageBase64, mode = 'reading', previousReading, meterSerial } = req.body;
 
     if (!imageBase64) {
       return res.status(400).json({ success: false, message: 'Image data is required' });
@@ -1084,33 +1084,47 @@ app.post('/api/ocr/analyze', async (req, res) => {
         status: 'REJECTED_NO_5_DIGITS',
         readingValue: null,
         odometerFormatted: null,
+        tagDetected: null,
         digits: [],
         confidence: 0,
-        message: 'Vision service unavailable. Please enter the reading manually or check network.',
+        message: 'Vision service unavailable. Please enter manually or check connection.',
       });
     }
 
     // Clean base64 string
     const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
 
-    const prompt = `Analyze this real photo captured from the water meter reader camera for Tagoloan Water District (TWD).
-Strict requirements:
-1. Examine the mechanical odometer counter on the water meter.
-2. Extract the EXACT consecutive numerical digits (00000 - 99999) representing cubic meters consumption.
-3. If no water meter dial is clearly visible, or if the photo is blurry/dark/unreadable, return "readingValue": null and "status": "REJECTED_NO_5_DIGITS".
-4. If a tag or serial number is visible on the meter body (e.g. TWD-XXXX, TAG-XXXX, or number plate), extract it in "meterSerialDetected".
+    // Formulate targeted prompts for Tag Number ONLY vs Dial Reading ONLY (NO Barcode or QR)
+    let prompt = '';
+    if (mode === 'tag') {
+      prompt = `You are an OCR vision inspector for Tagoloan Water District (TWD) water utility meters.
+TASK: Identify ONLY the physical stamped/printed Meter Tag Number or Meter Serial Number badge on the meter casing, body plate, or brass dial bezel (e.g., TAG-01042, TWD-00104, 2024-001, MTR-8921, 01042).
+CRITICAL CONSTRAINT: Do NOT scan or look for barcodes or QR codes. ONLY read human-readable alphanumeric text / numbers printed or engraved on the meter plate or tag label.
 
-Respond with strict JSON ONLY:
+Respond in strict JSON ONLY:
+{
+  "status": "SUCCESS" | "REJECTED_NO_TAG",
+  "tagDetected": "exact tag or serial number detected" | null,
+  "confidence": number between 0.0 and 1.0,
+  "notes": "short description of tag found"
+}`;
+    } else {
+      prompt = `You are an OCR vision inspector for Tagoloan Water District (TWD) water utility meters.
+TASK: Identify ONLY the 5-digit mechanical odometer counter wheels (index reading in cubic meters m³, numbers 00000 - 99999).
+CRITICAL CONSTRAINT: Do NOT look for barcodes, QR codes, or other symbols. Look ONLY at the mechanical rolling digit wheels inside the meter index window.
+If the digits are clear, extract the exact numerical value. If blurry, dark, or obscured, reject with status "REJECTED_NO_5_DIGITS".
+
+Respond in strict JSON ONLY:
 {
   "status": "SUCCESS" | "REJECTED_NO_5_DIGITS",
   "readingValue": number | null,
-  "odometerFormatted": "string of digits like 00368" | null,
+  "odometerFormatted": "string of 5 digits like 00368" | null,
   "confidence": number between 0.0 and 1.0,
-  "meterSerialDetected": string | null,
   "meterCondition": "Normal" | "Moisture inside dial" | "Damaged glass" | "Unclear",
   "potentialLeak": boolean,
-  "notes": string
+  "notes": "short explanation of detected digits"
 }`;
+    }
 
     let responseText = '';
     const modelsToTry = ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-3.7-flash'];
@@ -1156,6 +1170,31 @@ Respond with strict JSON ONLY:
       }
     }
 
+    if (mode === 'tag') {
+      if (parsedData && parsedData.status === 'SUCCESS' && parsedData.tagDetected) {
+        const tagClean = String(parsedData.tagDetected).trim();
+        return res.json({
+          success: true,
+          status: 'SUCCESS',
+          tagDetected: tagClean,
+          meterSerialDetected: tagClean,
+          confidence: parsedData.confidence || 0.95,
+          notes: parsedData.notes || 'Meter tag identified.',
+          source: 'camera_tag_ocr',
+        });
+      }
+
+      return res.json({
+        success: false,
+        status: 'REJECTED_NO_TAG',
+        tagDetected: null,
+        confidence: 0,
+        message: 'Could not read meter tag number. Please aim steadily at the meter tag or badge.',
+        source: 'camera_tag_ocr',
+      });
+    }
+
+    // mode === 'reading'
     if (parsedData && parsedData.status === 'SUCCESS' && parsedData.readingValue !== null && parsedData.readingValue !== undefined) {
       const numVal = parseInt(String(parsedData.readingValue).replace(/[^0-9]/g, ''), 10);
       if (!isNaN(numVal) && numVal >= 0 && numVal <= 999999) {
@@ -1167,16 +1206,16 @@ Respond with strict JSON ONLY:
           odometerFormatted: formatted,
           digits: formatted.split(''),
           confidence: parsedData.confidence || 0.92,
-          meterSerialDetected: parsedData.meterSerialDetected || meterSerial || null,
+          meterSerialDetected: meterSerial || null,
           meterCondition: parsedData.meterCondition || 'Normal',
           potentialLeak: !!parsedData.potentialLeak,
-          notes: parsedData.notes || 'Identified from captured photo.',
+          notes: parsedData.notes || 'Mechanical dial digits identified.',
           source: 'camera_vision_ocr',
         });
       }
     }
 
-    // If no digits or failed extraction from the real photo
+    // If reading rejection
     return res.json({
       success: false,
       status: 'REJECTED_NO_5_DIGITS',
@@ -1184,8 +1223,8 @@ Respond with strict JSON ONLY:
       odometerFormatted: null,
       digits: [],
       confidence: parsedData?.confidence || 0,
-      meterSerialDetected: parsedData?.meterSerialDetected || null,
-      message: 'Could not clearly identify the meter digits from this photo. Please retake photo with steady focus and good lighting.',
+      meterSerialDetected: meterSerial || null,
+      message: 'Could not clearly identify the 5-digit meter dial. Please align the camera with the mechanical dials and ensure good lighting.',
       source: 'camera_vision_ocr',
     });
   } catch (error: any) {

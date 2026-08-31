@@ -1,5 +1,5 @@
 import React from 'react';
-import { Camera, Zap, RefreshCw, Scan, QrCode } from 'lucide-react';
+import { Camera, Zap, RefreshCw, Scan, Tag } from 'lucide-react';
 
 interface ScanOverlayProps {
   onCapture: () => void;
@@ -32,8 +32,8 @@ export const ScanOverlay: React.FC<ScanOverlayProps> = ({
       {/* Top Unobtrusive Status Pill */}
       <div className="text-center pt-2">
         <div className="inline-flex items-center gap-2 bg-slate-950/85 backdrop-blur-md border border-slate-700/70 rounded-full px-4 py-1.5 shadow-lg">
-          {isAutoScanning ? (
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+          {mode === 'tag' ? (
+            <Tag className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
           ) : (
             <Scan className="w-3.5 h-3.5 text-sky-400 animate-pulse" />
           )}
@@ -42,17 +42,17 @@ export const ScanOverlay: React.FC<ScanOverlayProps> = ({
               {guideTitle || (mode === 'tag' ? 'AIM AT METER TAG / SERIAL' : 'AIM AT 5-DIGIT METER DIAL')}
             </p>
             <p className="text-[10px] text-slate-300 font-medium">
-              {guideSubtitle || (mode === 'tag' ? 'Smart camera auto-identifies consumer tag' : 'Auto-identifying 5 mechanical digit wheels')}
+              {guideSubtitle || (mode === 'tag' ? 'Identifies meter tag number' : 'Auto-identifying 5 mechanical digit wheels')}
             </p>
           </div>
         </div>
       </div>
 
-      {/* Viewport Reticle - Dynamic for Tag vs Dial */}
+      {/* Viewport Reticle - Dynamic for Tag Number vs Dial Reading */}
       <div className="relative flex-1 flex items-center justify-center my-2 pointer-events-none">
         {mode === 'tag' ? (
-          /* Tag / Barcode Scanner Reticle */
-          <div className="relative w-[80%] max-w-[320px] h-[35%] max-h-[160px] pointer-events-none rounded-2xl border border-emerald-500/40 bg-emerald-950/10 backdrop-blur-[1px]">
+          /* Meter Tag / Serial Number Reticle */
+          <div className="relative w-[82%] max-w-[320px] h-[35%] max-h-[160px] pointer-events-none rounded-2xl border border-emerald-500/40 bg-emerald-950/10 backdrop-blur-[1px]">
             {/* 4 Corner Guides */}
             <div className="absolute top-0 left-0 w-6 h-6 border-t-3 border-l-3 border-emerald-400 rounded-tl-xl" />
             <div className="absolute top-0 right-0 w-6 h-6 border-t-3 border-r-3 border-emerald-400 rounded-tr-xl" />
@@ -63,8 +63,8 @@ export const ScanOverlay: React.FC<ScanOverlayProps> = ({
             <div className="absolute inset-x-2 top-0 h-0.5 bg-gradient-to-r from-transparent via-emerald-400 to-transparent shadow-[0_0_12px_#34d399] animate-[scan_2s_ease-in-out_infinite]" />
             
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-[11px] font-mono font-bold text-emerald-300/80 bg-slate-950/60 px-2 py-0.5 rounded">
-                TAG / BARCODE RADAR ACTIVE
+              <span className="text-[11px] font-mono font-bold text-emerald-300/90 bg-slate-950/70 px-2.5 py-0.5 rounded border border-emerald-500/30">
+                METER TAG NUMBER ALIGNMENT
               </span>
             </div>
           </div>

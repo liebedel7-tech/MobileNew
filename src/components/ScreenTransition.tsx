@@ -18,7 +18,7 @@ export const ScreenTransition: React.FC<ScreenTransitionProps> = ({
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: -4, scale: 0.995 }}
         transition={{ duration: 0.2 }}
-        className="w-full flex-1 flex flex-col"
+        className="w-full flex-1 min-h-0 h-full flex flex-col overflow-hidden"
       >
         {children}
       </motion.div>

@@ -408,53 +408,50 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   };
 
   return (
-    <div className="min-h-full flex flex-col justify-center px-3.5 sm:px-4 py-6 max-w-md mx-auto w-full">
+    <div className="w-full h-full min-h-0 flex-1 overflow-y-auto overflow-x-hidden flex flex-col justify-start px-3 sm:px-4 py-3 sm:py-4 max-w-md mx-auto scrollbar-thin scrollbar-thumb-slate-800">
       {/* Return to Portal Header */}
       {onBackToLanding && (
-        <div className="mb-3">
+        <div className="mb-2 shrink-0">
           <button
             type="button"
             onClick={onBackToLanding}
             className="flex items-center gap-1.5 text-xs font-bold text-sky-400 hover:text-sky-300 transition cursor-pointer"
           >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Back to Field Operations Portal</span>
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back to Field Portal</span>
           </button>
         </div>
       )}
 
-      {/* Official District Emblem */}
-      <div className="text-center mb-4 flex flex-col items-center">
-        <div className="mb-2">
-          <OfficialLogo size="xl" glow />
+      {/* Official District Emblem - Compact in Register Mode */}
+      <div className={`text-center flex flex-col items-center shrink-0 ${authMode === 'REGISTER' ? 'mb-2.5' : 'mb-3.5'}`}>
+        <div className={authMode === 'REGISTER' ? 'mb-1 scale-90 sm:scale-100 origin-center' : 'mb-1.5'}>
+          <OfficialLogo size={authMode === 'REGISTER' ? 'md' : 'lg'} glow />
         </div>
 
-        <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-sky-500/10 border border-sky-500/30 text-sky-300 text-[9.5px] font-mono font-medium mb-1">
-          <Sparkles className="w-3 h-3 text-sky-400 animate-pulse" />
+        <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-500/10 border border-sky-500/30 text-sky-300 text-[9px] font-mono font-medium mb-1">
+          <Sparkles className="w-2.5 h-2.5 text-sky-400 animate-pulse" />
           <span>{APP_OFFICIAL_BADGE}</span>
         </div>
 
-        <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white uppercase">
+        <h1 className={`${authMode === 'REGISTER' ? 'text-lg sm:text-xl' : 'text-xl sm:text-2xl'} font-black tracking-tight text-white uppercase`}>
           {APP_OFFICIAL_TITLE}
         </h1>
-        <p className="text-xs text-sky-400 font-semibold mt-0.5">
+        <p className="text-[11px] text-sky-400 font-semibold mt-0.5">
           Field Meter Reader & Billing System (WDT)
-        </p>
-        <p className="text-[10.5px] text-slate-400">
-          Offline SQLite & Central Ledger • Province of Misamis Oriental
         </p>
       </div>
 
       {/* Auth Mode Toggle Tabs (Sign In vs Register) */}
       {authMode !== 'PENDING_APPROVAL' && (
-        <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800 mb-3 shadow-sm">
+        <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800 mb-2.5 shadow-sm shrink-0">
           <button
             type="button"
             onClick={() => {
               setAuthMode('LOGIN');
               setError(null);
             }}
-            className={`flex-1 py-2 text-xs font-bold rounded-lg transition flex items-center justify-center gap-1.5 cursor-pointer ${
+            className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition flex items-center justify-center gap-1.5 cursor-pointer ${
               authMode === 'LOGIN'
                 ? 'bg-sky-600 text-white shadow-md'
                 : 'text-slate-400 hover:text-white'
@@ -470,7 +467,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               setAuthMode('REGISTER');
               setError(null);
             }}
-            className={`flex-1 py-2 text-xs font-bold rounded-lg transition flex items-center justify-center gap-1.5 cursor-pointer ${
+            className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition flex items-center justify-center gap-1.5 cursor-pointer ${
               authMode === 'REGISTER'
                 ? 'bg-sky-600 text-white shadow-md'
                 : 'text-slate-400 hover:text-white'
@@ -483,11 +480,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       )}
 
       {/* Card Content based on Mode */}
-      <div className="bg-slate-900/95 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-2xl backdrop-blur-sm space-y-4">
+      <div className="bg-slate-900/95 border border-slate-800 rounded-2xl p-3.5 sm:p-4 shadow-2xl backdrop-blur-sm space-y-3 shrink-0">
         {/* ================= MODE 1: SIGN IN ================= */}
         {authMode === 'LOGIN' && (
           <>
-            <div className="flex items-center justify-between pb-2.5 border-b border-slate-800">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-sky-400" />
                 <h2 className="text-xs font-bold text-white uppercase tracking-wider">
@@ -500,13 +497,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             </div>
 
             {error && (
-              <div className="p-3 bg-rose-950/80 border border-rose-800 rounded-xl text-xs text-rose-300 flex items-start gap-2">
+              <div className="p-2.5 bg-rose-950/80 border border-rose-800 rounded-xl text-xs text-rose-300 flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
                 <span>{error}</span>
               </div>
             )}
 
-            <form onSubmit={handleLoginSubmit} className="space-y-3.5">
+            <form onSubmit={handleLoginSubmit} className="space-y-3">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
                   Username
@@ -521,7 +518,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)}
                     placeholder="Username"
                     required
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2.5 text-xs text-white focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition font-mono"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition font-mono"
                   />
                 </div>
               </div>
@@ -540,7 +537,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPin(e.target.value)}
                     placeholder="Password"
                     required
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2.5 text-xs text-white focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition font-mono tracking-widest"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition font-mono tracking-widest"
                   />
                 </div>
               </div>
@@ -548,7 +545,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-sky-600/30 flex items-center justify-center gap-2 text-xs uppercase tracking-wider transition cursor-pointer disabled:opacity-50 active:scale-[0.99]"
+                className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 rounded-xl shadow-lg shadow-sky-600/30 flex items-center justify-center gap-2 text-xs uppercase tracking-wider transition cursor-pointer disabled:opacity-50 active:scale-[0.99]"
               >
                 <span>{loading ? 'Logging in...' : 'Log In'}</span>
                 <ArrowRight className="w-4 h-4" />
@@ -560,11 +557,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         {/* ================= MODE 2: NEW READER REGISTRATION ================= */}
         {authMode === 'REGISTER' && (
           <>
-            <div className="flex items-center justify-between pb-2.5 border-b border-slate-800">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <div className="flex items-center gap-2">
                 <UserPlus className="w-4 h-4 text-sky-400" />
                 <h2 className="text-xs font-bold text-white uppercase tracking-wider">
-                  Create Account
+                  Create Reader Account
                 </h2>
               </div>
               <span className="text-[10px] text-emerald-400 font-mono font-bold bg-emerald-950 px-2 py-0.5 rounded border border-emerald-800">
@@ -572,20 +569,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               </span>
             </div>
 
-            <p className="text-[11px] text-slate-400 leading-relaxed">
-              Create your meter reader account to start field operations immediately. Profile is automatically synced with Central Admin.
-            </p>
-
             {error && (
-              <div className="p-3 bg-rose-950/80 border border-rose-800 rounded-xl text-xs text-rose-300 flex items-start gap-2">
+              <div className="p-2.5 bg-rose-950/80 border border-rose-800 rounded-xl text-xs text-rose-300 flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
                 <span>{error}</span>
               </div>
             )}
 
-            <form onSubmit={handleRegisterSubmit} className="space-y-3">
+            <form onSubmit={handleRegisterSubmit} className="space-y-2.5">
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                <label className="block text-[11px] font-semibold text-slate-300 mb-0.5">
                   Full Name <span className="text-rose-400">*</span>
                 </label>
                 <div className="relative">
@@ -596,16 +589,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     type="text"
                     value={regName}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegName(e.target.value)}
-                    placeholder="Full name"
+                    placeholder="e.g. Juan Dela Cruz"
                     required
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500 transition"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500 transition"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-300 mb-0.5">
                     Username <span className="text-rose-400">*</span>
                   </label>
                   <input
@@ -614,16 +607,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegUsername(e.target.value)}
                     placeholder="Username"
                     required
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-sky-500 transition"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-sky-500 transition"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-300 mb-0.5">
                     Password <span className="text-rose-400">*</span>
                   </label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                    <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-500">
                       <Lock className="w-3.5 h-3.5" />
                     </div>
                     <input
@@ -632,23 +625,34 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegPin(e.target.value)}
                       placeholder="Password"
                       required
-                      className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white font-mono tracking-widest focus:outline-none focus:border-sky-500 transition"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-8 pr-2.5 py-1.5 text-xs text-white font-mono tracking-wider focus:outline-none focus:border-sky-500 transition"
                     />
                   </div>
                 </div>
               </div>
 
+              {/* Coverage Area Selection */}
               <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-semibold text-slate-300">
-                    Coverage Area / Barangay Assignment <span className="text-emerald-400 font-normal">(Select 1 or more)</span>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-300">
+                    Assigned Coverage Areas <span className="text-emerald-400 font-normal">({regSelectedRoutes.length} selected)</span>
                   </label>
-                  <span className="text-[11px] font-mono text-sky-400 bg-sky-950/80 px-2 py-0.5 rounded-full border border-sky-800/60">
-                    {regSelectedRoutes.length} Selected
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (regSelectedRoutes.length === TAGOLOAN_BARANGAYS.length) {
+                        setRegSelectedRoutes(['Poblacion']);
+                      } else {
+                        setRegSelectedRoutes([...TAGOLOAN_BARANGAYS]);
+                      }
+                    }}
+                    className="text-[10px] text-sky-400 hover:text-sky-300 font-mono underline cursor-pointer"
+                  >
+                    {regSelectedRoutes.length === TAGOLOAN_BARANGAYS.length ? 'Reset to 1' : 'Select All'}
+                  </button>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-1.5 max-h-36 overflow-y-auto p-1.5 bg-slate-950/80 border border-slate-700/80 rounded-xl">
+                <div className="grid grid-cols-2 sm:grid-cols-2 gap-1 max-h-32 overflow-y-auto p-1.5 bg-slate-950/90 border border-slate-700/80 rounded-xl scrollbar-thin scrollbar-thumb-slate-800">
                   {TAGOLOAN_BARANGAYS.map((brgy) => {
                     const isSelected = regSelectedRoutes.includes(brgy);
                     return (
@@ -656,34 +660,30 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                         key={brgy}
                         type="button"
                         onClick={() => toggleRouteSelection(brgy)}
-                        className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition cursor-pointer border text-left ${
+                        className={`flex items-center justify-between px-2 py-1 rounded-lg text-[11px] font-medium transition cursor-pointer border text-left touch-manipulation ${
                           isSelected
                             ? 'bg-sky-600/30 border-sky-500 text-white font-bold shadow-sm'
-                            : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                            : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200'
                         }`}
                       >
                         <span className="truncate">{brgy}</span>
                         {isSelected ? (
-                          <CheckCircle2 className="w-3.5 h-3.5 text-sky-400 shrink-0 ml-1" />
+                          <CheckCircle2 className="w-3 h-3 text-sky-400 shrink-0 ml-1" />
                         ) : (
-                          <div className="w-3.5 h-3.5 rounded-full border border-slate-600 shrink-0 ml-1" />
+                          <div className="w-3 h-3 rounded-full border border-slate-600 shrink-0 ml-1" />
                         )}
                       </button>
                     );
                   })}
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
-                  <MapPin className="w-3 h-3 text-sky-400 shrink-0" />
-                  <span>Only consumers in your selected coverage areas will sync to this device.</span>
-                </p>
               </div>
 
               <button
                 type="submit"
                 disabled={isRegistering}
-                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 text-xs uppercase tracking-wider transition cursor-pointer disabled:opacity-50 active:scale-[0.99]"
+                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 text-xs uppercase tracking-wider transition cursor-pointer disabled:opacity-50 active:scale-[0.99] mt-1"
               >
-                <span>{isRegistering ? 'Creating Account...' : 'Create Account & Start Reading'}</span>
+                <span>{isRegistering ? 'Creating Account...' : 'Create Account & Start'}</span>
                 <BadgeCheck className="w-4 h-4" />
               </button>
             </form>
@@ -692,24 +692,24 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
         {/* ================= MODE 3: PENDING APPROVAL VIEW ================= */}
         {authMode === 'PENDING_APPROVAL' && pendingReader && (
-          <div className="space-y-4 text-center py-2">
-            <div className="w-14 h-14 bg-amber-950/80 border border-amber-600/60 rounded-2xl mx-auto flex items-center justify-center text-amber-400 shadow-lg shadow-amber-950/50">
-              <Clock className="w-7 h-7 animate-pulse" />
+          <div className="space-y-3 text-center py-1">
+            <div className="w-12 h-12 bg-amber-950/80 border border-amber-600/60 rounded-2xl mx-auto flex items-center justify-center text-amber-400 shadow-lg shadow-amber-950/50">
+              <Clock className="w-6 h-6 animate-pulse" />
             </div>
 
             <div>
-              <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-950 text-amber-400 border border-amber-800 mb-1.5">
+              <span className="inline-block px-2.5 py-0.5 rounded-full text-[9.5px] font-bold uppercase tracking-wider bg-amber-950 text-amber-400 border border-amber-800 mb-1">
                 Status: Pending Admin Review
               </span>
-              <h3 className="text-base font-black text-white">
+              <h3 className="text-sm font-black text-white">
                 {pendingReader.name}
               </h3>
-              <p className="text-xs font-mono text-sky-400 mt-0.5">
+              <p className="text-[11px] font-mono text-sky-400 mt-0.5">
                 Employee ID: {pendingReader.employeeId || 'TWD-RDR'}
               </p>
             </div>
 
-            <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-left text-xs space-y-1.5">
+            <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-left text-xs space-y-1">
               <div className="flex items-center justify-between text-slate-400">
                 <span>Requested Route:</span>
                 <span className="text-white font-bold">{pendingReader.assignedRoutes?.join(', ') || regSelectedRoutes.join(', ')}</span>
@@ -720,30 +720,20 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   <CheckCircle2 className="w-3 h-3" /> Received
                 </span>
               </div>
-              <div className="flex items-center justify-between text-slate-400">
-                <span>Device Binding:</span>
-                <span className="text-slate-300 font-mono truncate max-w-[150px]">
-                  {pendingReader.deviceInfo || 'Android Field Device'}
-                </span>
-              </div>
             </div>
 
-            <p className="text-[11px] text-slate-400 text-center leading-relaxed">
-              Your registration has been logged in the Tagoloan Water District Central Web System. Once the Billing Supervisor approves your account, your mobile app will activate automatically.
-            </p>
-
             {statusMessage && (
-              <div className="p-2.5 bg-sky-950/80 border border-sky-800 rounded-xl text-xs text-sky-300 text-left">
+              <div className="p-2 bg-sky-950/80 border border-sky-800 rounded-xl text-xs text-sky-300 text-left">
                 {statusMessage}
               </div>
             )}
 
-            <div className="space-y-2 pt-1">
+            <div className="space-y-1.5 pt-1">
               <button
                 type="button"
                 onClick={checkApprovalStatus}
                 disabled={isCheckingStatus}
-                className="w-full py-2.5 px-4 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-sky-600/30 transition cursor-pointer"
+                className="w-full py-2 px-3 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-sky-600/30 transition cursor-pointer"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isCheckingStatus ? 'animate-spin' : ''}`} />
                 <span>{isCheckingStatus ? 'Checking Status...' : 'Check Approval Status'}</span>
@@ -755,7 +745,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   setAuthMode('LOGIN');
                   setPendingReader(null);
                 }}
-                className="w-full py-2 text-xs text-slate-400 hover:text-white transition"
+                className="w-full py-1.5 text-xs text-slate-400 hover:text-white transition"
               >
                 Back to Sign In
               </button>
@@ -764,7 +754,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         )}
       </div>
 
-      <div className="mt-4 text-center text-[10.5px] text-slate-500 space-y-0.5">
+      <div className="mt-3 text-center text-[10px] text-slate-500 space-y-0.5 shrink-0 pb-2">
         <p>© 2026 Tagoloan Water District. All rights reserved.</p>
         <p>Offline-First SQLite Architecture • Encrypted Vault</p>
       </div>

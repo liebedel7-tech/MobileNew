@@ -16,6 +16,14 @@ export interface OCRResult {
   message?: string;
 }
 
+export interface TagOCRResult {
+  success: boolean;
+  tagDetected?: string;
+  confidence: number;
+  message?: string;
+  notes?: string;
+}
+
 export class OCRService {
   /**
    * Captures an image snapshot from an HTML5 video stream and returns base64 data URL
@@ -33,7 +41,52 @@ export class OCRService {
   }
 
   /**
-   * Analyzes the real captured meter photo via Vision OCR
+   * Identifies ONLY the physical meter Tag Number / Serial Number from the camera photo
+   * (No Barcodes or QR codes)
+   */
+  static async analyzeTagPhoto(imageBase64: string): Promise<TagOCRResult> {
+    try {
+      const response = await universalApiFetch('/api/ocr/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageBase64,
+          mode: 'tag',
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.success && data.tagDetected) {
+          return {
+            success: true,
+            tagDetected: data.tagDetected,
+            confidence: data.confidence || 0.95,
+            message: `Identified Meter Tag: ${data.tagDetected}`,
+            notes: data.notes || 'Identified from meter badge.',
+          };
+        }
+        return {
+          success: false,
+          tagDetected: undefined,
+          confidence: 0,
+          message: data.message || 'No meter tag number recognized in this frame.',
+        };
+      }
+    } catch (err) {
+      console.warn('Tag recognition error:', err);
+    }
+
+    return {
+      success: false,
+      tagDetected: undefined,
+      confidence: 0,
+      message: 'Could not connect to tag recognition service.',
+    };
+  }
+
+  /**
+   * Analyzes the real captured meter photo via Vision OCR for 5-digit reading ONLY
    */
   static async analyzeMeterPhoto(
     imageBase64: string,
@@ -46,6 +99,7 @@ export class OCRService {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           imageBase64,
+          mode: 'reading',
           previousReading: previousReading || 0,
           meterSerial: meterSerial || '',
         }),
@@ -93,7 +147,7 @@ export class OCRService {
       console.warn('Camera OCR recognition error:', err);
     }
 
-    // Authentic failure fallback (Never guess or mock fake +15 numbers)
+    // Authentic failure fallback
     return {
       success: false,
       status: 'FAIL_SAFE_MANUAL_REQUIRED',

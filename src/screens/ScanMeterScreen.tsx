@@ -229,38 +229,6 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
     });
   }, [onSelectConsumer, playMatchFeedback]);
 
-  // Real-time Barcode / Tag Detection on camera stream
-  useEffect(() => {
-    if (!cameraActive || selectedConsumer || scanStep !== 'IDENTIFY_TAG') return;
-
-    const interval = setInterval(async () => {
-      if (!videoRef.current || videoRef.current.readyState < 2) return;
-
-      try {
-        if ('BarcodeDetector' in window) {
-          const barcodeDetector = new (window as any).BarcodeDetector({
-            formats: ['qr_code', 'code_128', 'code_39', 'ean_13', 'data_matrix'],
-          });
-          const barcodes = await barcodeDetector.detect(videoRef.current);
-          if (barcodes && barcodes.length > 0) {
-            const rawValue = barcodes[0].rawValue?.trim();
-            if (rawValue) {
-              const matched = await DatabaseHelper.getConsumerByTagOrMeterNumber(rawValue);
-              if (matched) {
-                handleTagIdentified(matched, rawValue);
-                return;
-              }
-            }
-          }
-        }
-      } catch {
-        // Barcode radar cycle
-      }
-    }, 850);
-
-    return () => clearInterval(interval);
-  }, [cameraActive, selectedConsumer, scanStep, handleTagIdentified]);
-
   // Direct manual tag query matcher
   const handleDirectTagInput = async (value: string) => {
     setManualTagQuery(value);
@@ -301,7 +269,7 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
     }
   };
 
-  // Capture Button Handler (Adaptive based on Step 1 vs Step 2)
+  // Capture Button Handler (Exclusively Stage 1: Tag Number vs Stage 2: 5-Digit Reading)
   const handleCaptureButton = async () => {
     if (!videoRef.current || !cameraActive || videoRef.current.videoWidth === 0) return;
     
@@ -309,28 +277,31 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
     if (!photo) return;
 
     if (scanStep === 'IDENTIFY_TAG' && !selectedConsumer) {
-      // Stage 1: Analyze frame for Meter Tag / Serial Badge
+      // Stage 1: Analyze frame for Meter Tag / Serial Number ONLY
       setIsProcessing(true);
-      setTagStatusMessage('Scanning tag number in mobile database...');
+      setTagStatusMessage('Scanning meter tag number in mobile database...');
       try {
-        const result = await OCRService.analyzeMeterPhoto(photo, 0, '');
-        if (result.meterSerialDetected) {
-          const matched = await DatabaseHelper.getConsumerByTagOrMeterNumber(result.meterSerialDetected);
+        const tagResult = await OCRService.analyzeTagPhoto(photo);
+        if (tagResult.success && tagResult.tagDetected) {
+          const matched = await DatabaseHelper.getConsumerByTagOrMeterNumber(tagResult.tagDetected);
           if (matched) {
-            handleTagIdentified(matched, result.meterSerialDetected);
+            handleTagIdentified(matched, tagResult.tagDetected);
+            return;
+          } else {
+            setTagStatusMessage(`Tag #${tagResult.tagDetected} detected, but not registered in your assigned route.`);
             return;
           }
         }
         
         // If not matched, provide clear instant feedback
-        setTagStatusMessage('Tag not found in your assigned route. Pick your account from the quick list below.');
+        setTagStatusMessage('No tag number recognized in frame. Aim steadily at the meter badge or select account below.');
       } catch (e) {
-        setTagStatusMessage('Could not read tag. Try positioning closer or pick account.');
+        setTagStatusMessage('Could not read tag. Aim steadily at the meter badge or select account.');
       } finally {
         setIsProcessing(false);
       }
     } else {
-      // Stage 2: Analyze 5-digit Odometer Dial Reading
+      // Stage 2: Analyze 5-digit Odometer Dial Reading ONLY
       setIsProcessing(true);
       setCapturedPhoto(photo);
 
@@ -458,7 +429,7 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
   };
 
   return (
-    <div className="relative h-full min-h-screen bg-slate-950 flex flex-col justify-between select-none overflow-hidden">
+    <div className="relative w-full h-full min-h-0 max-h-full bg-slate-950 flex flex-col justify-between select-none overflow-hidden touch-none">
       {/* 🔝 TOP PINNED STATUS & NAVIGATION BAR (Zero Scrolling Required) */}
       <div className="z-30 p-2.5 space-y-2 pointer-events-auto bg-slate-950/80 backdrop-blur-md border-b border-slate-800/80">
         <div className="flex items-center justify-between">

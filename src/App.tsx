@@ -489,22 +489,30 @@ export function App() {
         />
       )}
 
-      {/* Official Tagoloan Water District Navigation Bar */}
-      <WDTHeader
-        user={currentUser}
-        syncState={syncState}
-        onSyncTrigger={handleTriggerSync}
-        onLogout={handleLogout}
-        onNavigate={navigateTo}
-        currentScreen={activeScreen}
-        isMobileChassis={isMobileChassis}
-        onToggleChassis={() => setIsMobileChassis(!isMobileChassis)}
-        onOpenApkModal={() => setIsApkModalOpen(true)}
-        wsStatus={wsStatus}
-      />
+      {/* Official Tagoloan Water District Navigation Bar - Hidden on Camera Viewfinder */}
+      {activeScreen !== 'scan_meter' && (
+        <WDTHeader
+          user={currentUser}
+          syncState={syncState}
+          onSyncTrigger={handleTriggerSync}
+          onLogout={handleLogout}
+          onNavigate={navigateTo}
+          currentScreen={activeScreen}
+          isMobileChassis={isMobileChassis}
+          onToggleChassis={() => setIsMobileChassis(!isMobileChassis)}
+          onOpenApkModal={() => setIsApkModalOpen(true)}
+          wsStatus={wsStatus}
+        />
+      )}
 
       {/* Main Dynamic View with Flutter Material 3 Screen Transitions */}
-      <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden flex flex-col bg-slate-950 pb-3">
+      <main
+        className={`flex-1 min-h-0 flex flex-col bg-slate-950 ${
+          activeScreen === 'scan_meter'
+            ? 'h-full overflow-hidden p-0 m-0'
+            : 'overflow-y-auto overflow-x-hidden pb-3'
+        }`}
+      >
         <ScreenTransition screenKey={activeScreen}>
           {activeScreen === 'dashboard' && (
             <DashboardScreen
