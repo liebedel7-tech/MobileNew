@@ -198,22 +198,6 @@ const REGISTERED_READERS = [
     status: 'pending',
     deviceInfo: 'Samsung Galaxy A54 (Android 14)',
     createdAt: '2026-08-18T10:00:00Z',
-  },
-  {
-    id: 'WDT-SUP01',
-    employeeId: 'TWD-2026-001',
-    username: 'supervisor',
-    pin: '5678',
-    name: 'Engr. Roberto M. Dael',
-    role: 'Field Supervisor / Billing Officer',
-    contactNumber: '0918-999-8877',
-    email: 'r.dael@tagoloanwater.gov.ph',
-    assignedRoutes: ['All Tagoloan Districts'],
-    status: 'active',
-    deviceInfo: 'Supervisor Central Desk (Web/Mobile)',
-    createdAt: '2026-01-01T00:00:00Z',
-    approvedAt: '2026-01-01T00:00:00Z',
-    approvedBy: 'General Manager',
   }
 ];
 
@@ -299,17 +283,17 @@ app.all(['/api/readers/register', '/api/readers/sync', '/api/readers/batch-sync'
             contactNumber: r.contactNumber || '',
             email: r.email || `${uname}@tagoloanwater.gov.ph`,
             assignedRoutes: Array.isArray(r.assignedRoutes) && r.assignedRoutes.length > 0 ? r.assignedRoutes : ['Poblacion'],
-            status: r.status || 'pending',
-            employmentStatus: r.status || 'pending',
+            status: r.status || 'active',
+            employmentStatus: r.status || 'active',
             deviceInfo: r.deviceInfo || 'Android Field Terminal',
             createdAt: r.createdAt || new Date().toISOString(),
           };
           REGISTERED_READERS.push(newR);
           newlyAdded++;
 
-          broadcastWebSocketEvent('READER_REGISTERED_PENDING', {
+          broadcastWebSocketEvent('READER_REGISTERED_ACTIVE', {
             reader: newR,
-            totalPending: REGISTERED_READERS.filter(x => x.status === 'pending').length,
+            totalActive: REGISTERED_READERS.filter(x => x.status === 'active').length,
             timestamp: new Date().toISOString(),
           });
         }
@@ -354,6 +338,10 @@ app.all(['/api/readers/register', '/api/readers/sync', '/api/readers/batch-sync'
 
     if (existingIndex >= 0) {
       const existing = REGISTERED_READERS[existingIndex];
+      // Update routes if provided
+      if (Array.isArray(assignedRoutes) && assignedRoutes.length > 0) {
+        existing.assignedRoutes = assignedRoutes;
+      }
       return res.status(200).json({
         success: true,
         message: `Meter reader '${readerUsername}' is registered.`,
@@ -379,8 +367,8 @@ app.all(['/api/readers/register', '/api/readers/sync', '/api/readers/batch-sync'
       contactNumber: contactNumber,
       email: email,
       assignedRoutes: routes,
-      status: body.status || 'pending', // Starts in pending approval
-      employmentStatus: body.status || 'pending',
+      status: 'active', // Instantly active upon registration
+      employmentStatus: 'active',
       deviceInfo: deviceInfo,
       createdAt: new Date().toISOString(),
     };
@@ -388,27 +376,27 @@ app.all(['/api/readers/register', '/api/readers/sync', '/api/readers/batch-sync'
     REGISTERED_READERS.push(newReader);
 
     // Broadcast WebSocket notification to Admin Web Portal
-    broadcastWebSocketEvent('READER_REGISTERED_PENDING', {
+    broadcastWebSocketEvent('READER_REGISTERED_ACTIVE', {
       reader: newReader,
-      totalPending: REGISTERED_READERS.filter(r => r.status === 'pending').length,
+      totalActive: REGISTERED_READERS.filter(r => r.status === 'active').length,
       timestamp: new Date().toISOString(),
     });
 
     serverAuditLogs.push({
       id: `LOG-REG-${Date.now()}`,
       timestamp: new Date().toISOString(),
-      action: 'READER_REGISTRATION_SUBMITTED',
+      action: 'READER_REGISTRATION_ACTIVATED',
       userId: newReader.id,
       userName: newReader.name,
-      details: `Meter Reader registered on mobile (${newReader.employeeId}). Status set to PENDING admin approval.`,
+      details: `Meter Reader registered on mobile (${newReader.employeeId}). Assigned Coverage: ${newReader.assignedRoutes.join(', ')}. Status ACTIVE.`,
       deviceInfo: newReader.deviceInfo,
     });
 
     res.status(201).json({
       success: true,
-      message: 'Meter reader registration submitted successfully. Awaiting Administrator approval.',
-      status: newReader.status,
-      employmentStatus: newReader.status,
+      message: 'Meter reader registered successfully. Ready for field operations.',
+      status: 'active',
+      employmentStatus: 'active',
       reader: newReader,
       allReaders: REGISTERED_READERS,
     });
@@ -557,57 +545,75 @@ app.all('/api/readers/:id/approve', (req, res) => {
   });
 });
 
-// Admin rejects / suspends reader
-app.patch('/api/readers/:id/reject', (req, res) => {
+// Admin terminates / revokes reader account
+app.all(['/api/readers/:id/terminate', '/api/staff/:id/terminate', '/api/readers/:id/reject', '/api/staff/:id/reject'], (req, res) => {
   const { id } = req.params;
-  const reader = REGISTERED_READERS.find(r => r.id.toLowerCase() === id.toLowerCase());
+  const { reason, terminatedBy } = req.body || {};
+  const reader = REGISTERED_READERS.find(
+    r => r.id.toLowerCase() === id.toLowerCase() || 
+         r.username.toLowerCase() === id.toLowerCase() ||
+         (r.employeeId && r.employeeId.toLowerCase() === id.toLowerCase())
+  );
 
   if (!reader) {
     return res.status(404).json({ success: false, message: 'Reader not found' });
   }
 
-  reader.status = 'rejected';
-  broadcastWebSocketEvent('READER_STATUS_CHANGED', {
+  reader.status = 'terminated';
+  (reader as any).employmentStatus = 'terminated';
+
+  broadcastWebSocketEvent('READER_ACCOUNT_TERMINATED', {
     readerId: reader.id,
-    status: 'rejected',
+    name: reader.name,
+    status: 'terminated',
+    reason: reason || 'Account revoked by administrator',
     timestamp: new Date().toISOString(),
   });
 
-  res.json({ success: true, message: 'Reader status updated to rejected', reader });
+  serverAuditLogs.push({
+    id: `LOG-TERM-${Date.now()}`,
+    timestamp: new Date().toISOString(),
+    action: 'READER_ACCOUNT_TERMINATED',
+    userId: reader.id,
+    userName: reader.name,
+    details: `Admin terminated meter reader account ${reader.name} (${reader.employeeId}). ${reason || ''}`,
+    deviceInfo: 'Admin Web Portal',
+  });
+
+  res.json({
+    success: true,
+    message: `Reader account for ${reader.name} has been terminated.`,
+    reader,
+  });
 });
 
 // Authentication with Status Check
 app.post(['/api/auth/login', '/auth/login'], (req, res) => {
   try {
     const { username, pin, readerId } = req.body;
+    if (!username && !readerId) {
+      return res.status(400).json({ success: false, message: 'Username or Reader ID is required' });
+    }
+    if (!pin) {
+      return res.status(400).json({ success: false, message: 'Password / Security PIN is required' });
+    }
+
+    const cleanPin = pin.toString().trim();
+    const cleanUser = (username || readerId || '').toString().toLowerCase().trim();
+
     const user = REGISTERED_READERS.find(
-      u => (u.username.toLowerCase() === (username || '').toLowerCase() || 
-            u.id.toLowerCase() === (readerId || username || '').toLowerCase() ||
-            (u.employeeId && u.employeeId.toLowerCase() === (username || '').toLowerCase())) &&
-           (u.pin === pin || !pin)
+      u => (u.username.toLowerCase() === cleanUser || 
+            u.id.toLowerCase() === cleanUser ||
+            (u.employeeId && u.employeeId.toLowerCase() === cleanUser)) &&
+           (u.pin === cleanPin)
     );
 
     if (user) {
-      if (user.status === 'pending') {
+      if (user.status === 'terminated' || user.status === 'rejected') {
         return res.status(403).json({
           success: false,
-          status: 'pending',
-          message: 'Your reader account is pending Administrator review and route assignment.',
-          reader: {
-            id: user.id,
-            employeeId: user.employeeId,
-            name: user.name,
-            status: 'pending',
-            createdAt: user.createdAt,
-          }
-        });
-      }
-
-      if (user.status === 'rejected') {
-        return res.status(403).json({
-          success: false,
-          status: 'rejected',
-          message: 'Your reader account has been deactivated by the Administrator.',
+          status: user.status,
+          message: 'This meter reader account has been terminated or revoked by administration.',
         });
       }
 
@@ -619,9 +625,9 @@ app.post(['/api/auth/login', '/auth/login'], (req, res) => {
           username: user.username,
           name: user.name,
           role: user.role,
-          zone: user.assignedRoutes.join(', '),
-          assignedRoutes: user.assignedRoutes,
-          status: user.status,
+          zone: (user.assignedRoutes || ['Poblacion']).join(', '),
+          assignedRoutes: user.assignedRoutes || ['Poblacion'],
+          status: 'active',
         },
         serverSyncTime: new Date().toISOString(),
       });
@@ -636,10 +642,10 @@ app.post(['/api/auth/login', '/auth/login'], (req, res) => {
   }
 });
 
-// Consumers list download & Route Sync Pull
+// Consumers list download & Route Sync Pull (Multi-Zone coverage support)
 app.get(['/api/consumers', '/api/sync/pull', '/consumers', '/sync/pull'], (req, res) => {
   try {
-    const { since, zone, barangay, route, search, q, status, category } = req.query;
+    const { since, zones, zone, barangay, routes, route, search, q, status, category } = req.query;
     let filtered = [...INITIAL_CONSUMERS];
 
     const searchTerm = (search || q || '') as string;
@@ -654,18 +660,30 @@ app.get(['/api/consumers', '/api/sync/pull', '/consumers', '/sync/pull'], (req, 
       );
     }
 
-    const zoneFilter = (zone || barangay) as string;
-    if (zoneFilter && typeof zoneFilter === 'string' && zoneFilter.toLowerCase() !== 'all') {
-      const z = zoneFilter.toLowerCase();
-      filtered = filtered.filter(c => 
-        (c.barangay && c.barangay.toLowerCase().includes(z)) ||
-        (c.routeCode && c.routeCode.toLowerCase().includes(z)) ||
-        (c.address && c.address.toLowerCase().includes(z))
-      );
-    }
+    // Filter strictly by the meter reader's assigned coverage areas / barangays
+    const zonesParam = (zones || zone || barangay || routes || route || '') as string;
+    if (zonesParam && typeof zonesParam === 'string' && zonesParam.toLowerCase() !== 'all' && zonesParam.toLowerCase() !== 'all tagoloan districts') {
+      const allowed = zonesParam
+        .split(',')
+        .map(s => s.trim().toLowerCase())
+        .filter(Boolean);
 
-    if (route && typeof route === 'string' && route.toLowerCase() !== 'all') {
-      filtered = filtered.filter(c => c.routeCode && c.routeCode.toLowerCase().includes(route.toLowerCase()));
+      if (allowed.length > 0) {
+        filtered = filtered.filter(c => {
+          const brgy = (c.barangay || '').toLowerCase();
+          const routeCode = (c.routeCode || '').toLowerCase();
+          const addr = (c.address || '').toLowerCase();
+          return allowed.some(z => 
+            brgy.includes(z) || 
+            routeCode.includes(z) || 
+            addr.includes(z) ||
+            (z === 'sta. cruz' && brgy.includes('santa cruz')) ||
+            (z === 'santa cruz' && brgy.includes('sta. cruz')) ||
+            (z === 'sta. ana' && brgy.includes('santa ana')) ||
+            (z === 'santa ana' && brgy.includes('sta. ana'))
+          );
+        });
+      }
     }
 
     if (status && typeof status === 'string' && status.toLowerCase() !== 'all') {
@@ -678,7 +696,7 @@ app.get(['/api/consumers', '/api/sync/pull', '/consumers', '/sync/pull'], (req, 
 
     res.json({
       success: true,
-      zone: zoneFilter || 'ALL',
+      coverageZones: zonesParam || 'ALL',
       count: filtered.length,
       timestamp: new Date().toISOString(),
       consumers: filtered,
@@ -687,7 +705,7 @@ app.get(['/api/consumers', '/api/sync/pull', '/consumers', '/sync/pull'], (req, 
   } catch (err: any) {
     res.json({
       success: true,
-      zone: 'ALL',
+      coverageZones: 'ALL',
       count: INITIAL_CONSUMERS.length,
       timestamp: new Date().toISOString(),
       consumers: INITIAL_CONSUMERS,

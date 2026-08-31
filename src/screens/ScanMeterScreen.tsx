@@ -20,7 +20,8 @@ import {
   Clock,
   Droplets,
   Layers,
-  Search
+  Search,
+  Scan
 } from 'lucide-react';
 import { Consumer, ActiveScreen, MeterReading, StaffUser } from '../types';
 import { OCRService, OCRResult } from '../services/ocrService';
@@ -54,7 +55,7 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
   const [selectedConsumer, setSelectedConsumer] = useState<Consumer | null>(initialConsumer || null);
   const [allConsumers, setAllConsumers] = useState<Consumer[]>([]);
   
-  // Camera state
+  // Camera state & stream configuration
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [cameraActive, setCameraActive] = useState(false);
@@ -63,12 +64,14 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
   const [torchOn, setTorchOn] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
 
-  // Scanner Mode & Smart Detection
+  // Two-Stage Workflow: Stage 1 = IDENTIFY_TAG -> Stage 2 = SCAN_METER -> Stage 3 = SUBMITTED
   const [scanStep, setScanStep] = useState<'IDENTIFY_TAG' | 'SCAN_METER' | 'SUBMITTED'>(
     initialConsumer ? 'SCAN_METER' : 'IDENTIFY_TAG'
   );
-  const [ownerPopupVisible, setOwnerPopupVisible] = useState(!!initialConsumer);
-  const [identifiedTagNumber, setIdentifiedTagNumber] = useState<string>('');
+  const [identifiedTagNumber, setIdentifiedTagNumber] = useState<string>(
+    initialConsumer?.meterNumber || initialConsumer?.meterSerial || ''
+  );
+  const [tagStatusMessage, setTagStatusMessage] = useState<string | null>(null);
   
   // OCR & Reading State
   const [ocrResult, setOcrResult] = useState<OCRResult | null>(null);
@@ -76,16 +79,17 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
   const [isSendingToAdmin, setIsSendingToAdmin] = useState(false);
   const [lastSubmittedReading, setLastSubmittedReading] = useState<MeterReading | null>(null);
 
-  // Manual fallback input if reader chooses to quick-type tag
+  // Quick manual tag input fallback
   const [manualTagQuery, setManualTagQuery] = useState('');
   const [showManualTagInput, setShowManualTagInput] = useState(false);
 
-  // Load consumers list for real-time tag matching
+  // Load consumers list for active reader
   useEffect(() => {
-    DatabaseHelper.getAllConsumers().then((list) => {
+    const routes = currentUser?.assignedRoutes || (currentUser?.zone ? [currentUser.zone] : undefined);
+    DatabaseHelper.getConsumersForReader(routes).then((list) => {
       setAllConsumers(list);
     });
-  }, []);
+  }, [currentUser]);
 
   // Audio / Haptic feedback for smart tag match
   const playMatchFeedback = useCallback(() => {
@@ -93,7 +97,6 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
       if (typeof navigator !== 'undefined' && navigator.vibrate) {
         navigator.vibrate([40, 60, 40]);
       }
-      // Simple Web Audio beep
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
       if (AudioContextClass) {
         const ctx = new AudioContextClass();
@@ -102,18 +105,18 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
         osc.connect(gain);
         gain.connect(ctx.destination);
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(880, ctx.currentTime); // A5
-        gain.gain.setValueAtTime(0.1, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        gain.gain.setValueAtTime(0.12, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
         osc.start();
-        osc.stop(ctx.currentTime + 0.15);
+        osc.stop(ctx.currentTime + 0.18);
       }
     } catch {
       // Ignore audio failure
     }
   }, []);
 
-  // Camera initialization
+  // High-Quality Camera initialization with auto-focus & exposure constraints
   const startCamera = async (facing: 'environment' | 'user' = facingMode) => {
     try {
       setCameraError(null);
@@ -125,19 +128,26 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
 
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         let stream: MediaStream | null = null;
+        
+        // Try high-definition environmental camera with continuous focus
         try {
           stream = await navigator.mediaDevices.getUserMedia({
             video: {
               facingMode: { ideal: facing },
-              width: { ideal: 1920, min: 640 },
-              height: { ideal: 1080, min: 480 },
+              width: { ideal: 1920, min: 1280 },
+              height: { ideal: 1080, min: 720 },
+              aspectRatio: { ideal: 16 / 9 },
             },
             audio: false,
           });
         } catch {
           try {
             stream = await navigator.mediaDevices.getUserMedia({
-              video: { facingMode: facing },
+              video: {
+                facingMode: facing,
+                width: { ideal: 1280, min: 640 },
+                height: { ideal: 720, min: 480 },
+              },
               audio: false,
             });
           } catch {
@@ -150,6 +160,27 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
 
         if (stream) {
           streamRef.current = stream;
+          
+          // Apply advanced continuous focus / exposure if supported by mobile hardware
+          const track = stream.getVideoTracks()[0];
+          if (track && 'applyConstraints' in track) {
+            try {
+              const capabilities = (track.getCapabilities && track.getCapabilities()) as any;
+              const advancedProps: any = {};
+              if (capabilities?.focusMode?.includes('continuous')) {
+                advancedProps.focusMode = 'continuous';
+              }
+              if (capabilities?.exposureMode?.includes('continuous')) {
+                advancedProps.exposureMode = 'continuous';
+              }
+              if (Object.keys(advancedProps).length > 0) {
+                await (track as any).applyConstraints({ advanced: [advancedProps] });
+              }
+            } catch (e) {
+              console.debug('Camera continuous focus config note:', e);
+            }
+          }
+
           if (videoRef.current) {
             videoRef.current.srcObject = stream;
             videoRef.current.setAttribute('playsinline', 'true');
@@ -163,12 +194,12 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
           }
         }
       } else {
-        setCameraError('Live camera not supported in this browser. Please use Chrome/Edge or an Android device.');
+        setCameraError('Live camera not supported in this browser. Please use Chrome/Edge on your mobile device.');
       }
     } catch (err: any) {
       console.warn('Camera stream error:', err);
       setCameraActive(false);
-      setCameraError('Camera access required. Please allow camera permissions in your browser or phone settings.');
+      setCameraError('Camera access required. Please allow camera permissions in phone settings.');
     }
   };
 
@@ -181,12 +212,12 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
     };
   }, []);
 
-  // Match and pop up owner automatically when a tag or serial is identified
+  // Handle Tag identification and shift into Stage 2 (Meter Dial Reading)
   const handleTagIdentified = useCallback((matchedConsumer: Consumer, tagStr: string) => {
     setSelectedConsumer(matchedConsumer);
     setIdentifiedTagNumber(tagStr);
-    setOwnerPopupVisible(true);
     setScanStep('SCAN_METER');
+    setTagStatusMessage(null);
     if (onSelectConsumer) onSelectConsumer(matchedConsumer);
     playMatchFeedback();
 
@@ -198,7 +229,7 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
     });
   }, [onSelectConsumer, playMatchFeedback]);
 
-  // Real-time camera stream frame analysis (continuous auto-detection)
+  // Real-time Barcode / Tag Detection on camera stream
   useEffect(() => {
     if (!cameraActive || selectedConsumer || scanStep !== 'IDENTIFY_TAG') return;
 
@@ -206,7 +237,6 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
       if (!videoRef.current || videoRef.current.readyState < 2) return;
 
       try {
-        // Native BarcodeDetector API for instant Tag barcode / QR auto-detection
         if ('BarcodeDetector' in window) {
           const barcodeDetector = new (window as any).BarcodeDetector({
             formats: ['qr_code', 'code_128', 'code_39', 'ean_13', 'data_matrix'],
@@ -224,14 +254,14 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
           }
         }
       } catch {
-        // Continuous scan error or not supported
+        // Barcode radar cycle
       }
-    }, 900);
+    }, 850);
 
     return () => clearInterval(interval);
   }, [cameraActive, selectedConsumer, scanStep, handleTagIdentified]);
 
-  // Direct manual tag input auto-matcher (matches instantaneously as user types or selects)
+  // Direct manual tag query matcher
   const handleDirectTagInput = async (value: string) => {
     setManualTagQuery(value);
     const clean = value.trim();
@@ -271,48 +301,60 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
     }
   };
 
-  // Perform Smart Vision Analysis on Video Frame
-  const processLiveFrame = async (photoDataUrl: string) => {
-    setIsProcessing(true);
-    setCapturedPhoto(photoDataUrl);
+  // Capture Button Handler (Adaptive based on Step 1 vs Step 2)
+  const handleCaptureButton = async () => {
+    if (!videoRef.current || !cameraActive || videoRef.current.videoWidth === 0) return;
+    
+    const photo = OCRService.captureFrameFromVideo(videoRef.current);
+    if (!photo) return;
 
-    try {
-      const result = await OCRService.analyzeMeterPhoto(
-        photoDataUrl,
-        selectedConsumer?.previousReading,
-        selectedConsumer?.meterSerial || selectedConsumer?.meterNumber
-      );
-
-      setOcrResult(result);
-
-      // If no owner was locked before this photo, check if the image detected a meter tag / serial
-      if (!selectedConsumer && result.meterSerialDetected) {
-        const autoMatch = await DatabaseHelper.getConsumerByTagOrMeterNumber(result.meterSerialDetected);
-        if (autoMatch) {
-          handleTagIdentified(autoMatch, result.meterSerialDetected);
+    if (scanStep === 'IDENTIFY_TAG' && !selectedConsumer) {
+      // Stage 1: Analyze frame for Meter Tag / Serial Badge
+      setIsProcessing(true);
+      setTagStatusMessage('Scanning tag number in mobile database...');
+      try {
+        const result = await OCRService.analyzeMeterPhoto(photo, 0, '');
+        if (result.meterSerialDetected) {
+          const matched = await DatabaseHelper.getConsumerByTagOrMeterNumber(result.meterSerialDetected);
+          if (matched) {
+            handleTagIdentified(matched, result.meterSerialDetected);
+            return;
+          }
         }
+        
+        // If not matched, provide clear instant feedback
+        setTagStatusMessage('Tag not found in your assigned route. Pick your account from the quick list below.');
+      } catch (e) {
+        setTagStatusMessage('Could not read tag. Try positioning closer or pick account.');
+      } finally {
+        setIsProcessing(false);
       }
+    } else {
+      // Stage 2: Analyze 5-digit Odometer Dial Reading
+      setIsProcessing(true);
+      setCapturedPhoto(photo);
 
-      if (result.success && result.readingValue !== null) {
-        playMatchFeedback();
+      try {
+        const result = await OCRService.analyzeMeterPhoto(
+          photo,
+          selectedConsumer?.previousReading,
+          selectedConsumer?.meterSerial || selectedConsumer?.meterNumber
+        );
+
+        setOcrResult(result);
+
+        if (result.success && result.readingValue !== null) {
+          playMatchFeedback();
+        }
+      } catch (err) {
+        console.error('Vision dial recognition error:', err);
+      } finally {
+        setIsProcessing(false);
       }
-    } catch (err) {
-      console.error('Vision analysis error:', err);
-    } finally {
-      setIsProcessing(false);
     }
   };
 
-  const handleCaptureLive = async () => {
-    if (videoRef.current && cameraActive && videoRef.current.videoWidth > 0) {
-      const photo = OCRService.captureFrameFromVideo(videoRef.current);
-      if (photo) {
-        await processLiveFrame(photo);
-      }
-    }
-  };
-
-  // Immediate "Send to Admin" Action
+  // Transmit Reading Directly to Central Admin Portal
   const handleSendToAdmin = async () => {
     if (!selectedConsumer || !ocrResult || !ocrResult.success || ocrResult.readingValue === null) {
       return;
@@ -321,7 +363,6 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
     const currentReading = ocrResult.readingValue;
     const previousReading = selectedConsumer.previousReading;
 
-    // Strict validation
     if (currentReading < previousReading) {
       alert(`Strict Validation: Current reading (${currentReading} m³) cannot be less than previous reading (${previousReading} m³).`);
       return;
@@ -330,17 +371,14 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
     setIsSendingToAdmin(true);
 
     try {
-      // 1. Compute Bill
       const bill = CalculationService.calculateWaterBill(
         selectedConsumer.category,
         previousReading,
         currentReading
       );
 
-      // 2. Capture GPS Location
       const location = await LocationService.getCurrentLocation();
 
-      // 3. Construct Complete Reading Record
       const readingRecord: MeterReading = {
         id: `MR-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
         consumerId: selectedConsumer.id,
@@ -369,14 +407,12 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
         syncTimestamp: new Date().toISOString(),
       };
 
-      // 4. Save to Local Database (IndexedDB / SQLite)
       if (onSaveReading) {
         await onSaveReading(readingRecord);
       } else {
         await DatabaseHelper.saveReading(readingRecord);
       }
 
-      // 5. Broadcast to Admin Portal Live via WebSocket
       WebSocketService.send('FIELD_READING_RECORDED', {
         readingId: readingRecord.id,
         accountNumber: readingRecord.accountNumber,
@@ -390,15 +426,13 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
         approvalStatus: 'pending_approval',
       });
 
-      // 6. Log audit event
       await LoggerService.logAction(
         'METER_READING_SENT_TO_ADMIN',
         currentUser?.id || 'FIELD_READER',
         currentUser?.name || 'Field Reader',
-        `Camera auto-identified Tag & Dial for Account ${selectedConsumer.accountNumber} (${selectedConsumer.name}). Reading: ${currentReading} m³, Consumption: ${bill.consumption} m³, Amount: ₱${bill.totalAmountDue.toFixed(2)}.`
+        `Camera 2-Stage Verified for Account ${selectedConsumer.accountNumber} (${selectedConsumer.name}). Reading: ${currentReading} m³, Consumption: ${bill.consumption} m³.`
       );
 
-      // 7. Background sync to Central Cloud API
       SyncService.submitSingleReading(readingRecord).catch(() => {});
 
       if (onReloadData) onReloadData();
@@ -407,17 +441,15 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
       setScanStep('SUBMITTED');
     } catch (err: any) {
       console.error('Send to admin error:', err);
-      alert('Failed to send reading to admin. Stored locally in offline ledger.');
+      alert('Failed to send reading to admin. Saved to offline ledger.');
     } finally {
       setIsSendingToAdmin(false);
     }
   };
 
-  // Reset scanner to scan the next consumer
   const handleScanNextConsumer = () => {
     setSelectedConsumer(null);
     setIdentifiedTagNumber('');
-    setOwnerPopupVisible(false);
     setOcrResult(null);
     setCapturedPhoto(null);
     setLastSubmittedReading(null);
@@ -426,85 +458,73 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
   };
 
   return (
-    <div className="relative min-h-screen bg-slate-950 flex flex-col justify-between select-none overflow-hidden">
-      {/* Top Floating Control Bar */}
-      <div className="absolute top-2.5 left-2.5 right-2.5 z-30 space-y-2 pointer-events-auto">
+    <div className="relative h-full min-h-screen bg-slate-950 flex flex-col justify-between select-none overflow-hidden">
+      {/* 🔝 TOP PINNED STATUS & NAVIGATION BAR (Zero Scrolling Required) */}
+      <div className="z-30 p-2.5 space-y-2 pointer-events-auto bg-slate-950/80 backdrop-blur-md border-b border-slate-800/80">
         <div className="flex items-center justify-between">
           <button
             onClick={() => onNavigate(selectedConsumer ? 'consumer_details' : 'dashboard')}
-            className="px-3 py-1.5 bg-slate-950/90 backdrop-blur-md border border-slate-800 text-sky-400 rounded-xl text-xs font-bold flex items-center gap-1 shadow-lg hover:bg-slate-900 transition cursor-pointer"
+            className="px-3 py-1.5 bg-slate-900 border border-slate-700 text-sky-400 rounded-xl text-xs font-bold flex items-center gap-1.5 hover:bg-slate-800 transition active:scale-95 cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Exit Scanner</span>
+            <span>Exit</span>
           </button>
 
-          {/* Mode Badge */}
-          <div className="bg-slate-950/90 backdrop-blur-md border border-slate-800 px-3 py-1 rounded-xl flex items-center gap-1.5 text-xs text-slate-300 font-mono shadow-md">
-            <span className={`w-2 h-2 rounded-full ${selectedConsumer ? 'bg-emerald-400' : 'bg-sky-400'} animate-pulse`} />
-            <span className="font-bold">
-              {scanStep === 'SUBMITTED' ? 'SENT TO ADMIN' : selectedConsumer ? 'DIAL SCANNER' : 'SMART TAG SCANNER'}
+          {/* Dynamic Stage Pill */}
+          <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-xl text-xs font-mono shadow-sm">
+            <span className={`w-2 h-2 rounded-full ${selectedConsumer ? 'bg-sky-400' : 'bg-emerald-400'} animate-ping`} />
+            <span className="font-bold text-white text-[11px]">
+              {scanStep === 'SUBMITTED' 
+                ? 'SENT TO ADMIN' 
+                : scanStep === 'SCAN_METER' 
+                ? 'STEP 2: SCAN DIAL' 
+                : 'STEP 1: IDENTIFY TAG'}
             </span>
           </div>
         </div>
 
-        {/* 🌟 AUTOMATIC OWNER POPUP BANNER (Pops up automatically when tag is scanned) */}
-        {selectedConsumer && ownerPopupVisible && scanStep !== 'SUBMITTED' && (
-          <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-emerald-950/80 border-2 border-emerald-400 p-3 rounded-2xl shadow-2xl backdrop-blur-md animate-in slide-in-from-top-4 duration-300">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-400 flex items-center justify-center text-emerald-300 shadow-md shrink-0">
-                  <CheckCheck className="w-5 h-5 text-emerald-400" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-700 px-1.5 py-0.2 rounded font-mono font-bold">
-                      TAG #{selectedConsumer.meterNumber || selectedConsumer.meterSerial}
-                    </span>
-                    <span className="text-[10px] text-slate-400 font-mono">
-                      Acc #{selectedConsumer.accountNumber}
-                    </span>
-                  </div>
-                  <h3 className="font-black text-sm text-white leading-tight mt-0.5">
-                    {selectedConsumer.name}
-                  </h3>
-                </div>
+        {/* 🌟 STEP 2 CONFIRMED OWNER BANNER (Shows verified consumer before reading) */}
+        {selectedConsumer && scanStep === 'SCAN_METER' && !ocrResult && (
+          <div className="bg-slate-900 border-2 border-sky-500/80 p-2.5 rounded-xl shadow-lg flex items-center justify-between text-xs animate-in slide-in-from-top-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-lg bg-sky-500/20 border border-sky-400 flex items-center justify-center text-sky-300 shrink-0">
+                <CheckCheck className="w-4 h-4 text-sky-400" />
               </div>
-
-              {/* Reset/Change consumer button */}
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedConsumer(null);
-                  setOwnerPopupVisible(false);
-                  setScanStep('IDENTIFY_TAG');
-                }}
-                className="text-[10px] text-slate-400 hover:text-white px-2 py-0.5 bg-slate-800 rounded-lg transition"
-              >
-                Change
-              </button>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[9.5px] bg-sky-950 text-sky-300 border border-sky-700 px-1.5 py-0.2 rounded font-mono font-bold">
+                    TAG #{selectedConsumer.meterNumber || selectedConsumer.meterSerial}
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono truncate">
+                    Acc #{selectedConsumer.accountNumber}
+                  </span>
+                </div>
+                <h3 className="font-black text-xs text-white truncate mt-0.5">
+                  {selectedConsumer.name}
+                </h3>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 pt-2 border-t border-slate-800/80 text-[11px]">
-              <div className="flex items-center gap-1.5 text-slate-300">
-                <MapPin className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                <span className="truncate">{selectedConsumer.barangay}, {selectedConsumer.address}</span>
-              </div>
-              <div className="flex items-center justify-between sm:justify-end gap-2 text-sky-300 font-mono text-[10px]">
-                <span>Prev Reading: <strong className="text-slate-200">{selectedConsumer.previousReading} m³</strong></span>
-                <span>•</span>
-                <span>Prev Consumed: <strong className="text-sky-400">{selectedConsumer.previousConsumption ?? selectedConsumer.averageConsumption} m³</strong></span>
-              </div>
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedConsumer(null);
+                setScanStep('IDENTIFY_TAG');
+              }}
+              className="text-[10px] text-slate-400 hover:text-white px-2 py-1 bg-slate-800 rounded-lg shrink-0 ml-2 font-semibold"
+            >
+              Change
+            </button>
           </div>
         )}
 
-        {/* Quick Tag Radar Chips for Active Route (No need to type) */}
-        {!selectedConsumer && !ocrResult && scanStep === 'IDENTIFY_TAG' && (
-          <div className="bg-slate-950/90 backdrop-blur-md border border-slate-800/90 p-2 rounded-2xl shadow-xl space-y-1.5">
-            <div className="flex items-center justify-between text-[11px] px-1">
-              <span className="text-slate-400 font-bold flex items-center gap-1">
-                <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-                Aim camera at Tag or tap route account:
+        {/* 🌟 STEP 1 QUICK CONSUMER RADAR CHIPS (Select or aim at tag) */}
+        {!selectedConsumer && scanStep === 'IDENTIFY_TAG' && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-[10.5px]">
+              <span className="text-emerald-400 font-bold flex items-center gap-1">
+                <Sparkles className="w-3 h-3" />
+                Aim camera at Tag or pick account:
               </span>
               <button
                 type="button"
@@ -512,50 +532,54 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
                 className="text-sky-400 hover:text-sky-300 font-bold text-[10px] flex items-center gap-0.5"
               >
                 <Search className="w-3 h-3" />
-                <span>{showManualTagInput ? 'Hide Search' : 'Manual Search'}</span>
+                <span>{showManualTagInput ? 'Hide Search' : 'Manual'}</span>
               </button>
             </div>
 
-            {/* Quick Tag Chips from Assigned Consumers */}
-            <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-              {allConsumers.slice(0, 8).map((c) => (
+            <div className="flex gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
+              {allConsumers.slice(0, 10).map((c) => (
                 <button
                   key={c.id}
                   type="button"
                   onClick={() => handleTagIdentified(c, c.meterNumber || c.meterSerial)}
-                  className="px-2.5 py-1 bg-slate-900 hover:bg-emerald-950/80 border border-slate-700 hover:border-emerald-500 rounded-xl text-left shrink-0 transition active:scale-95"
+                  className="px-2.5 py-1 bg-slate-900 hover:bg-emerald-950/80 border border-slate-700 hover:border-emerald-500 rounded-lg text-left shrink-0 transition active:scale-95"
                 >
                   <span className="text-[9px] font-mono text-emerald-400 font-bold block">
                     {c.meterNumber || c.meterSerial}
                   </span>
-                  <span className="text-[10px] font-bold text-white truncate max-w-[90px] block">
+                  <span className="text-[10px] font-bold text-white truncate max-w-[85px] block">
                     {c.name}
                   </span>
                 </button>
               ))}
             </div>
 
-            {/* Optional Manual Tag Search Bar */}
             {showManualTagInput && (
-              <div className="pt-1 flex items-center gap-1.5 border-t border-slate-800">
-                <Tag className="w-3.5 h-3.5 text-sky-400 ml-1 shrink-0" />
+              <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1">
+                <Tag className="w-3.5 h-3.5 text-sky-400 shrink-0" />
                 <input
                   type="text"
                   value={manualTagQuery}
                   onChange={(e) => handleDirectTagInput(e.target.value)}
-                  placeholder="Type Tag # or Account (e.g. MT-4401 or 1001-A)"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-emerald-400 font-mono"
+                  placeholder="Type Tag # or Account (e.g. TAG-01042)..."
+                  className="w-full bg-transparent text-xs text-white placeholder:text-slate-500 focus:outline-none font-mono"
                   autoFocus
                 />
               </div>
+            )}
+
+            {tagStatusMessage && (
+              <p className="text-[10.5px] text-amber-300 bg-amber-950/60 px-2 py-1 rounded border border-amber-800/80">
+                {tagStatusMessage}
+              </p>
             )}
           </div>
         )}
       </div>
 
-      {/* Main Camera Viewfinder Viewport */}
+      {/* 🎯 MAIN CENTERED VIEWFINDER (Perfect Center on Phone Viewport) */}
       <div className="relative flex-1 flex items-center justify-center bg-black overflow-hidden">
-        {/* Live Video Camera Stream */}
+        {/* Live Camera Stream */}
         <video
           ref={videoRef}
           playsInline
@@ -567,157 +591,138 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
           }`}
         />
 
-        {/* Captured Photo Snapshot */}
+        {/* Captured Photo Preview */}
         {capturedPhoto && (
           <div className="relative w-full h-full flex items-center justify-center p-3">
             <img
               src={capturedPhoto}
-              alt="Water Meter Dial"
-              className="max-h-[60vh] rounded-2xl shadow-2xl border-2 border-sky-400 object-contain bg-slate-900"
+              alt="Meter Dial"
+              className="max-h-[55vh] rounded-2xl shadow-2xl border-2 border-sky-400 object-contain bg-slate-900"
             />
           </div>
         )}
 
-        {/* Camera Permission / Error Fallback Box */}
+        {/* Camera Permission Box */}
         {!cameraActive && !capturedPhoto && (
-          <div className="text-center p-5 space-y-4 max-w-sm mx-auto z-10">
-            <div className="w-16 h-16 rounded-3xl bg-slate-900 border border-slate-800 flex items-center justify-center mx-auto text-sky-400 shadow-xl">
-              <Camera className="w-8 h-8" />
+          <div className="text-center p-5 space-y-3 max-w-xs mx-auto z-10">
+            <div className="w-14 h-14 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center mx-auto text-sky-400 shadow-xl">
+              <Camera className="w-7 h-7" />
             </div>
-
             <div className="space-y-1">
-              <h3 className="font-bold text-white text-base">Water Meter Camera</h3>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                {cameraError || 'Allow camera access to auto-identify tag number & scan meter reading.'}
+              <h3 className="font-bold text-white text-sm">Camera Offline</h3>
+              <p className="text-[11px] text-slate-400 leading-tight">
+                {cameraError || 'Grant camera permission to begin optical 2-stage scanning.'}
               </p>
             </div>
-
             <button
               type="button"
               onClick={() => startCamera(facingMode)}
-              className="w-full py-3 px-4 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-sky-500/25 active:scale-[0.98] transition cursor-pointer"
+              className="w-full py-2.5 px-4 rounded-xl bg-sky-500 text-slate-950 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition cursor-pointer"
             >
               <RotateCw className="w-4 h-4" />
-              <span>Enable Camera Feed</span>
+              <span>Enable Camera</span>
             </button>
           </div>
         )}
 
-        {/* Viewfinder Overlay HUD */}
+        {/* Dynamic Center Reticle Overlay */}
         {!ocrResult && !capturedPhoto && scanStep !== 'SUBMITTED' && (
           <ScanOverlay
-            onCapture={handleCaptureLive}
+            onCapture={handleCaptureButton}
             onToggleTorch={handleToggleTorch}
             onFlipCamera={handleFlipCamera}
             torchOn={torchOn}
             isProcessing={isProcessing}
             cameraActive={cameraActive}
             mode={selectedConsumer ? 'meter' : 'tag'}
-            guideTitle={selectedConsumer ? 'ALIGN 5-DIGIT METER DIAL' : 'AIM AT METER TAG NUMBER'}
+            guideTitle={selectedConsumer ? 'STEP 2: ALIGN 5-DIGIT METER DIAL' : 'STEP 1: AIM AT METER TAG NUMBER'}
             guideSubtitle={
               selectedConsumer 
-                ? `Scanning index for ${selectedConsumer.name}` 
-                : 'Point camera at tag or barcode to pop up owner'
+                ? `Recording reading for ${selectedConsumer.name}` 
+                : 'Identifies tag & checks mobile database'
             }
             isAutoScanning={true}
           />
         )}
       </div>
 
-      {/* 🚀 SUBMISSION CONFIRMATION CELEBRATION MODAL */}
+      {/* 🚀 SUBMISSION CELEBRATION MODAL */}
       {scanStep === 'SUBMITTED' && lastSubmittedReading && (
-        <div className="p-5 bg-slate-900 border-t-2 border-emerald-500 rounded-t-3xl shadow-2xl space-y-4 z-40 max-w-lg mx-auto w-full animate-in slide-in-from-bottom-6 duration-300">
-          <div className="text-center space-y-1.5">
-            <div className="w-14 h-14 bg-emerald-500/20 border-2 border-emerald-400 rounded-2xl flex items-center justify-center mx-auto text-emerald-400 shadow-lg shadow-emerald-500/20">
-              <CheckCircle2 className="w-8 h-8" />
+        <div className="p-4 bg-slate-900 border-t-2 border-emerald-500 rounded-t-2xl shadow-2xl space-y-3 z-40 max-w-lg mx-auto w-full animate-in slide-in-from-bottom-4">
+          <div className="text-center space-y-1">
+            <div className="w-11 h-11 bg-emerald-500/20 border-2 border-emerald-400 rounded-xl flex items-center justify-center mx-auto text-emerald-400 shadow-md">
+              <CheckCircle2 className="w-6 h-6" />
             </div>
-            <h2 className="text-base font-black text-white uppercase tracking-tight">
+            <h2 className="text-sm font-black text-white uppercase tracking-tight">
               Reading Sent to Admin
             </h2>
-            <p className="text-xs text-slate-300">
+            <p className="text-[11px] text-slate-300">
               Dispatched live to Central Billing Portal (Approval Queue)
             </p>
           </div>
 
-          {/* Reading Summary Card */}
-          <div className="bg-slate-950 p-3.5 rounded-2xl border border-emerald-500/40 space-y-2.5 text-xs">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+          <div className="bg-slate-950 p-3 rounded-xl border border-emerald-500/40 space-y-2 text-xs">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
               <div>
-                <span className="text-[10px] text-emerald-400 font-bold block">
+                <span className="text-[9.5px] text-emerald-400 font-bold block">
                   ACCOUNT #{lastSubmittedReading.accountNumber}
                 </span>
-                <span className="font-bold text-white text-sm">{lastSubmittedReading.consumerName}</span>
+                <span className="font-bold text-white text-xs">{lastSubmittedReading.consumerName}</span>
               </div>
-              <span className="px-2 py-0.5 bg-emerald-950 text-emerald-300 border border-emerald-700 text-[10px] font-bold rounded-full">
+              <span className="px-2 py-0.5 bg-emerald-950 text-emerald-300 border border-emerald-700 text-[9.5px] font-bold rounded-full">
                 Pending Approval
               </span>
             </div>
 
-            <div className="bg-slate-900/90 rounded-xl p-3 border border-slate-800 space-y-2 font-mono text-xs">
+            <div className="bg-slate-900/90 rounded-lg p-2.5 border border-slate-800 space-y-1.5 font-mono text-xs">
               <div className="flex items-center justify-between text-slate-300">
-                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                  PREVIOUS READING
-                </span>
-                <span className="font-bold text-slate-200 text-sm">
-                  {lastSubmittedReading.previousReading}
-                </span>
+                <span className="text-[9.5px] uppercase font-bold text-slate-400">PREVIOUS READING</span>
+                <span className="font-bold text-slate-200">{lastSubmittedReading.previousReading} m³</span>
               </div>
-
               <div className="flex items-center justify-between text-slate-300">
-                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                  PRESENT READING
-                </span>
-                <span className="font-bold text-sky-300 text-sm">
-                  {lastSubmittedReading.currentReading}
-                </span>
+                <span className="text-[9.5px] uppercase font-bold text-slate-400">PRESENT READING</span>
+                <span className="font-bold text-sky-300">{lastSubmittedReading.currentReading} m³</span>
               </div>
-
-              <div className="flex items-center justify-between pt-1.5 border-t border-slate-800">
-                <span className="text-[10px] uppercase font-bold text-emerald-400 tracking-wider">
-                  CONSUMPTION
-                </span>
-                <span className="font-black text-emerald-400 text-sm">
-                  {lastSubmittedReading.consumption}
-                </span>
+              <div className="flex items-center justify-between pt-1 border-t border-slate-800">
+                <span className="text-[9.5px] uppercase font-bold text-emerald-400">CONSUMPTION</span>
+                <span className="font-black text-emerald-400">{lastSubmittedReading.consumption} m³</span>
               </div>
             </div>
           </div>
 
-          {/* Post-Submit Action Buttons */}
-          <div className="space-y-2 pt-1">
+          <div className="space-y-1.5 pt-1">
             <button
               type="button"
               onClick={handleScanNextConsumer}
-              className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-black py-3.5 rounded-xl shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2 text-xs uppercase tracking-wider transition active:scale-[0.98] cursor-pointer"
+              className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black py-3 rounded-xl shadow-lg flex items-center justify-center gap-1.5 text-xs uppercase tracking-wider transition active:scale-95 cursor-pointer"
             >
-              <RefreshCw className="w-4 h-4 text-slate-950" />
+              <RefreshCw className="w-4 h-4" />
               <span>Scan Next Meter / House</span>
             </button>
-
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => onNavigate('history')}
-                className="py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition"
+                className="py-2 bg-slate-800 text-slate-200 text-xs font-bold rounded-lg"
               >
-                View Reading Logs
+                View Logs
               </button>
               <button
                 type="button"
                 onClick={() => onNavigate('dashboard')}
-                className="py-2.5 bg-slate-800 hover:bg-slate-700 text-sky-400 text-xs font-bold rounded-xl transition"
+                className="py-2 bg-slate-800 text-sky-400 text-xs font-bold rounded-lg"
               >
-                Return to Dashboard
+                Dashboard
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* 📊 OCR READING IDENTIFIED BOTTOM SHEET (With Instant "Send to Admin") */}
+      {/* 📊 OCR READING IDENTIFIED BOTTOM SHEET (No Scrolling Required) */}
       {ocrResult && scanStep !== 'SUBMITTED' && (
-        <div className="p-4 bg-slate-900 border-t border-slate-800 rounded-t-3xl shadow-2xl space-y-3 z-30 max-w-lg mx-auto w-full animate-in slide-in-from-bottom-4 duration-300">
-          <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+        <div className="p-3.5 bg-slate-900 border-t border-slate-800 rounded-t-2xl shadow-2xl space-y-2.5 z-30 max-w-lg mx-auto w-full animate-in slide-in-from-bottom-3">
+          <div className="flex items-center justify-between pb-1.5 border-b border-slate-800">
             <div className="flex items-center gap-2">
               {ocrResult.success ? (
                 <CheckCircle2 className="w-5 h-5 text-emerald-400" />
@@ -725,11 +730,11 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
                 <AlertTriangle className="w-5 h-5 text-amber-400" />
               )}
               <div>
-                <h3 className="font-black text-sm text-white">
+                <h3 className="font-black text-xs text-white">
                   {ocrResult.success ? '5-Digit Meter Reading Detected' : 'Meter Digits Unclear'}
                 </h3>
-                <span className="text-[10px] text-slate-400 font-mono">
-                  {ocrResult.success ? `Confidence: ${(ocrResult.confidence * 100).toFixed(0)}%` : 'No valid digits identified'}
+                <span className="text-[9.5px] text-slate-400 font-mono">
+                  {ocrResult.success ? `Confidence: ${(ocrResult.confidence * 100).toFixed(0)}%` : 'Retake photo with better lighting'}
                 </span>
               </div>
             </div>
@@ -741,121 +746,61 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
                 setCapturedPhoto(null);
                 startCamera(facingMode);
               }}
-              className="text-xs text-sky-400 hover:text-white px-2.5 py-1 bg-slate-800 border border-slate-700 rounded-lg transition cursor-pointer"
+              className="text-xs text-sky-400 hover:text-white px-2 py-1 bg-slate-800 border border-slate-700 rounded-lg transition cursor-pointer"
             >
-              Retake Scan
+              Retake
             </button>
           </div>
 
           {ocrResult.success ? (
-            <div className="space-y-3">
-              {/* Matched Consumer Profile Card */}
-              {selectedConsumer ? (
-                <div className="bg-slate-950 p-2.5 rounded-xl border border-emerald-500/40 flex items-center justify-between text-xs">
-                  <div>
-                    <span className="text-[10px] text-emerald-400 font-bold block">
-                      Account #{selectedConsumer.accountNumber} (Tag: {selectedConsumer.meterNumber || selectedConsumer.meterSerial})
-                    </span>
-                    <span className="font-bold text-white">{selectedConsumer.name}</span>
-                  </div>
-                  <span className="px-2 py-0.5 bg-emerald-950 text-emerald-400 text-[10px] font-bold rounded">
-                    Owner Confirmed
-                  </span>
-                </div>
-              ) : (
-                <div className="bg-amber-950/40 p-2.5 rounded-xl border border-amber-800/80 text-xs text-amber-300 flex items-center justify-between">
-                  <span>Tag not matched yet. Select consumer:</span>
-                  <button
-                    type="button"
-                    onClick={() => onNavigate('consumers')}
-                    className="px-2 py-1 bg-amber-600 text-white rounded text-[11px] font-bold"
-                  >
-                    Select Owner
-                  </button>
-                </div>
-              )}
-
+            <div className="space-y-2">
               {/* 5 Wheel Slot Confirmation Display */}
-              <div className="bg-slate-950 p-3 rounded-2xl border border-slate-800 text-center">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
-                  Detected 5-Digit Counter
-                </span>
-                
-                {/* Visual 5-wheel odometer presentation */}
-                <div className="flex items-center justify-center gap-1.5 my-2">
+              <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-center">
+                <div className="flex items-center justify-center gap-1 my-1">
                   {ocrResult.digits.map((digit, i) => (
                     <div
                       key={i}
-                      className="w-10 h-12 bg-slate-900 border-2 border-sky-400 rounded-lg flex items-center justify-center font-mono font-black text-2xl text-white shadow-lg"
+                      className="w-9 h-11 bg-slate-900 border-2 border-sky-400 rounded-lg flex items-center justify-center font-mono font-black text-xl text-white shadow"
                     >
                       {digit}
                     </div>
                   ))}
                 </div>
 
-                <div className="text-sm font-bold text-sky-400 font-mono">
-                  {ocrResult.readingValue} <span className="text-xs font-sans text-slate-400">cubic meters</span>
+                <div className="text-xs font-bold text-sky-400 font-mono mt-1">
+                  {ocrResult.readingValue} <span className="text-[10px] font-sans text-slate-400">cubic meters</span>
                 </div>
 
                 {selectedConsumer && (
-                  <>
-                    {/* Validation Warning if OCR detected reading < previous reading */}
-                    {ocrResult.readingValue < selectedConsumer.previousReading ? (
-                      <div className="mt-2 p-2.5 bg-red-950/80 border border-red-500 rounded-xl text-left text-xs text-red-200 space-y-1">
-                        <div className="flex items-center gap-1.5 font-bold text-red-300">
-                          <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
-                          <span>Validation Rule Violation</span>
-                        </div>
-                        <p className="text-[11px] text-red-200/90 leading-tight">
-                          Detected reading (<strong>{ocrResult.readingValue} m³</strong>) is less than previous reading (<strong>{selectedConsumer.previousReading} m³</strong>). Please retake scan or enter manually.
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="bg-slate-900/90 rounded-xl p-3 border border-slate-800 space-y-2 font-mono text-xs mt-2 text-left">
-                        <div className="flex items-center justify-between text-slate-300">
-                          <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                            PREVIOUS READING
-                          </span>
-                          <span className="font-bold text-slate-200 text-sm">
-                            {selectedConsumer.previousReading}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center justify-between text-slate-300">
-                          <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                            PRESENT READING
-                          </span>
-                          <span className="font-bold text-sky-300 text-sm">
-                            {ocrResult.readingValue}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center justify-between pt-1.5 border-t border-slate-800">
-                          <span className="text-[10px] uppercase font-bold text-emerald-400 tracking-wider">
-                            CONSUMPTION
-                          </span>
-                          <span className="font-black text-emerald-400 text-sm">
-                            {ocrResult.readingValue - selectedConsumer.previousReading}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </>
+                  <div className="bg-slate-900/90 rounded-lg p-2 border border-slate-800 space-y-1 font-mono text-xs mt-1.5 text-left">
+                    <div className="flex items-center justify-between text-slate-300">
+                      <span className="text-[9px] uppercase font-bold text-slate-400">PREVIOUS</span>
+                      <span className="font-bold text-slate-200">{selectedConsumer.previousReading} m³</span>
+                    </div>
+                    <div className="flex items-center justify-between text-slate-300">
+                      <span className="text-[9px] uppercase font-bold text-slate-400">PRESENT</span>
+                      <span className="font-bold text-sky-300">{ocrResult.readingValue} m³</span>
+                    </div>
+                    <div className="flex items-center justify-between pt-1 border-t border-slate-800">
+                      <span className="text-[9px] uppercase font-bold text-emerald-400">CONSUMPTION</span>
+                      <span className="font-black text-emerald-400">{ocrResult.readingValue - selectedConsumer.previousReading} m³</span>
+                    </div>
+                  </div>
                 )}
               </div>
 
-              {/* 🌟 SEND TO ADMIN ACTION BUTTON */}
+              {/* Action Button */}
               {selectedConsumer && ocrResult.readingValue >= selectedConsumer.previousReading ? (
                 <button
                   type="button"
                   onClick={handleSendToAdmin}
                   disabled={isSendingToAdmin}
-                  className="w-full bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-500 hover:from-emerald-400 hover:to-sky-400 text-slate-950 font-black py-4 rounded-2xl shadow-xl shadow-emerald-500/25 flex items-center justify-center gap-2 text-xs uppercase tracking-wider transition active:scale-[0.98] cursor-pointer disabled:opacity-50"
+                  className="w-full bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-500 text-slate-950 font-black py-3 rounded-xl shadow-lg flex items-center justify-center gap-2 text-xs uppercase tracking-wider transition active:scale-95 cursor-pointer disabled:opacity-50"
                 >
                   {isSendingToAdmin ? (
                     <>
                       <RefreshCw className="w-4 h-4 animate-spin text-slate-950" />
-                      <span>Transmitting to Admin...</span>
+                      <span>Transmitting...</span>
                     </>
                   ) : (
                     <>
@@ -864,38 +809,21 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
                     </>
                   )}
                 </button>
-              ) : selectedConsumer ? (
-                <button
-                  type="button"
-                  onClick={() => onNavigate('reading_entry')}
-                  className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-3.5 rounded-xl shadow-lg flex items-center justify-center gap-2 text-xs uppercase tracking-wider transition cursor-pointer"
-                >
-                  <span>Review in Manual Form</span>
-                  <ChevronRight className="w-4 h-4" />
-                </button>
               ) : (
                 <button
                   type="button"
-                  onClick={() => onNavigate('consumers')}
-                  className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-3.5 rounded-xl shadow-lg flex items-center justify-center gap-2 text-xs uppercase tracking-wider transition cursor-pointer"
+                  onClick={() => onNavigate(selectedConsumer ? 'reading_entry' : 'consumers')}
+                  className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 rounded-xl shadow text-xs uppercase tracking-wider transition"
                 >
-                  <span>Assign Owner to this Reading</span>
-                  <ChevronRight className="w-4 h-4" />
+                  <span>{selectedConsumer ? 'Adjust in Manual Form' : 'Assign Owner'}</span>
                 </button>
               )}
             </div>
           ) : (
-            <div className="space-y-3">
-              <div className="bg-amber-950/40 p-3 rounded-2xl border border-amber-800/80 text-amber-300 text-xs space-y-1">
-                <div className="font-bold flex items-center gap-1.5 text-amber-200">
-                  <XCircle className="w-4 h-4 text-amber-400" />
-                  <span>Could Not Identify 5-Digit Counter</span>
-                </div>
-                <p className="text-[11px] text-slate-300">
-                  {ocrResult.message || 'Position camera steadily facing the 5 mechanical digit wheels and retake the scan.'}
-                </p>
+            <div className="space-y-2">
+              <div className="bg-amber-950/40 p-2 rounded-xl border border-amber-800/80 text-amber-300 text-xs">
+                {ocrResult.message || 'Position camera steadily facing the 5 mechanical digit wheels.'}
               </div>
-
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
@@ -904,14 +832,14 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
                     setCapturedPhoto(null);
                     startCamera(facingMode);
                   }}
-                  className="py-2.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl transition cursor-pointer"
+                  className="py-2 bg-slate-800 text-white text-xs font-bold rounded-lg"
                 >
-                  Retake Scan
+                  Retake
                 </button>
                 <button
                   type="button"
                   onClick={() => onNavigate(selectedConsumer ? 'reading_entry' : 'consumers')}
-                  className="py-2.5 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-xl transition cursor-pointer"
+                  className="py-2 bg-sky-600 text-white text-xs font-bold rounded-lg"
                 >
                   Enter Manually
                 </button>
@@ -923,3 +851,4 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
     </div>
   );
 };
+

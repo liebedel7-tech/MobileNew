@@ -24,17 +24,17 @@ export const ModuleLoadingScreen: React.FC<ModuleLoadingScreenProps> = ({
   processInfo,
   onFinished,
 }) => {
-  const [progress, setProgress] = useState<number>(20);
+  const [progress, setProgress] = useState<number>(30);
 
   useEffect(() => {
     if (!processInfo) return;
 
-    setProgress(20);
-    const duration = processInfo.durationMs || 250; // Fast, snappy, native feel
+    setProgress(30);
+    const duration = Math.min(processInfo.durationMs || 200, 400);
 
     const progressTimer = setInterval(() => {
-      setProgress((prev: number) => (prev < 90 ? prev + 25 : prev));
-    }, duration / 4);
+      setProgress((prev: number) => (prev < 90 ? prev + 30 : prev));
+    }, duration / 3);
 
     const finishTimer = setTimeout(() => {
       setProgress(100);
@@ -42,7 +42,7 @@ export const ModuleLoadingScreen: React.FC<ModuleLoadingScreenProps> = ({
         if (onFinished) {
           onFinished();
         }
-      }, 40);
+      }, 30);
     }, duration);
 
     return () => {
@@ -59,37 +59,37 @@ export const ModuleLoadingScreen: React.FC<ModuleLoadingScreenProps> = ({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        transition={{ duration: 0.12 }}
-        className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 select-none"
+        transition={{ duration: 0.1 }}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 backdrop-blur-sm p-4 select-none"
       >
-        <div className="w-full max-w-xs bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-4 text-center">
+        <div className="w-full max-w-xs bg-slate-900/95 border border-slate-800 rounded-2xl p-5 shadow-2xl space-y-3.5 text-center">
           {/* Logo & Spinner */}
-          <div className="flex justify-center items-center relative">
-            <OfficialLogo size="sm" />
-            <div className="absolute -inset-1">
-              <Loader2 className="w-12 h-12 text-sky-500 animate-spin opacity-40 mx-auto" />
+          <div className="flex justify-center items-center relative py-1">
+            <OfficialLogo size="sm" glow />
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <Loader2 className="w-11 h-11 text-sky-400 animate-spin opacity-50" />
             </div>
           </div>
 
-          {/* Simple Titles */}
+          {/* Titles */}
           <div className="space-y-1">
-            <h2 className="text-sm font-bold text-white tracking-tight">
-              {processInfo.title || 'Loading...'}
+            <h2 className="text-xs sm:text-sm font-bold text-white tracking-tight">
+              {processInfo.title || 'Loading Module...'}
             </h2>
             {processInfo.subtitle && (
-              <p className="text-xs text-slate-400">
+              <p className="text-[11px] text-slate-400 font-mono truncate px-1">
                 {processInfo.subtitle}
               </p>
             )}
           </div>
 
-          {/* Simple Progress Bar */}
-          <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+          {/* Streamlined Progress Bar */}
+          <div className="w-full bg-slate-800/80 h-1.5 rounded-full overflow-hidden">
             <motion.div
               className="h-full bg-sky-500 rounded-full"
-              initial={{ width: '20%' }}
+              initial={{ width: '30%' }}
               animate={{ width: `${progress}%` }}
-              transition={{ ease: 'easeOut', duration: 0.15 }}
+              transition={{ ease: 'easeOut', duration: 0.12 }}
             />
           </div>
         </div>

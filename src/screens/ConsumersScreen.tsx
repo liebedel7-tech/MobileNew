@@ -77,7 +77,7 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
 
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-black text-white uppercase tracking-tight">
-          Consumer's List
+          Consumer Directory
         </h2>
       </div>
 

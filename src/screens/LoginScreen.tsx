@@ -58,8 +58,32 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [regPin, setRegPin] = useState('');
   const [regContact, setRegContact] = useState('');
   const [regEmail, setRegEmail] = useState('');
-  const [regSelectedRoute, setRegSelectedRoute] = useState('Poblacion');
+  const [regSelectedRoutes, setRegSelectedRoutes] = useState<string[]>(['Poblacion']);
   const [isRegistering, setIsRegistering] = useState(false);
+
+  const TAGOLOAN_BARANGAYS = [
+    'Poblacion',
+    'Baluarte',
+    'Casinglot',
+    'Mohon',
+    'Natumolan',
+    'Sta. Cruz',
+    'Sta. Ana',
+    'Sugbongcogon',
+    'Gracia',
+    'Rosario',
+  ];
+
+  const toggleRouteSelection = (route: string) => {
+    setRegSelectedRoutes((prev) => {
+      if (prev.includes(route)) {
+        if (prev.length === 1) return prev; // Keep at least one selected
+        return prev.filter((r) => r !== route);
+      } else {
+        return [...prev, route];
+      }
+    });
+  };
 
   // Pending State
   const [pendingReader, setPendingReader] = useState<any>(null);
@@ -93,8 +117,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               username: msg.payload.username || pendingReader.username || pendingReader.name,
               name: msg.payload.name || pendingReader.name,
               role: 'Meter Reader I',
-              zone: (msg.payload.assignedRoutes || [regSelectedRoute]).join(', '),
-              assignedRoutes: msg.payload.assignedRoutes || [regSelectedRoute],
+              zone: (msg.payload.assignedRoutes || regSelectedRoutes).join(', '),
+              assignedRoutes: msg.payload.assignedRoutes || regSelectedRoutes,
               status: 'active',
             });
           }, 1000);
@@ -143,7 +167,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       unsub();
       if (pollTimer) clearInterval(pollTimer);
     };
-  }, [authMode, pendingReader, regSelectedRoute, onLogin]);
+  }, [authMode, pendingReader, regSelectedRoutes, onLogin]);
 
   // Handle Staff Sign In
   const handleLoginSubmit = async (e?: React.FormEvent) => {
@@ -212,7 +236,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       );
 
       if (matched) {
-        if (matched.pin && matched.pin !== cleanPin && cleanPin !== '1234') {
+        if (matched.pin && matched.pin !== cleanPin) {
           setError('Incorrect password. Please try again.');
           return;
         }
@@ -263,7 +287,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       pin: regPin.trim(),
       contactNumber: regContact.trim(),
       email: regEmail.trim() || `${regUsername.toLowerCase()}@tagoloanwater.gov.ph`,
-      assignedRoutes: [regSelectedRoute],
+      assignedRoutes: regSelectedRoutes.length > 0 ? regSelectedRoutes : ['Poblacion'],
       status: 'active', // Automatically active immediately upon creation
       deviceInfo: navigator.userAgent || 'Field Mobile Device',
       createdAt: new Date().toISOString(),
@@ -291,6 +315,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     }).catch(() => {});
     SyncService.syncReaders().catch(() => {});
 
+    // Configure sync engine for the reader's chosen routes
+    SyncService.setActiveRoutes(localReaderRecord.assignedRoutes);
+
     // 3. Immediately launch meter reader terminal for instant operational use
     setIsRegistering(false);
     onLogin({
@@ -299,8 +326,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       username: localReaderRecord.username,
       name: localReaderRecord.name,
       role: 'Meter Reader I',
-      zone: (localReaderRecord.assignedRoutes || [regSelectedRoute]).join(', '),
-      assignedRoutes: localReaderRecord.assignedRoutes || [regSelectedRoute],
+      zone: localReaderRecord.assignedRoutes.join(', '),
+      assignedRoutes: localReaderRecord.assignedRoutes,
       status: 'active',
     });
   };
@@ -612,29 +639,43 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Target Route / Barangay Assignment
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
-                    <MapPin className="w-3.5 h-3.5 text-sky-400" />
-                  </div>
-                  <select
-                    value={regSelectedRoute}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setRegSelectedRoute(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500 transition"
-                  >
-                    <option value="Poblacion">Poblacion</option>
-                    <option value="Baluarte">Baluarte</option>
-                    <option value="Casinglot">Casinglot</option>
-                    <option value="Mohon">Mohon</option>
-                    <option value="Natumolan">Natumolan</option>
-                    <option value="Sta. Cruz">Sta. Cruz</option>
-                    <option value="Sta. Ana">Sta. Ana</option>
-                    <option value="Sugbongcogon">Sugbongcogon</option>
-                    <option value="Gracia">Gracia</option>
-                  </select>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-300">
+                    Coverage Area / Barangay Assignment <span className="text-emerald-400 font-normal">(Select 1 or more)</span>
+                  </label>
+                  <span className="text-[11px] font-mono text-sky-400 bg-sky-950/80 px-2 py-0.5 rounded-full border border-sky-800/60">
+                    {regSelectedRoutes.length} Selected
+                  </span>
                 </div>
+                
+                <div className="grid grid-cols-2 gap-1.5 max-h-36 overflow-y-auto p-1.5 bg-slate-950/80 border border-slate-700/80 rounded-xl">
+                  {TAGOLOAN_BARANGAYS.map((brgy) => {
+                    const isSelected = regSelectedRoutes.includes(brgy);
+                    return (
+                      <button
+                        key={brgy}
+                        type="button"
+                        onClick={() => toggleRouteSelection(brgy)}
+                        className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition cursor-pointer border text-left ${
+                          isSelected
+                            ? 'bg-sky-600/30 border-sky-500 text-white font-bold shadow-sm'
+                            : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                        }`}
+                      >
+                        <span className="truncate">{brgy}</span>
+                        {isSelected ? (
+                          <CheckCircle2 className="w-3.5 h-3.5 text-sky-400 shrink-0 ml-1" />
+                        ) : (
+                          <div className="w-3.5 h-3.5 rounded-full border border-slate-600 shrink-0 ml-1" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
+                  <MapPin className="w-3 h-3 text-sky-400 shrink-0" />
+                  <span>Only consumers in your selected coverage areas will sync to this device.</span>
+                </p>
               </div>
 
               <button
@@ -671,7 +712,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-left text-xs space-y-1.5">
               <div className="flex items-center justify-between text-slate-400">
                 <span>Requested Route:</span>
-                <span className="text-white font-bold">{pendingReader.assignedRoutes?.join(', ') || regSelectedRoute}</span>
+                <span className="text-white font-bold">{pendingReader.assignedRoutes?.join(', ') || regSelectedRoutes.join(', ')}</span>
               </div>
               <div className="flex items-center justify-between text-slate-400">
                 <span>Central Portal Sync:</span>

@@ -10,36 +10,6 @@ export const DEFAULT_SERVER_URL = LIVE_BACKEND_URL;
 let cachedWorkingBaseUrl: string | null = null;
 let lastHealthCheckTime = 0;
 
-function isObsoleteOrCrossDomain(url: string): boolean {
-  if (!url) return true;
-  const lower = url.toLowerCase().trim();
-  if (lower.includes('twd-zeta') || lower.includes('ui6fsepfskrowqsfycbac7') || lower.includes('6cykzmqeda3wtxfpbqbxts')) {
-    return true;
-  }
-  
-  // If running on Vercel, localhost, or any custom domain, strictly NEVER connect to transient Cloud Run preview URLs
-  if (typeof window !== 'undefined' && window.location && window.location.origin) {
-    const currentOrigin = window.location.origin.toLowerCase();
-    if (!currentOrigin.includes('run.app') && lower.includes('run.app')) {
-      return true;
-    }
-  }
-  return false;
-}
-
-// Proactively purge obsolete Cloud Run dev URLs from localStorage immediately upon module load
-if (typeof window !== 'undefined' && window.localStorage) {
-  try {
-    const stored = window.localStorage.getItem('TWD_API_BASE_URL') || window.localStorage.getItem('twd_api_base_url');
-    if (stored && isObsoleteOrCrossDomain(stored)) {
-      window.localStorage.removeItem('TWD_API_BASE_URL');
-      window.localStorage.removeItem('twd_api_base_url');
-    }
-  } catch {
-    // Ignore localStorage access issues
-  }
-}
-
 /**
  * Resolves the primary base URL based on environment, localStorage override, and origin
  */
@@ -52,10 +22,7 @@ export function getApiBaseUrl(): string {
   // 1. User manual server override in localStorage
   if (typeof window !== 'undefined' && window.localStorage) {
     const stored = window.localStorage.getItem('TWD_API_BASE_URL') || window.localStorage.getItem('twd_api_base_url');
-    if (stored && isObsoleteOrCrossDomain(stored)) {
-      window.localStorage.removeItem('TWD_API_BASE_URL');
-      window.localStorage.removeItem('twd_api_base_url');
-    } else if (stored && stored.trim()) {
+    if (stored && stored.trim()) {
       return stored.trim().replace(/\/+$/, '').replace(/\/api$/, '');
     }
   }
@@ -65,7 +32,7 @@ export function getApiBaseUrl(): string {
     const meta = import.meta as any;
     if (meta && meta.env) {
       const envUrl = meta.env.VITE_API_URL || meta.env.VITE_CENTRAL_API_URL;
-      if (envUrl && typeof envUrl === 'string' && envUrl.trim() && !isObsoleteOrCrossDomain(envUrl)) {
+      if (envUrl && typeof envUrl === 'string' && envUrl.trim()) {
         return envUrl.trim().replace(/\/+$/, '').replace(/\/api$/, '');
       }
     }
@@ -73,7 +40,7 @@ export function getApiBaseUrl(): string {
     // Ignore in non-vite environments
   }
 
-  // 3. Current window origin (Works directly on Vercel, Cloud Run, or Localhost)
+  // 3. Current window origin (Works directly on Vercel, Cloud Run, Custom Servers, or Localhost)
   if (typeof window !== 'undefined' && window.location && window.location.origin) {
     const origin = window.location.origin;
     if (origin.startsWith('http://') || origin.startsWith('https://')) {
@@ -90,22 +57,22 @@ export function getApiBaseUrl(): string {
 export function getCandidateBackendUrls(): string[] {
   const candidates: string[] = [];
 
-  // Candidate 1: Current origin (relative / same domain) - HIGHEST PRIORITY
+  // Candidate 1: Stored custom URL (if configured by admin or tester)
+  if (typeof window !== 'undefined' && window.localStorage) {
+    const stored = window.localStorage.getItem('TWD_API_BASE_URL') || window.localStorage.getItem('twd_api_base_url');
+    if (stored && stored.trim()) {
+      const clean = stored.trim().replace(/\/+$/, '').replace(/\/api$/, '');
+      if (clean && !candidates.includes(clean)) {
+        candidates.push(clean);
+      }
+    }
+  }
+
+  // Candidate 2: Current origin (relative / same domain) - High priority
   if (typeof window !== 'undefined' && window.location && window.location.origin) {
     const origin = window.location.origin;
     if (origin.startsWith('http') && !candidates.includes(origin)) {
       candidates.push(origin);
-    }
-  }
-
-  // Candidate 2: Stored custom URL (if valid and not cross-domain obsolete)
-  if (typeof window !== 'undefined' && window.localStorage) {
-    const stored = window.localStorage.getItem('TWD_API_BASE_URL') || window.localStorage.getItem('twd_api_base_url');
-    if (stored && stored.trim() && !isObsoleteOrCrossDomain(stored)) {
-      const clean = stored.trim().replace(/\/+$/, '').replace(/\/api$/, '');
-      if (!candidates.includes(clean)) {
-        candidates.push(clean);
-      }
     }
   }
 
@@ -156,7 +123,7 @@ export async function universalApiFetch(path: string, init?: RequestInit): Promi
     return lastResponse;
   }
 
-  // Fallback: direct relative request without cross-domain cycling
+  // Fallback: direct relative request
   try {
     const directRes = await fetch(cleanPath, {
       ...init,

@@ -32,7 +32,6 @@ import { ScanMeterScreen } from './screens/ScanMeterScreen';
 import { BatchSubmissionScreen } from './screens/BatchSubmissionScreen';
 import { HistoryScreen } from './screens/HistoryScreen';
 import { AuditLogScreen } from './screens/AuditLogScreen';
-import { MeterReadersScreen } from './screens/MeterReadersScreen';
 import { DebugScreen } from './screens/DebugScreen';
 import { FlutterConfigScreen } from './screens/FlutterConfigScreen';
 
@@ -139,8 +138,9 @@ export function App() {
 
   // Reload data helper
   const reloadData = async () => {
+    const readerRoutes = currentUser?.assignedRoutes || (currentUser?.zone ? [currentUser.zone] : undefined);
     const [c, r, l] = await Promise.all([
-      DatabaseHelper.getAllConsumers(),
+      DatabaseHelper.getConsumersForReader(readerRoutes),
       DatabaseHelper.getAllReadings(),
       DatabaseHelper.getAllAuditLogs(),
     ]);
@@ -186,6 +186,10 @@ export function App() {
   const handleLogin = async (user: StaffUser) => {
     setCurrentUser(user);
     
+    // Configure background sync & database queries strictly for reader's coverage zones
+    const routes = user.assignedRoutes || (user.zone ? [user.zone] : ['Poblacion']);
+    SyncService.setActiveRoutes(routes);
+
     // Broadcast login over WebSocket
     WebSocketService.send('FIELD_STAFF_ACTIVITY', {
       action: 'LOGIN',
@@ -198,7 +202,7 @@ export function App() {
       'STAFF_LOGIN',
       user.id,
       user.name,
-      `Field Reader ${user.name} logged into WDT Mobile Terminal.`
+      `Field Reader ${user.name} logged into WDT Mobile Terminal (Coverage: ${routes.join(', ')}).`
     );
     
     navigateTo('dashboard', {
@@ -208,7 +212,17 @@ export function App() {
       durationMs: 380,
     });
 
-    reloadData();
+    // Trigger instant targeted sync for assigned coverage areas
+    SyncService.syncNow().catch(() => {});
+
+    const [assignedConsumers, allReadings, allLogs] = await Promise.all([
+      DatabaseHelper.getConsumersForReader(routes),
+      DatabaseHelper.getAllReadings(),
+      DatabaseHelper.getAllAuditLogs(),
+    ]);
+    setConsumers(assignedConsumers);
+    setReadings(allReadings);
+    setAuditLogs(allLogs);
   };
 
   const handleLogout = async () => {
@@ -227,6 +241,9 @@ export function App() {
         timestamp: new Date().toISOString(),
       });
     }
+
+    SyncService.setActiveRoutes([]);
+    setCurrentUser(null);
 
     setLoadingProcess({
       type: 'logout',
@@ -586,18 +603,7 @@ export function App() {
             />
           )}
 
-          {activeScreen === 'meter_readers' && (
-            <MeterReadersScreen
-              currentUser={currentUser}
-              onNavigate={navigateTo}
-              onSwitchUser={(user: StaffUser) => {
-                setCurrentUser(user);
-                navigateTo('dashboard');
-              }}
-            />
-          )}
-
-          {activeScreen === 'debug' && (
+          {(activeScreen === 'debug' || activeScreen === 'meter_readers') && (
             <DebugScreen
               syncState={syncState}
               onNavigate={navigateTo}

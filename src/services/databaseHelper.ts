@@ -1,5 +1,6 @@
 import { Consumer, MeterReading, AuditLog, AppConfig, StaffUser, ReaderAccount, ReaderStatus } from '../types';
 import { universalApiFetch, getApiEndpoint } from './apiConfig';
+import { INITIAL_CONSUMERS as FULL_SEED_CONSUMERS } from '../data/seedData';
 
 const DB_NAME = 'WDT_MeterReader_DB_v2';
 const DB_VERSION = 1;
@@ -81,6 +82,38 @@ export class DatabaseHelper {
       const request = store.getAll();
       request.onsuccess = () => resolve(request.result || []);
       request.onerror = () => reject(request.error);
+    });
+  }
+
+  /**
+   * Returns only the consumers that fall under the meter reader's assigned coverage areas / barangays
+   */
+  static async getConsumersForReader(routes?: string[] | string): Promise<Consumer[]> {
+    const all = await this.getAllConsumers();
+    if (!routes) return all;
+
+    const allowed = (Array.isArray(routes) ? routes : routes.split(','))
+      .map((r) => r.trim().toLowerCase())
+      .filter(Boolean);
+
+    if (allowed.length === 0 || allowed.some((r) => r === 'all' || r === 'all tagoloan districts')) {
+      return all;
+    }
+
+    return all.filter((c) => {
+      const brgy = (c.barangay || '').toLowerCase();
+      const route = (c.routeCode || '').toLowerCase();
+      const addr = (c.address || '').toLowerCase();
+      return allowed.some(
+        (z) =>
+          brgy.includes(z) ||
+          route.includes(z) ||
+          addr.includes(z) ||
+          (z === 'sta. cruz' && brgy.includes('santa cruz')) ||
+          (z === 'santa cruz' && brgy.includes('sta. cruz')) ||
+          (z === 'sta. ana' && brgy.includes('santa ana')) ||
+          (z === 'santa ana' && brgy.includes('sta. ana'))
+      );
     });
   }
 
@@ -358,141 +391,8 @@ export class DatabaseHelper {
     }
   }
 
-  // Initial Seed Consumers for Tagoloan Water District (WDT), Misamis Oriental
-  private static DEFAULT_SEED_CONSUMERS: Consumer[] = [
-    {
-      id: 'WDT-ACC-01042',
-      accountNumber: '01-042-0091',
-      name: 'AMORATO, VICENTE G.',
-      address: 'Zone 2, Brgy. Poblacion, Tagoloan, Misamis Oriental',
-      barangay: 'Poblacion',
-      meterSerial: 'MTR-8849201',
-      meterNumber: 'TAG-01042',
-      meterSize: '1/2"',
-      category: 'Residential',
-      status: 'Active',
-      previousReading: 342,
-      previousReadingDate: '2026-07-14',
-      previousConsumption: 18,
-      averageConsumption: 18,
-      rateCode: 'RES-01',
-      gpsCoordinates: { lat: 8.5398, lng: 124.7523 },
-      routeCode: 'RT-POB-04',
-      sequenceNo: 1,
-      contactNumber: '+63 917 234 5678',
-      lastSyncDate: new Date().toISOString(),
-    },
-    {
-      id: 'WDT-ACC-01043',
-      accountNumber: '01-042-0092',
-      name: 'CABALLERO, MA. ELENA S.',
-      address: 'Purok 4, Brgy. Baluarte, Tagoloan, Misamis Oriental',
-      barangay: 'Baluarte',
-      meterSerial: 'MTR-7738291',
-      meterNumber: 'TAG-01043',
-      meterSize: '1/2"',
-      category: 'Residential',
-      status: 'Active',
-      previousReading: 512,
-      previousReadingDate: '2026-07-14',
-      previousConsumption: 22,
-      averageConsumption: 22,
-      rateCode: 'RES-01',
-      gpsCoordinates: { lat: 8.5462, lng: 124.7611 },
-      routeCode: 'RT-BAL-01',
-      sequenceNo: 2,
-      contactNumber: '+63 928 891 2345',
-      lastSyncDate: new Date().toISOString(),
-    },
-    {
-      id: 'WDT-ACC-01044',
-      accountNumber: '02-019-0115',
-      name: 'TAGOLOAN GRAIN MILL & TRADING',
-      address: 'National Highway, Brgy. Casinglot, Tagoloan',
-      barangay: 'Casinglot',
-      meterSerial: 'MTR-COM-44912',
-      meterNumber: 'TAG-01044',
-      meterSize: '1"',
-      category: 'Commercial A',
-      status: 'Active',
-      previousReading: 1289,
-      previousReadingDate: '2026-07-13',
-      previousConsumption: 85,
-      averageConsumption: 85,
-      rateCode: 'COM-A-01',
-      gpsCoordinates: { lat: 8.5312, lng: 124.7435 },
-      routeCode: 'RT-CAS-02',
-      sequenceNo: 3,
-      contactNumber: '+63 939 123 4567',
-      lastSyncDate: new Date().toISOString(),
-    },
-    {
-      id: 'WDT-ACC-01045',
-      accountNumber: '01-088-0044',
-      name: 'RODRIGUEZ, BENJAMIN T.',
-      address: 'Zone 1, Brgy. Mohon, Tagoloan, Misamis Oriental',
-      barangay: 'Mohon',
-      meterSerial: 'MTR-9021844',
-      meterNumber: 'TAG-01045',
-      meterSize: '1/2"',
-      category: 'Residential',
-      status: 'Active',
-      previousReading: 198,
-      previousReadingDate: '2026-07-15',
-      previousConsumption: 14,
-      averageConsumption: 14,
-      rateCode: 'RES-01',
-      gpsCoordinates: { lat: 8.5284, lng: 124.7698 },
-      routeCode: 'RT-MOH-01',
-      sequenceNo: 4,
-      contactNumber: '+63 915 678 9012',
-      lastSyncDate: new Date().toISOString(),
-    },
-    {
-      id: 'WDT-ACC-01046',
-      accountNumber: '03-005-0012',
-      name: 'SANTA CRUZ FISH PROCESSING CORP.',
-      address: 'Coastal Road, Brgy. Santa Cruz, Tagoloan',
-      barangay: 'Santa Cruz',
-      meterSerial: 'MTR-IND-99120',
-      meterNumber: 'TAG-01046',
-      meterSize: '2"',
-      category: 'Industrial',
-      status: 'Active',
-      previousReading: 4890,
-      previousReadingDate: '2026-07-12',
-      previousConsumption: 320,
-      averageConsumption: 320,
-      rateCode: 'IND-01',
-      gpsCoordinates: { lat: 8.5521, lng: 124.7389 },
-      routeCode: 'RT-STC-01',
-      sequenceNo: 5,
-      contactNumber: '+63 917 889 0012',
-      lastSyncDate: new Date().toISOString(),
-    },
-    {
-      id: 'WDT-ACC-01047',
-      accountNumber: '01-042-0105',
-      name: 'VILLANUEVA, TERESITA L.',
-      address: 'Purok 2, Brgy. Poblacion, Tagoloan, Misamis Oriental',
-      barangay: 'Poblacion',
-      meterSerial: 'MTR-8849312',
-      meterNumber: 'TAG-01047',
-      meterSize: '1/2"',
-      category: 'Residential',
-      status: 'Active',
-      previousReading: 412,
-      previousReadingDate: '2026-07-14',
-      previousConsumption: 19,
-      averageConsumption: 19,
-      rateCode: 'RES-01',
-      gpsCoordinates: { lat: 8.5412, lng: 124.7541 },
-      routeCode: 'RT-POB-04',
-      sequenceNo: 6,
-      contactNumber: '+63 920 445 6789',
-      lastSyncDate: new Date().toISOString(),
-    }
-  ];
+  // Initial Seed Consumers for Tagoloan Water District (WDT), Misamis Oriental (All Barangays)
+  private static DEFAULT_SEED_CONSUMERS: Consumer[] = [...(FULL_SEED_CONSUMERS as unknown as Consumer[])];
 
   // Initialize Database Helper and synchronize real consumers from server
   static async init(): Promise<void> {

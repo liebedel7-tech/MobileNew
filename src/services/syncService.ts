@@ -5,6 +5,7 @@ import { universalApiFetch, getApiEndpoint } from './apiConfig';
 
 export class SyncService {
   private static timerId: any = null;
+  private static activeRoutes: string[] = [];
   private static syncState: SyncState = {
     isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
     isSimulatedOffline: false,
@@ -32,6 +33,14 @@ export class SyncService {
 
     this.startAutoSyncTimer();
     this.refreshPendingCount();
+  }
+
+  static setActiveRoutes(routes: string[]) {
+    this.activeRoutes = Array.isArray(routes) ? routes : [];
+  }
+
+  static getActiveRoutes(): string[] {
+    return [...this.activeRoutes];
   }
 
   static subscribe(listener: (state: SyncState) => void): () => void {
@@ -301,10 +310,14 @@ export class SyncService {
         }
       }
 
-      // 2. Pull latest consumers
-      this.updateState({ lastSyncMessage: 'Downloading consumer records...' });
+      // 2. Pull latest consumers (strictly for active meter reader's assigned coverage areas)
+      this.updateState({ lastSyncMessage: 'Downloading assigned consumer records...' });
       try {
-        const consumerRes = await universalApiFetch('/api/consumers', {
+        let consumerQuery = '';
+        if (this.activeRoutes && this.activeRoutes.length > 0) {
+          consumerQuery = `?zones=${encodeURIComponent(this.activeRoutes.join(','))}`;
+        }
+        const consumerRes = await universalApiFetch(`/api/consumers${consumerQuery}`, {
           headers: { 'Accept': 'application/json' },
         });
         if (consumerRes.ok) {

@@ -5,36 +5,44 @@ import { universalApiFetch } from './apiConfig';
 
 /**
  * 1. Mobile Reader Registration
- * Sends registration to central queue with 'pending' status
+ * Sends registration to central server with instant active operational status
  */
 export async function registerMeterReader(readerData: {
   username: string;
   name: string;
   pin?: string;
-  zone: string;
+  employeeId?: string;
+  zone?: string;
+  assignedRoutes?: string[];
   contactNumber?: string;
+  email?: string;
+  deviceInfo?: string;
+  status?: string;
 }) {
   try {
     const res = await universalApiFetch('/api/readers/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify(readerData),
+      body: JSON.stringify({
+        ...readerData,
+        status: 'active',
+        employmentStatus: 'active',
+      }),
     });
     return await res.json();
   } catch (error) {
     console.error('Registration network error:', error);
-    // Offline fallback: returns pending status locally
+    // Offline fallback: returns active status locally
     return {
       success: true,
-      message: "Queued locally. Awaiting connection to central server.",
-      reader: { ...readerData, employmentStatus: "pending", status: "pending" },
+      message: 'Registered in local database.',
+      reader: { ...readerData, status: 'active', employmentStatus: 'active' },
     };
   }
 }
 
 /**
- * 2. Check Approval Status
- * Polls the central server to see if the Admin has approved the account
+ * 2. Check Reader Status
  */
 export async function checkReaderApprovalStatus(readerIdOrUsername: string) {
   try {
@@ -44,16 +52,21 @@ export async function checkReaderApprovalStatus(readerIdOrUsername: string) {
     return await res.json();
   } catch (error) {
     console.error('Status check error:', error);
-    return { success: false, status: 'pending' };
+    return { success: false, status: 'active' };
   }
 }
 
 /**
- * 3. Fetch Assigned Consumer Route (Once Approved)
+ * 3. Fetch Assigned Consumer Route (Filtered strictly by assigned coverage areas / barangays)
  */
-export async function fetchAssignedConsumers(zone?: string) {
+export async function fetchAssignedConsumers(zones?: string | string[]) {
   try {
-    const query = zone && zone !== 'All' && zone !== 'ALL' ? `?zone=${encodeURIComponent(zone)}` : '';
+    let query = '';
+    if (Array.isArray(zones) && zones.length > 0) {
+      query = `?zones=${encodeURIComponent(zones.join(','))}`;
+    } else if (typeof zones === 'string' && zones && zones.toLowerCase() !== 'all' && zones.toLowerCase() !== 'all tagoloan districts') {
+      query = `?zones=${encodeURIComponent(zones)}`;
+    }
     const res = await universalApiFetch(`/api/consumers${query}`, {
       headers: { 'Accept': 'application/json' },
     });

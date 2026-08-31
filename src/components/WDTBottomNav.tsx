@@ -27,7 +27,7 @@ export const WDTBottomNav: React.FC<WDTBottomNavProps> = ({
     },
     {
       id: 'consumers',
-      label: "Consumer's List",
+      label: 'Consumers',
       icon: <Users className="w-5 h-5" />,
     },
     {
@@ -51,7 +51,7 @@ export const WDTBottomNav: React.FC<WDTBottomNavProps> = ({
     },
     {
       id: 'debug',
-      label: 'System',
+      label: 'Diagnostics',
       icon: <Sliders className="w-5 h-5" />,
     },
   ];

@@ -213,7 +213,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               Shift Progress • {user.zone}
             </h2>
             <p className="text-[11px] text-slate-500 font-mono mt-0.5">
-              Assigned Consumer's List
+              Assigned Consumer Accounts
             </p>
           </div>
 
