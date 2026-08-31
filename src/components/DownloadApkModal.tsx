@@ -44,7 +44,7 @@ export const DownloadApkModal: React.FC<DownloadApkModalProps> = ({
       }
     } else {
       alert(
-        'To install the Flutter Mobile APK on your phone:\n\n1. Open this app in Chrome / Samsung Internet on Android.\n2. Tap the browser Menu (⋮).\n3. Tap "Install App" or "Add to Home Screen".\n\nAndroid will build and install the standalone Tagoloan Water District APK!'
+        'To install the app on your device:\n\n1. Open this app in Chrome / Samsung Internet / Safari.\n2. Tap the browser Menu (⋮ or Share).\n3. Tap "Install App" or "Add to Home Screen".\n\nYour device will install the standalone Tagoloan Water District App!'
       );
     }
   };
@@ -181,7 +181,7 @@ export const DownloadApkModal: React.FC<DownloadApkModalProps> = ({
                 className="w-full bg-sky-600 hover:bg-sky-500 text-white font-black py-3.5 rounded-2xl shadow-xl shadow-sky-600/30 flex items-center justify-center gap-2 text-sm uppercase tracking-wider transition hover:scale-[1.01] active:scale-[0.99]"
               >
                 <Download className="w-4 h-4" />
-                <span>Install Flutter APK to Android Device</span>
+                <span>Install the App on Your Device</span>
               </button>
 
               {/* Flutter Native Capabilities */}

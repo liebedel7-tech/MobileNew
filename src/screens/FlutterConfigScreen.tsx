@@ -179,7 +179,7 @@ class WDTMeterReaderApp extends StatelessWidget {
             className="px-4 py-2.5 bg-sky-600 hover:bg-sky-500 text-white text-xs font-black rounded-xl shadow-lg shadow-sky-600/30 flex items-center gap-2 shrink-0 transition"
           >
             <Download className="w-4 h-4" />
-            <span>Download Flutter APK</span>
+            <span>Install App on Your Device</span>
           </button>
         )}
       </div>

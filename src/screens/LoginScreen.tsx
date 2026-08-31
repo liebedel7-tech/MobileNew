@@ -325,14 +325,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     }
   };
 
-  // Quick fill recommended accounts into input fields without auto-submitting
-  const handleSelectRecommendedAccount = (accountUsername: string, accountPin: string) => {
-    setUsername(accountUsername);
-    setPin(accountPin);
-    setError(null);
-    // Explicitly do NOT auto-login. The user can review the inputs and tap the "Log In" button.
-  };
-
   // Handle New Meter Reader Registration - Instant Access + Background Admin Sync
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -624,58 +616,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 {!loading && <ArrowRight className="w-4 h-4" />}
               </button>
             </form>
-
-            {/* Recommended Official Reader Accounts (Fills fields only, requires pressing Log In) */}
-            <div className="pt-2.5 border-t border-slate-800 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-slate-300">
-                  Recommended Accounts
-                </span>
-                <span className="text-[9.5px] text-sky-400 font-mono">
-                  Tap to fill • Click Log In
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleSelectRecommendedAccount('reader04', '1234')}
-                  className={`p-2 rounded-xl text-left border transition cursor-pointer ${
-                    username.toLowerCase() === 'reader04'
-                      ? 'bg-sky-950/70 border-sky-500 ring-1 ring-sky-500/50'
-                      : 'bg-slate-950/80 border-slate-800 hover:border-slate-700'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-white font-mono">reader04</span>
-                    <span className="text-[9px] font-mono text-emerald-400 bg-emerald-950/80 px-1.5 py-0.2 rounded border border-emerald-800/60">
-                      PIN: 1234
-                    </span>
-                  </div>
-                  <p className="text-[10px] text-slate-400 truncate mt-0.5 font-medium">Juan Carlo Bautista</p>
-                  <p className="text-[9px] text-sky-400/80 font-mono truncate">Poblacion, Baluarte</p>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleSelectRecommendedAccount('reader02', '1234')}
-                  className={`p-2 rounded-xl text-left border transition cursor-pointer ${
-                    username.toLowerCase() === 'reader02'
-                      ? 'bg-sky-950/70 border-sky-500 ring-1 ring-sky-500/50'
-                      : 'bg-slate-950/80 border-slate-800 hover:border-slate-700'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-white font-mono">reader02</span>
-                    <span className="text-[9px] font-mono text-emerald-400 bg-emerald-950/80 px-1.5 py-0.2 rounded border border-emerald-800/60">
-                      PIN: 1234
-                    </span>
-                  </div>
-                  <p className="text-[10px] text-slate-400 truncate mt-0.5 font-medium">Maria Lourdes Santos</p>
-                  <p className="text-[9px] text-sky-400/80 font-mono truncate">Casinglot, Mohon</p>
-                </button>
-              </div>
-            </div>
           </>
         )}
 
