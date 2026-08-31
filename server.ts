@@ -1094,35 +1094,42 @@ app.post('/api/ocr/analyze', async (req, res) => {
     // Clean base64 string
     const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
 
-    // Formulate targeted prompts for Tag Number ONLY vs Dial Reading ONLY (NO Barcode or QR)
+    // Formulate targeted prompts for Tag Number ONLY vs Dial Reading ONLY
     let prompt = '';
     if (mode === 'tag') {
-      prompt = `You are an OCR vision inspector for Tagoloan Water District (TWD) water utility meters.
-TASK: Identify ONLY the physical stamped/printed Meter Tag Number or Meter Serial Number badge on the meter casing, body plate, or brass dial bezel (e.g., TAG-01042, TWD-00104, 2024-001, MTR-8921, 01042).
-CRITICAL CONSTRAINT: Do NOT scan or look for barcodes or QR codes. ONLY read human-readable alphanumeric text / numbers printed or engraved on the meter plate or tag label.
+      prompt = `You are a precise optical character recognition (OCR) engine for water utility meters.
+TASK: Inspect the meter image and extract the exact stamped, printed, or engraved Meter Tag Number, Serial Number, or Account Badge (e.g. "TAG-01042", "2024-00104", "TWD-00104", "01042", "MTR-8921").
+DO NOT GUESS OR INVENT NUMBERS. Only extract what is clearly legible in the image.
+If there is no legible tag or serial number, return status "REJECTED_NO_TAG".
 
 Respond in strict JSON ONLY:
 {
   "status": "SUCCESS" | "REJECTED_NO_TAG",
-  "tagDetected": "exact tag or serial number detected" | null,
+  "tagDetected": "exact alphanumeric tag or serial number detected" | null,
   "confidence": number between 0.0 and 1.0,
   "notes": "short description of tag found"
 }`;
     } else {
-      prompt = `You are an OCR vision inspector for Tagoloan Water District (TWD) water utility meters.
-TASK: Identify ONLY the 5-digit mechanical odometer counter wheels (index reading in cubic meters m³, numbers 00000 - 99999).
-CRITICAL CONSTRAINT: Do NOT look for barcodes, QR codes, or other symbols. Look ONLY at the mechanical rolling digit wheels inside the meter index window.
-If the digits are clear, extract the exact numerical value. If blurry, dark, or obscured, reject with status "REJECTED_NO_5_DIGITS".
+      prompt = `You are a precise optical character recognition (OCR) engine for mechanical water meters.
+TASK: Read the exact numbers on the mechanical rolling odometer counter wheels (index register in cubic meters m³).
+INSTRUCTIONS:
+1. Examine the horizontal row of rolling digit wheels (usually 4 to 6 wheels, black on white or white on black).
+2. Read each digit strictly from LEFT to RIGHT.
+3. If red decimal wheels (liters) or sub-dials exist to the right, ignore decimals and focus on the whole cubic meter (m³) integer digits.
+4. If a digit wheel is halfway between numbers (e.g. 3 moving to 4), use the smaller digit unless the right wheel has passed 0.
+${previousReading !== undefined && previousReading !== null ? `5. The previous logged reading for this meter was ${previousReading} m³. The current reading should normally be >= ${previousReading} m³. Verify carefully against the actual visible digits.` : ''}
+6. If the odometer numbers are blurry, dark, glare-obscured, or not clearly visible, DO NOT GUESS OR FABRICATE. Return status "REJECTED_NO_5_DIGITS".
 
 Respond in strict JSON ONLY:
 {
   "status": "SUCCESS" | "REJECTED_NO_5_DIGITS",
   "readingValue": number | null,
-  "odometerFormatted": "string of 5 digits like 00368" | null,
+  "odometerFormatted": "5-digit string like 00368" | null,
+  "digits": ["0", "0", "3", "6", "8"] | [],
   "confidence": number between 0.0 and 1.0,
   "meterCondition": "Normal" | "Moisture inside dial" | "Damaged glass" | "Unclear",
   "potentialLeak": boolean,
-  "notes": "short explanation of detected digits"
+  "notes": "exact explanation of what digits are visible"
 }`;
     }
 
@@ -1146,6 +1153,7 @@ Respond in strict JSON ONLY:
           ],
           config: {
             responseMimeType: 'application/json',
+            temperature: 0.1,
           },
         });
         if (response?.text) {
@@ -1199,12 +1207,16 @@ Respond in strict JSON ONLY:
       const numVal = parseInt(String(parsedData.readingValue).replace(/[^0-9]/g, ''), 10);
       if (!isNaN(numVal) && numVal >= 0 && numVal <= 999999) {
         const formatted = String(numVal).padStart(5, '0');
+        const digitsArray = parsedData.digits && Array.isArray(parsedData.digits) && parsedData.digits.length === 5 
+          ? parsedData.digits 
+          : formatted.split('');
+
         return res.json({
           success: true,
           status: 'SUCCESS',
           readingValue: numVal,
           odometerFormatted: formatted,
-          digits: formatted.split(''),
+          digits: digitsArray,
           confidence: parsedData.confidence || 0.92,
           meterSerialDetected: meterSerial || null,
           meterCondition: parsedData.meterCondition || 'Normal',

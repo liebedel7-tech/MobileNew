@@ -361,16 +361,18 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
     if (scanStep === 'IDENTIFY_TAG' && !selectedConsumer) {
       // Stage 1: Analyze frame for Meter Tag / Serial Number ONLY
       setIsProcessing(true);
-      setTagStatusMessage('Scanning meter tag number in mobile database...');
+      setTagStatusMessage('Extracting tag number from photo...');
       try {
         const tagResult = await OCRService.analyzeTagPhoto(photo);
         if (tagResult.success && tagResult.tagDetected) {
+          setTagStatusMessage(`Extracted number: "${tagResult.tagDetected}" — Searching account database...`);
           const matched = await DatabaseHelper.getConsumerByTagOrMeterNumber(tagResult.tagDetected);
           if (matched) {
+            setTagStatusMessage(`✅ Identified: ${matched.name} (${tagResult.tagDetected})`);
             handleTagIdentified(matched, tagResult.tagDetected);
             return;
           } else {
-            setTagStatusMessage(`Tag #${tagResult.tagDetected} detected, but not registered in your assigned route.`);
+            setTagStatusMessage(`Identified Tag #${tagResult.tagDetected}, but it is not registered in your assigned route. Please search or select below.`);
             return;
           }
         }
@@ -381,9 +383,9 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
           return;
         }
 
-        setTagStatusMessage('No tag number recognized in frame. Aim steadily at the meter badge or select account below.');
+        setTagStatusMessage('No tag or serial number recognized in this photo. Aim directly at the meter badge or select account below.');
       } catch (e) {
-        setTagStatusMessage('Could not read tag. Aim steadily at the meter badge or select account.');
+        setTagStatusMessage('Could not read tag. Aim steadily at the meter badge or select account below.');
       } finally {
         setIsProcessing(false);
       }
@@ -614,13 +616,13 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
           </div>
         )}
 
-        {/* 🌟 STEP 1 QUICK CONSUMER RADAR CHIPS */}
+        {/* 🌟 STEP 1 QUICK CONSUMER SEARCH & SELECTION */}
         {!selectedConsumer && scanStep === 'IDENTIFY_TAG' && (
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <div className="flex items-center justify-between text-[10px]">
               <span className="text-emerald-400 font-bold flex items-center gap-1">
                 <Sparkles className="w-3 h-3" />
-                Aim camera at Tag or pick account:
+                Aim at Meter Tag or search account:
               </span>
               <button
                 type="button"
@@ -628,41 +630,57 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
                 className="text-sky-400 hover:text-sky-300 font-bold text-[9.5px] flex items-center gap-0.5"
               >
                 <Search className="w-2.5 h-2.5" />
-                <span>{showManualTagInput ? 'Hide' : 'Search'}</span>
+                <span>{showManualTagInput ? 'Hide Search' : 'Filter / Search'}</span>
               </button>
             </div>
 
+            {showManualTagInput && (
+              <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1">
+                <Search className="w-3 h-3 text-sky-400 shrink-0" />
+                <input
+                  type="text"
+                  value={manualTagQuery}
+                  onChange={(e) => handleDirectTagInput(e.target.value)}
+                  placeholder="Filter by Name, Tag #, Meter Serial, or Account..."
+                  className="w-full bg-transparent text-xs text-white placeholder:text-slate-500 focus:outline-none font-mono"
+                  autoFocus
+                />
+                {manualTagQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setManualTagQuery('')}
+                    className="text-[10px] text-slate-400 hover:text-white px-1"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            )}
+
             <div className="flex gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
-              {allConsumers.slice(0, 10).map((c) => (
+              {(manualTagQuery
+                ? allConsumers.filter((c) =>
+                    (c.name + ' ' + c.meterNumber + ' ' + c.meterSerial + ' ' + c.accountNumber)
+                      .toLowerCase()
+                      .includes(manualTagQuery.toLowerCase())
+                  )
+                : allConsumers.slice(0, 8)
+              ).map((c) => (
                 <button
                   key={c.id}
                   type="button"
                   onClick={() => handleTagIdentified(c, c.meterNumber || c.meterSerial)}
-                  className="px-2 py-0.5 bg-slate-900 hover:bg-emerald-950/80 border border-slate-700 hover:border-emerald-500 rounded-lg text-left shrink-0 transition active:scale-95"
+                  className="px-2 py-1 bg-slate-900 hover:bg-emerald-950/80 border border-slate-700 hover:border-emerald-500 rounded-lg text-left shrink-0 transition active:scale-95 cursor-pointer"
                 >
-                  <span className="text-[8.5px] font-mono text-emerald-400 font-bold block">
+                  <span className="text-[8.5px] font-mono text-emerald-400 font-bold block truncate max-w-[110px]">
                     {c.meterNumber || c.meterSerial}
                   </span>
-                  <span className="text-[9.5px] font-bold text-white truncate max-w-[80px] block">
+                  <span className="text-[9.5px] font-bold text-white truncate max-w-[110px] block">
                     {c.name}
                   </span>
                 </button>
               ))}
             </div>
-
-            {showManualTagInput && (
-              <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1">
-                <Tag className="w-3 h-3 text-sky-400 shrink-0" />
-                <input
-                  type="text"
-                  value={manualTagQuery}
-                  onChange={(e) => handleDirectTagInput(e.target.value)}
-                  placeholder="Type Tag # or Account (e.g. TAG-01042)..."
-                  className="w-full bg-transparent text-xs text-white placeholder:text-slate-500 focus:outline-none font-mono"
-                  autoFocus
-                />
-              </div>
-            )}
 
             {tagStatusMessage && (
               <p className="text-[10px] text-amber-300 bg-amber-950/60 px-2 py-0.5 rounded border border-amber-800/80">
@@ -845,17 +863,21 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
                 type="button"
                 onClick={handleCaptureButton}
                 disabled={isProcessing}
-                className="flex-1 bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 rounded-xl shadow flex items-center justify-center gap-1.5 text-xs uppercase tracking-wider transition active:scale-95 cursor-pointer disabled:opacity-50"
+                className={`flex-1 font-bold py-2.5 rounded-xl shadow flex items-center justify-center gap-1.5 text-xs uppercase tracking-wider transition active:scale-95 cursor-pointer disabled:opacity-50 ${
+                  selectedConsumer
+                    ? 'bg-sky-600 hover:bg-sky-500 text-white shadow-sky-600/30'
+                    : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30'
+                }`}
               >
                 {isProcessing ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Analyzing Image...</span>
+                    <span>{selectedConsumer ? 'Reading 5 Dials...' : 'Extracting Tag Number...'}</span>
                   </>
                 ) : (
                   <>
                     <Camera className="w-4 h-4" />
-                    <span>Capture Photo</span>
+                    <span>{selectedConsumer ? 'Capture 5-Digit Reading' : 'Capture & Identify Tag #'}</span>
                   </>
                 )}
               </button>
@@ -979,21 +1001,86 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
 
             {ocrResult.success ? (
               <div className="space-y-2">
-                {/* 5 Wheel Slot Display */}
-                <div className="bg-slate-950 p-2 rounded-xl border border-slate-800 text-center">
-                  <div className="flex items-center justify-center gap-1 my-0.5">
+                {/* 5 Wheel Slot Display with Interactive Stepper Buttons */}
+                <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-center space-y-1.5">
+                  <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                    <span>5-WHEEL COUNTER</span>
+                    <span className="text-sky-400">Tap ▲/▼ to fine-tune digits</span>
+                  </div>
+
+                  <div className="flex items-center justify-center gap-1.5 my-1">
                     {ocrResult.digits.map((digit, i) => (
-                      <div
-                        key={i}
-                        className="w-8 h-10 bg-slate-900 border-2 border-sky-400 rounded-lg flex items-center justify-center font-mono font-black text-lg text-white shadow"
-                      >
-                        {digit}
+                      <div key={i} className="flex flex-col items-center gap-0.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const cur = parseInt(digit, 10) || 0;
+                            const next = (cur + 1) % 10;
+                            const newDigits = [...ocrResult.digits];
+                            newDigits[i] = String(next);
+                            const newNum = parseInt(newDigits.join(''), 10);
+                            setOcrResult({
+                              ...ocrResult,
+                              digits: newDigits,
+                              readingValue: newNum,
+                              odometerFormatted: newDigits.join(''),
+                            });
+                          }}
+                          className="w-7 h-4 bg-slate-800 hover:bg-sky-600 text-slate-300 hover:text-white rounded flex items-center justify-center text-[9px] font-black transition cursor-pointer"
+                          title={`Increment digit ${i + 1}`}
+                        >
+                          ▲
+                        </button>
+                        <div
+                          className="w-8 h-10 bg-slate-900 border-2 border-sky-400 rounded-lg flex items-center justify-center font-mono font-black text-lg text-white shadow select-none"
+                        >
+                          {digit}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const cur = parseInt(digit, 10) || 0;
+                            const next = (cur - 1 + 10) % 10;
+                            const newDigits = [...ocrResult.digits];
+                            newDigits[i] = String(next);
+                            const newNum = parseInt(newDigits.join(''), 10);
+                            setOcrResult({
+                              ...ocrResult,
+                              digits: newDigits,
+                              readingValue: newNum,
+                              odometerFormatted: newDigits.join(''),
+                            });
+                          }}
+                          className="w-7 h-4 bg-slate-800 hover:bg-sky-600 text-slate-300 hover:text-white rounded flex items-center justify-center text-[9px] font-black transition cursor-pointer"
+                          title={`Decrement digit ${i + 1}`}
+                        >
+                          ▼
+                        </button>
                       </div>
                     ))}
                   </div>
 
-                  <div className="text-xs font-bold text-sky-400 font-mono mt-0.5">
-                    {ocrResult.readingValue} <span className="text-[9.5px] font-sans text-slate-400">cubic meters</span>
+                  <div className="flex items-center justify-center gap-2 pt-1 border-t border-slate-800/80">
+                    <span className="text-xs font-mono text-slate-400">Total Reading:</span>
+                    <input
+                      type="number"
+                      min={selectedConsumer ? selectedConsumer.previousReading : 0}
+                      value={ocrResult.readingValue}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10);
+                        if (!isNaN(val) && val >= 0) {
+                          const formatted = String(val).padStart(5, '0');
+                          setOcrResult({
+                            ...ocrResult,
+                            readingValue: val,
+                            odometerFormatted: formatted,
+                            digits: formatted.slice(-5).split(''),
+                          });
+                        }
+                      }}
+                      className="w-24 bg-slate-900 border border-sky-500/70 text-sky-300 font-mono font-black text-sm px-2 py-0.5 rounded text-center focus:outline-none focus:ring-1 focus:ring-sky-400"
+                    />
+                    <span className="text-xs text-sky-400 font-mono">m³</span>
                   </div>
 
                   {selectedConsumer && (
@@ -1008,7 +1095,11 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
                       </div>
                       <div className="flex items-center justify-between pt-0.5 border-t border-slate-800">
                         <span className="text-[8.5px] uppercase font-bold text-emerald-400">CONSUMPTION</span>
-                        <span className="font-black text-emerald-400">{ocrResult.readingValue - selectedConsumer.previousReading} m³</span>
+                        <span className={`font-black ${ocrResult.readingValue >= selectedConsumer.previousReading ? 'text-emerald-400' : 'text-red-400'}`}>
+                          {ocrResult.readingValue >= selectedConsumer.previousReading
+                            ? `+${ocrResult.readingValue - selectedConsumer.previousReading} m³`
+                            : `Invalid: Less than previous (${ocrResult.readingValue - selectedConsumer.previousReading} m³)`}
+                        </span>
                       </div>
                     </div>
                   )}

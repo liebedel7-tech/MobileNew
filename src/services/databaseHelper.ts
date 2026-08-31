@@ -153,17 +153,56 @@ export class DatabaseHelper {
   }
 
   static async getConsumerByTagOrMeterNumber(tag: string): Promise<Consumer | null> {
+    if (!tag) return null;
     const all = await this.getAllConsumers();
-    const clean = tag.trim().toLowerCase();
-    return (
-      all.find(
-        (c) =>
-          (c.meterNumber && c.meterNumber.toLowerCase() === clean) ||
-          c.meterSerial.toLowerCase() === clean ||
-          c.accountNumber.toLowerCase() === clean ||
-          c.accountNumber.replace(/-/g, '').toLowerCase() === clean.replace(/-/g, '')
-      ) || null
+    const rawClean = tag.trim().toLowerCase();
+    const alphanumericOnly = rawClean.replace(/[^a-z0-9]/g, '');
+
+    if (!alphanumericOnly) return null;
+
+    // 1. Exact string match
+    const exact = all.find(
+      (c) =>
+        (c.meterNumber && c.meterNumber.toLowerCase() === rawClean) ||
+        c.meterSerial.toLowerCase() === rawClean ||
+        c.accountNumber.toLowerCase() === rawClean ||
+        c.accountNumber.replace(/-/g, '').toLowerCase() === rawClean.replace(/-/g, '')
     );
+    if (exact) return exact;
+
+    // 2. Normalized alphanumeric match
+    const normalizedMatch = all.find((c) => {
+      const cTag = (c.meterNumber || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const cSerial = (c.meterSerial || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const cAcc = (c.accountNumber || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+      return (
+        (cTag && (cTag === alphanumericOnly || (cTag.length >= 4 && alphanumericOnly.includes(cTag)) || (alphanumericOnly.length >= 4 && cTag.includes(alphanumericOnly)))) ||
+        (cSerial && (cSerial === alphanumericOnly || (cSerial.length >= 4 && alphanumericOnly.includes(cSerial)) || (alphanumericOnly.length >= 4 && cSerial.includes(alphanumericOnly)))) ||
+        (cAcc && (cAcc === alphanumericOnly || (cAcc.length >= 4 && alphanumericOnly.includes(cAcc))))
+      );
+    });
+
+    if (normalizedMatch) return normalizedMatch;
+
+    // 3. Numeric digits extraction match (e.g. "01042" matching "TAG-01042")
+    const digitsOnly = rawClean.replace(/[^0-9]/g, '');
+    if (digitsOnly.length >= 4) {
+      const digitMatch = all.find((c) => {
+        const cTagDigits = (c.meterNumber || '').replace(/[^0-9]/g, '');
+        const cSerialDigits = (c.meterSerial || '').replace(/[^0-9]/g, '');
+        const cAccDigits = (c.accountNumber || '').replace(/[^0-9]/g, '');
+
+        return (
+          (cTagDigits.length >= 4 && (cTagDigits === digitsOnly || cTagDigits.endsWith(digitsOnly) || digitsOnly.endsWith(cTagDigits))) ||
+          (cSerialDigits.length >= 4 && (cSerialDigits === digitsOnly || cSerialDigits.endsWith(digitsOnly) || digitsOnly.endsWith(cSerialDigits))) ||
+          (cAccDigits.length >= 4 && cAccDigits === digitsOnly)
+        );
+      });
+      if (digitMatch) return digitMatch;
+    }
+
+    return null;
   }
 
   // Readings Operations

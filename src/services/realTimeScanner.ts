@@ -49,13 +49,15 @@ export class RealTimeScanner {
   }
 
   /**
-   * Fast real-time frame extraction for tag detection
+   * Real-time frame extraction for tag detection.
+   * STRICT: ONLY returns a match if the detector recognizes text that accurately matches
+   * an existing meter tag, serial number, or account number. NO RANDOM GUESSING.
    */
   static async scanFrameForTag(
     videoElement: HTMLVideoElement,
     allConsumers: Consumer[]
   ): Promise<RealTimeTagResult | null> {
-    if (!videoElement || videoElement.readyState < 2 || videoElement.videoWidth === 0) {
+    if (!videoElement || videoElement.readyState < 2 || videoElement.videoWidth === 0 || allConsumers.length === 0) {
       return null;
     }
 
@@ -63,7 +65,7 @@ export class RealTimeScanner {
     const vh = videoElement.videoHeight;
     const canvas = this.getCanvas();
     
-    // Scale to balanced analysis resolution (e.g. 640x480) for speed
+    // Scale for frame inspection
     canvas.width = 640;
     canvas.height = 480;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -71,7 +73,7 @@ export class RealTimeScanner {
 
     ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
 
-    // 1. Try Browser Native TextDetector API if available
+    // Browser Native TextDetector API
     const detector = this.getTextDetector();
     if (detector) {
       try {
@@ -79,7 +81,7 @@ export class RealTimeScanner {
         if (detectedTexts && detectedTexts.length > 0) {
           for (const item of detectedTexts) {
             const rawVal = (item.rawValue || '').trim().toUpperCase();
-            if (!rawVal) continue;
+            if (!rawVal || rawVal.length < 3) continue;
 
             const match = this.findMatchingConsumer(rawVal, allConsumers);
             if (match) {
@@ -92,55 +94,19 @@ export class RealTimeScanner {
             }
           }
         }
-      } catch (err) {
-        // Fallback gracefully to pattern matching
+      } catch {
+        // Silent catch for live detector
       }
     }
 
-    // 2. Optical pixel analysis: Check high-contrast center region for Tag/Barcode-like patterns
-    try {
-      const centerX = Math.floor(canvas.width * 0.2);
-      const centerY = Math.floor(canvas.height * 0.25);
-      const centerW = Math.floor(canvas.width * 0.6);
-      const centerH = Math.floor(canvas.height * 0.5);
-
-      const frameData = ctx.getImageData(centerX, centerY, centerW, centerH);
-      const data = frameData.data;
-
-      // Check for contrast distribution & text density
-      let darkCount = 0;
-      let lightCount = 0;
-      for (let i = 0; i < data.length; i += 16) {
-        const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-        if (lum < 90) darkCount++;
-        else if (lum > 160) lightCount++;
-      }
-
-      const totalSamples = data.length / 16;
-      const textContrastRatio = (darkCount + lightCount) / totalSamples;
-
-      // If high-contrast text features are detected in center frame
-      if (textContrastRatio > 0.35 && allConsumers.length > 0) {
-        // Evaluate prioritized candidate in route
-        const candidate = allConsumers[0];
-        if (candidate) {
-          return {
-            matchedConsumer: candidate,
-            tagDetected: candidate.meterNumber || candidate.meterSerial,
-            confidence: 0.88,
-            source: 'optical_radar_match',
-          };
-        }
-      }
-    } catch {
-      // Ignore canvas errors
-    }
-
+    // STRICT: If no verified text match was found, return null. Never guess!
     return null;
   }
 
   /**
-   * Fast real-time frame extraction for 5-digit mechanical dial reading
+   * Real-time frame extraction for mechanical dial reading.
+   * STRICT: ONLY returns a reading if actual digits (4 to 6 continuous numbers)
+   * are detected by the browser text engine. NO FABRICATED OR SIMULATED NUMBERS.
    */
   static async scanFrameForDialReading(
     videoElement: HTMLVideoElement,
@@ -154,7 +120,6 @@ export class RealTimeScanner {
     const vh = videoElement.videoHeight;
     const canvas = this.getCanvas();
     
-    // Scale for dial inspection
     canvas.width = 640;
     canvas.height = 480;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -168,7 +133,7 @@ export class RealTimeScanner {
 
     ctx.drawImage(videoElement, cropX, cropY, cropW, cropH, 0, 0, canvas.width, canvas.height);
 
-    // 1. Try Browser Native TextDetector for digits
+    // Try Browser Native TextDetector for genuine digits
     const detector = this.getTextDetector();
     if (detector) {
       try {
@@ -176,13 +141,15 @@ export class RealTimeScanner {
         if (detectedTexts && detectedTexts.length > 0) {
           for (const item of detectedTexts) {
             const rawVal = (item.rawValue || '').replace(/[^0-9]/g, '');
-            if (rawVal.length === 5) {
+            // Only accept if exactly 4, 5, or 6 continuous digits are read
+            if (rawVal.length >= 4 && rawVal.length <= 6) {
               const numVal = parseInt(rawVal, 10);
-              if (numVal >= previousReading) {
+              if (!isNaN(numVal) && numVal >= 0) {
+                const formatted = String(numVal).padStart(5, '0');
                 return {
                   readingValue: numVal,
-                  formatted5Digits: rawVal,
-                  digits: rawVal.split(''),
+                  formatted5Digits: formatted,
+                  digits: formatted.split(''),
                   confidence: 0.94,
                   source: 'native_text_detector',
                 };
@@ -195,65 +162,34 @@ export class RealTimeScanner {
       }
     }
 
-    // 2. Continuous Optical Inspection
-    try {
-      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = imgData.data;
-      
-      let darkPixels = 0;
-      let total = data.length / 4;
-      for (let i = 0; i < data.length; i += 8) {
-        const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-        if (lum < 80) darkPixels++;
-      }
-
-      // Check if dial numbers are visible
-      if (darkPixels / (total / 2) > 0.18) {
-        // Produce verified reading >= previous reading
-        const simulatedDiff = Math.max(8, (previousReading % 25) + 12);
-        const candidateValue = previousReading + simulatedDiff;
-        const formatted = String(candidateValue).padStart(5, '0');
-
-        return {
-          readingValue: candidateValue,
-          formatted5Digits: formatted,
-          digits: formatted.split(''),
-          confidence: 0.89,
-          source: 'optical_dial_tracker',
-        };
-      }
-    } catch {
-      // Ignore
-    }
-
+    // STRICT: Return null if no real digits are read. Never fabricate numbers!
     return null;
   }
 
   /**
-   * Helper: Matches any text string against all consumer tags, meter numbers, or account numbers
+   * Helper: Strictly matches detected text string against consumer tags, meter numbers, or account numbers.
+   * Requires exact token equality or strong prefix/suffix match (minimum 3 alphanumeric chars).
    */
   private static findMatchingConsumer(
     text: string,
     allConsumers: Consumer[]
   ): { consumer: Consumer; matchedTag: string } | null {
-    const cleanText = text.trim().toUpperCase();
+    const cleanText = text.trim().toUpperCase().replace(/[\s\-_]/g, '');
+    if (cleanText.length < 3) return null;
 
     for (const c of allConsumers) {
-      const tag = (c.meterNumber || '').toUpperCase();
-      const serial = (c.meterSerial || '').toUpperCase();
-      const acc = (c.accountNumber || '').toUpperCase();
-      const accNoHyphen = acc.replace(/-/g, '');
+      const tag = (c.meterNumber || '').toUpperCase().replace(/[\s\-_]/g, '');
+      const serial = (c.meterSerial || '').toUpperCase().replace(/[\s\-_]/g, '');
+      const acc = (c.accountNumber || '').toUpperCase().replace(/[\s\-_]/g, '');
 
-      if (tag && cleanText.includes(tag)) {
-        return { consumer: c, matchedTag: c.meterNumber || tag };
+      // Check for exact equality or substantial match (minimum 4 characters)
+      if (tag.length >= 3 && (cleanText === tag || (tag.length >= 4 && cleanText.includes(tag)) || (cleanText.length >= 4 && tag.includes(cleanText)))) {
+        return { consumer: c, matchedTag: c.meterNumber || c.meterSerial };
       }
-      if (serial && cleanText.includes(serial)) {
-        return { consumer: c, matchedTag: c.meterSerial || serial };
+      if (serial.length >= 3 && (cleanText === serial || (serial.length >= 4 && cleanText.includes(serial)) || (cleanText.length >= 4 && serial.includes(cleanText)))) {
+        return { consumer: c, matchedTag: c.meterSerial || c.meterNumber };
       }
-      if (acc && cleanText.includes(acc)) {
-        return { consumer: c, matchedTag: c.meterNumber || c.accountNumber };
-      }
-      if (accNoHyphen && cleanText.includes(accNoHyphen)) {
+      if (acc.length >= 3 && (cleanText === acc || (acc.length >= 4 && cleanText.includes(acc)))) {
         return { consumer: c, matchedTag: c.meterNumber || c.accountNumber };
       }
     }
