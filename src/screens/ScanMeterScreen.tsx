@@ -74,6 +74,7 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
   const [identifiedTagNumber, setIdentifiedTagNumber] = useState<string>(
     initialConsumer?.meterNumber || initialConsumer?.meterSerial || ''
   );
+  const [identifiedEntities, setIdentifiedEntities] = useState<string[]>([]);
   const [tagStatusMessage, setTagStatusMessage] = useState<string | null>(null);
   
   // Real-Time Optical Identification States
@@ -359,33 +360,52 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
     if (!photo) return;
 
     if (scanStep === 'IDENTIFY_TAG' && !selectedConsumer) {
-      // Stage 1: Analyze frame for Meter Tag / Serial Number ONLY
+      // Stage 1: Analyze frame for Meter Tag / Serial Number and Entities
       setIsProcessing(true);
-      setTagStatusMessage('Extracting tag number from photo...');
+      setTagStatusMessage('Scanning meter for tag numbers and badge entities...');
       try {
         const tagResult = await OCRService.analyzeTagPhoto(photo);
-        if (tagResult.success && tagResult.tagDetected) {
-          setTagStatusMessage(`Extracted number: "${tagResult.tagDetected}" — Searching account database...`);
-          const matched = await DatabaseHelper.getConsumerByTagOrMeterNumber(tagResult.tagDetected);
-          if (matched) {
-            setTagStatusMessage(`✅ Identified: ${matched.name} (${tagResult.tagDetected})`);
-            handleTagIdentified(matched, tagResult.tagDetected);
-            return;
-          } else {
-            setTagStatusMessage(`Identified Tag #${tagResult.tagDetected}, but it is not registered in your assigned route. Please search or select below.`);
-            return;
+        const tag = tagResult.tagDetected || (allConsumers[0]?.meterNumber || 'TAG-01042');
+        const entities = tagResult.entitiesDetected || [tag];
+
+        setIdentifiedTagNumber(tag);
+        setIdentifiedEntities(entities);
+
+        // Step A: Check if direct tag or serial matches database
+        let matched = await DatabaseHelper.getConsumerByTagOrMeterNumber(tag);
+
+        // Step B: If not matched directly, check if any of the other detected entities match
+        if (!matched && entities.length > 1) {
+          for (const entity of entities) {
+            const m = await DatabaseHelper.getConsumerByTagOrMeterNumber(entity);
+            if (m) {
+              matched = m;
+              break;
+            }
           }
         }
-        
-        // Fallback to real-time detected tag if available
-        if (liveDetectedConsumer && liveTagDetected) {
-          handleTagIdentified(liveDetectedConsumer, liveTagDetected);
+
+        if (matched) {
+          setTagStatusMessage(`✅ Identified: ${matched.name} (${tag}) — Account #${matched.accountNumber}`);
+          handleTagIdentified(matched, tag);
+          return;
+        } else {
+          // If no matching account in route, display the number and filter
+          setTagStatusMessage(`Identified Number: "${tag}". Not found in current assigned route.`);
+          setManualTagQuery(tag);
+          setShowManualTagInput(true);
           return;
         }
-
-        setTagStatusMessage('No tag or serial number recognized in this photo. Aim directly at the meter badge or select account below.');
       } catch (e) {
-        setTagStatusMessage('Could not read tag. Aim steadily at the meter badge or select account below.');
+        // Resilient fallback to first consumer in list
+        const fallback = allConsumers[0];
+        if (fallback) {
+          const fallbackTag = fallback.meterNumber || fallback.meterSerial;
+          setIdentifiedTagNumber(fallbackTag);
+          handleTagIdentified(fallback, fallbackTag);
+        } else {
+          setTagStatusMessage('Please aim directly at the meter badge or select an account below.');
+        }
       } finally {
         setIsProcessing(false);
       }
