@@ -248,6 +248,8 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
     }
 
     let isScanning = false;
+    let autoLockTimer: any = null;
+
     const interval = setInterval(async () => {
       if (isScanning || !videoRef.current || videoRef.current.videoWidth === 0) return;
       isScanning = true;
@@ -260,6 +262,19 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
             setLiveTagDetected(tagResult.tagDetected);
             setLiveDetectedConsumer(tagResult.matchedConsumer);
             setLiveConfidence(tagResult.confidence);
+            playMatchFeedback();
+
+            // Automatic Hands-Free Detection Lock: Auto-identify if matching consumer found
+            if (tagResult.matchedConsumer) {
+              setTagStatusMessage(`⚡ Auto-Detected: ${tagResult.matchedConsumer.name} (${tagResult.tagDetected})`);
+              if (!autoLockTimer) {
+                autoLockTimer = setTimeout(() => {
+                  if (tagResult.matchedConsumer) {
+                    handleTagIdentified(tagResult.matchedConsumer, tagResult.tagDetected);
+                  }
+                }, 400);
+              }
+            }
           }
         } else if (scanStep === 'SCAN_METER' && selectedConsumer) {
           // Real-time Stage 2: Identify 5-digit mechanical dial numbers
@@ -267,10 +282,35 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
             videoRef.current,
             selectedConsumer.previousReading
           );
-          if (dialResult) {
+          if (dialResult && dialResult.digits && dialResult.digits.length === 5) {
             setLiveReadingDigits(dialResult.digits);
             setLiveReadingValue(dialResult.readingValue);
             setLiveConfidence(dialResult.confidence);
+            playMatchFeedback();
+
+            // Automatic Hands-Free Reading Lock: Auto-capture and open verification card
+            if (!autoLockTimer && videoRef.current) {
+              autoLockTimer = setTimeout(() => {
+                if (videoRef.current && selectedConsumer) {
+                  const formatted5 = dialResult.formatted5Digits;
+                  const photo = OCRService.captureFrameFromVideo(videoRef.current);
+                  setCapturedPhoto(photo);
+                  setOcrResult({
+                    success: true,
+                    status: 'SUCCESS',
+                    readingValue: dialResult.readingValue,
+                    odometerFormatted: formatted5,
+                    confidence: dialResult.confidence || 0.95,
+                    digits: dialResult.digits,
+                    meterSerialDetected: selectedConsumer.meterSerial || selectedConsumer.meterNumber,
+                    meterCondition: 'Normal',
+                    potentialLeak: false,
+                    source: 'live_realtime_autolock',
+                    message: `Auto-captured: ${formatted5} cu.m.`,
+                  });
+                }
+              }, 600);
+            }
           }
         }
       } catch (e) {
@@ -278,10 +318,13 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
       } finally {
         isScanning = false;
       }
-    }, 650);
+    }, 450);
 
-    return () => clearInterval(interval);
-  }, [cameraActive, isProcessing, ocrResult, scanStep, selectedConsumer, allConsumers, liveAutoScanActive]);
+    return () => {
+      clearInterval(interval);
+      if (autoLockTimer) clearTimeout(autoLockTimer);
+    };
+  }, [cameraActive, isProcessing, ocrResult, scanStep, selectedConsumer, allConsumers, liveAutoScanActive, handleTagIdentified, playMatchFeedback]);
 
   // Direct manual tag query matcher
   const handleDirectTagInput = async (value: string) => {
