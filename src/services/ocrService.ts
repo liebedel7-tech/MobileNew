@@ -74,21 +74,27 @@ export class OCRService {
             source: data.source || 'server_ocr',
           };
         }
+
+        return {
+          success: false,
+          tagDetected: undefined,
+          entitiesDetected: [],
+          confidence: 0,
+          message: data?.message || 'No tag or serial number recognized in this photo.',
+          source: data?.source || 'server_ocr',
+        };
       }
     } catch (err) {
       console.warn('Tag recognition error:', err);
     }
 
-    // Client-side fallback token generator from image
-    const fallbackTag = 'TAG-01042';
     return {
-      success: true,
-      tagDetected: fallbackTag,
-      entitiesDetected: [fallbackTag, '2024-00104', '01042', 'TWD-00104'],
-      confidence: 0.90,
-      message: `Extracted Tag Number: ${fallbackTag}`,
-      notes: 'Extracted from meter photo badge.',
-      source: 'client_image_ocr_fallback',
+      success: false,
+      tagDetected: undefined,
+      entitiesDetected: [],
+      confidence: 0,
+      message: 'Could not connect to image analysis engine. Please try again or search below.',
+      source: 'client_image_ocr',
     };
   }
 

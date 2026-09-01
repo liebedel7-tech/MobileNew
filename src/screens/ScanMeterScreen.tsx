@@ -352,7 +352,7 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
     }
   };
 
-  // Capture Button Handler (Exclusively Stage 1: Tag Number vs Stage 2: 5-Digit Reading)
+  // Capture Button Handler (Authentic Stage 1: Tag Extraction vs Stage 2: 5-Digit Dial OCR)
   const handleCaptureButton = async () => {
     if (!videoRef.current || !cameraActive || videoRef.current.videoWidth === 0) return;
     
@@ -362,50 +362,49 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
     if (scanStep === 'IDENTIFY_TAG' && !selectedConsumer) {
       // Stage 1: Analyze frame for Meter Tag / Serial Number and Entities
       setIsProcessing(true);
-      setTagStatusMessage('Scanning meter for tag numbers and badge entities...');
+      setTagStatusMessage('Analyzing photo for meter tag & serial numbers...');
       try {
         const tagResult = await OCRService.analyzeTagPhoto(photo);
-        const tag = tagResult.tagDetected || (allConsumers[0]?.meterNumber || 'TAG-01042');
-        const entities = tagResult.entitiesDetected || [tag];
+        if (tagResult.success && tagResult.tagDetected) {
+          const tag = tagResult.tagDetected.trim();
+          const entities = tagResult.entitiesDetected && tagResult.entitiesDetected.length > 0
+            ? tagResult.entitiesDetected
+            : [tag];
 
-        setIdentifiedTagNumber(tag);
-        setIdentifiedEntities(entities);
+          setIdentifiedTagNumber(tag);
+          setIdentifiedEntities(entities);
 
-        // Step A: Check if direct tag or serial matches database
-        let matched = await DatabaseHelper.getConsumerByTagOrMeterNumber(tag);
+          // Step A: Check if direct tag or serial matches database
+          let matched = await DatabaseHelper.getConsumerByTagOrMeterNumber(tag);
 
-        // Step B: If not matched directly, check if any of the other detected entities match
-        if (!matched && entities.length > 1) {
-          for (const entity of entities) {
-            const m = await DatabaseHelper.getConsumerByTagOrMeterNumber(entity);
-            if (m) {
-              matched = m;
-              break;
+          // Step B: Check other entities detected
+          if (!matched && entities.length > 1) {
+            for (const entity of entities) {
+              const m = await DatabaseHelper.getConsumerByTagOrMeterNumber(entity);
+              if (m) {
+                matched = m;
+                break;
+              }
             }
           }
-        }
 
-        if (matched) {
-          setTagStatusMessage(`✅ Identified: ${matched.name} (${tag}) — Account #${matched.accountNumber}`);
-          handleTagIdentified(matched, tag);
-          return;
+          if (matched) {
+            setTagStatusMessage(`✅ Identified: ${matched.name} (Tag #${tag}) — Account #${matched.accountNumber}`);
+            handleTagIdentified(matched, tag);
+            return;
+          } else {
+            // Authentic recognition from photo, but tag is not in reader's route
+            setTagStatusMessage(`Identified Number "${tag}" from photo, but it is not in your current route. Search or select below.`);
+            setManualTagQuery(tag);
+            setShowManualTagInput(true);
+            return;
+          }
         } else {
-          // If no matching account in route, display the number and filter
-          setTagStatusMessage(`Identified Number: "${tag}". Not found in current assigned route.`);
-          setManualTagQuery(tag);
-          setShowManualTagInput(true);
-          return;
+          // No tag recognized from photo
+          setTagStatusMessage('No tag or serial number detected in the photo. Please aim steadily at the meter badge or select an account below.');
         }
       } catch (e) {
-        // Resilient fallback to first consumer in list
-        const fallback = allConsumers[0];
-        if (fallback) {
-          const fallbackTag = fallback.meterNumber || fallback.meterSerial;
-          setIdentifiedTagNumber(fallbackTag);
-          handleTagIdentified(fallback, fallbackTag);
-        } else {
-          setTagStatusMessage('Please aim directly at the meter badge or select an account below.');
-        }
+        setTagStatusMessage('Could not analyze photo. Please frame the meter badge clearly with good lighting.');
       } finally {
         setIsProcessing(false);
       }
@@ -421,32 +420,27 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
           selectedConsumer?.meterSerial || selectedConsumer?.meterNumber
         );
 
-        // If server vision succeeded
+        // Set genuine result (either success with detected digits or rejection with clear reason)
+        setOcrResult(result);
         if (result.success && result.readingValue !== null) {
-          setOcrResult(result);
           playMatchFeedback();
-        } else if (liveReadingValue !== null) {
-          // Use real-time identified reading if available
-          const formatted = String(liveReadingValue).padStart(5, '0');
-          setOcrResult({
-            success: true,
-            status: 'SUCCESS',
-            readingValue: liveReadingValue,
-            odometerFormatted: formatted,
-            confidence: 0.92,
-            digits: formatted.split(''),
-            meterSerialDetected: selectedConsumer?.meterSerial || '',
-            meterCondition: 'Normal',
-            potentialLeak: false,
-            source: 'optical_dial_vision',
-            message: `Identified reading: ${formatted} cu.m.`,
-          });
-          playMatchFeedback();
-        } else {
-          setOcrResult(result);
         }
       } catch (err) {
         console.error('Vision dial recognition error:', err);
+        setOcrResult({
+          success: false,
+          status: 'FAIL_SAFE_MANUAL_REQUIRED',
+          readingValue: 0,
+          odometerFormatted: '-----',
+          digits: ['-', '-', '-', '-', '-'],
+          confidence: 0,
+          meterSerialDetected: selectedConsumer?.meterSerial || '',
+          meterCondition: 'Unclear',
+          potentialLeak: false,
+          notes: 'Camera analysis error. Please enter reading directly or retake photo.',
+          source: 'camera_vision_ocr',
+          message: 'Could not recognize 5 digits on the meter dial. Please retake photo with better lighting or enter manually.',
+        });
       } finally {
         setIsProcessing(false);
       }
@@ -546,9 +540,10 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
     }
   };
 
-  const handleScanNextConsumer = () => {
+  const handleResetScan = useCallback(() => {
     setSelectedConsumer(null);
     setIdentifiedTagNumber('');
+    setIdentifiedEntities([]);
     setOcrResult(null);
     setCapturedPhoto(null);
     setLiveTagDetected(null);
@@ -556,8 +551,16 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
     setLiveReadingDigits(null);
     setLiveReadingValue(null);
     setLastSubmittedReading(null);
+    setTagStatusMessage(null);
+    setManualTagQuery('');
+    setShowManualTagInput(false);
+    setIsProcessing(false);
     setScanStep('IDENTIFY_TAG');
     startCamera(facingMode);
+  }, [facingMode]);
+
+  const handleScanNextConsumer = () => {
+    handleResetScan();
   };
 
   return (
@@ -565,13 +568,26 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
       {/* 🔝 COMPACT TOP HEADER & NAVIGATION BAR */}
       <div className="z-30 px-3 py-2 space-y-1.5 pointer-events-auto bg-slate-950/90 backdrop-blur-md border-b border-slate-800 shrink-0">
         <div className="flex items-center justify-between">
-          <button
-            onClick={() => onNavigate(selectedConsumer ? 'consumer_details' : 'dashboard')}
-            className="px-2.5 py-1.5 bg-slate-900 border border-slate-700 text-sky-400 rounded-xl text-xs font-bold flex items-center gap-1 hover:bg-slate-800 transition active:scale-95 cursor-pointer"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Exit</span>
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => onNavigate(selectedConsumer ? 'consumer_details' : 'dashboard')}
+              className="px-2.5 py-1.5 bg-slate-900 border border-slate-700 text-sky-400 rounded-xl text-xs font-bold flex items-center gap-1 hover:bg-slate-800 transition active:scale-95 cursor-pointer"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Exit</span>
+            </button>
+
+            {/* Reset / New Scan Button */}
+            <button
+              type="button"
+              onClick={handleResetScan}
+              className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 hover:text-white rounded-xl text-xs font-semibold flex items-center gap-1 transition active:scale-95 cursor-pointer"
+              title="Reset camera and start fresh scan"
+            >
+              <RotateCw className="w-3.5 h-3.5 text-amber-400" />
+              <span>New Scan</span>
+            </button>
+          </div>
 
           {/* Dynamic Stage Pill */}
           <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-700 px-2.5 py-1 rounded-xl text-xs font-mono shadow-sm">
@@ -625,13 +641,10 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
 
             <button
               type="button"
-              onClick={() => {
-                setSelectedConsumer(null);
-                setScanStep('IDENTIFY_TAG');
-              }}
-              className="text-[9.5px] text-slate-400 hover:text-white px-2 py-1 bg-slate-800 rounded-lg shrink-0 ml-1 font-semibold"
+              onClick={handleResetScan}
+              className="text-[9.5px] text-sky-400 hover:text-white px-2 py-1 bg-slate-800 border border-slate-700 rounded-lg shrink-0 ml-1 font-semibold"
             >
-              Change
+              Change Tag
             </button>
           </div>
         )}

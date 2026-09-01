@@ -1088,15 +1088,17 @@ TASK: Inspect the captured image of the water meter and extract ALL visible stam
 Examples of meter entities to look for:
 - Tag numbers (e.g. "TAG-01042", "TWD-00104", "WDT-01", "01042", "MTR-8921")
 - Serial numbers (e.g. "2024-00104", "SN 2400192", "892144", "2400104")
-- Meter brand/model identifiers (e.g. "LXSG-15", "Class B", "ISO 4064", "TAGOLOAN")
+- Meter brand/model identifiers (e.g. "LXSG-15", "Class B", "ISO 4064")
 - Any prominent numeric or alphanumeric identifier stamped on the brass body, dial rim, or meter badge.
+
+IF NO TAG OR SERIAL NUMBER IS FOUND: Set "status" to "REJECTED_NO_TAG" and "tagDetected" to null. DO NOT INVENT OR ASSUME NUMBERS.
 
 Return strict JSON ONLY:
 {
-  "status": "SUCCESS",
-  "tagDetected": "most likely meter tag or serial number (e.g. TAG-01042 or 2024-00104 or 01042)",
+  "status": "SUCCESS" | "REJECTED_NO_TAG",
+  "tagDetected": "exact alphanumeric tag or serial number detected" | null,
   "entitiesDetected": ["list", "of", "all", "alphanumeric", "strings", "and", "numbers", "found"],
-  "confidence": 0.95,
+  "confidence": number between 0.0 and 1.0,
   "notes": "explanation of text/numbers found on the meter badge or casing"
 }`;
     } else {
@@ -1108,17 +1110,17 @@ INSTRUCTIONS:
 3. If red decimal sub-dials or red decimal wheels exist on the right, focus on the whole cubic meter (m³) integer digits.
 4. If a digit wheel is halfway between numbers (e.g. 3 transitioning to 4), read the lower digit unless the right wheel has passed zero.
 ${previousReading !== undefined && previousReading !== null ? `5. The previous logged reading for this meter is ${previousReading} m³. The present reading should normally be >= ${previousReading} m³.` : ''}
-6. If the odometer numbers are visible, return the exact 5-digit sequence (e.g. 00368).
+6. If the mechanical odometer digits are not clearly legible or not in frame, DO NOT GUESS OR FABRICATE. Return status "REJECTED_NO_5_DIGITS" and readingValue null.
 
 Return strict JSON ONLY:
 {
-  "status": "SUCCESS",
-  "readingValue": 368,
-  "odometerFormatted": "00368",
-  "digits": ["0", "0", "3", "6", "8"],
-  "confidence": 0.95,
-  "meterCondition": "Normal",
-  "potentialLeak": false,
+  "status": "SUCCESS" | "REJECTED_NO_5_DIGITS",
+  "readingValue": number | null,
+  "odometerFormatted": "5-digit string like 00368" | null,
+  "digits": ["0", "0", "3", "6", "8"] | [],
+  "confidence": number between 0.0 and 1.0,
+  "meterCondition": "Normal" | "Moisture inside dial" | "Damaged glass" | "Unclear",
+  "potentialLeak": boolean,
   "notes": "exact digits visible on the mechanical dial"
 }`;
     }
@@ -1171,9 +1173,9 @@ Return strict JSON ONLY:
     }
 
     if (mode === 'tag') {
-      if (parsedData && parsedData.tagDetected) {
+      if (parsedData && (parsedData.status === 'SUCCESS' || parsedData.tagDetected) && parsedData.tagDetected) {
         const tagClean = String(parsedData.tagDetected).trim();
-        const entities: string[] = Array.isArray(parsedData.entitiesDetected)
+        const entities: string[] = Array.isArray(parsedData.entitiesDetected) && parsedData.entitiesDetected.length > 0
           ? parsedData.entitiesDetected.map((e: any) => String(e).trim()).filter(Boolean)
           : [tagClean];
 
@@ -1184,25 +1186,24 @@ Return strict JSON ONLY:
           entitiesDetected: entities,
           meterSerialDetected: tagClean,
           confidence: parsedData.confidence || 0.95,
-          notes: parsedData.notes || 'Meter tag and entities extracted from photo.',
+          notes: parsedData.notes || 'Meter tag identified from photo.',
           source: 'camera_tag_ocr_gemini',
         });
       }
 
-      // If AI did not return a tag or AI client was absent, return structured pattern extraction
       return res.json({
-        success: true,
-        status: 'SUCCESS',
-        tagDetected: 'TAG-01042',
-        entitiesDetected: ['TAG-01042', '2024-00104', '01042', 'TWD-00104', 'POB-01'],
-        confidence: 0.90,
-        notes: 'Identified meter tag from image frame.',
-        source: 'camera_tag_pattern_extractor',
+        success: false,
+        status: 'REJECTED_NO_TAG',
+        tagDetected: null,
+        entitiesDetected: [],
+        confidence: 0,
+        message: 'No tag or serial number detected in the photo. Please aim directly at the meter badge or tag.',
+        source: 'camera_tag_ocr_gemini',
       });
     }
 
     // mode === 'reading'
-    if (parsedData && parsedData.readingValue !== null && parsedData.readingValue !== undefined) {
+    if (parsedData && parsedData.status === 'SUCCESS' && parsedData.readingValue !== null && parsedData.readingValue !== undefined) {
       const numVal = parseInt(String(parsedData.readingValue).replace(/[^0-9]/g, ''), 10);
       if (!isNaN(numVal) && numVal >= 0 && numVal <= 999999) {
         const formatted = String(numVal).padStart(5, '0');
@@ -1220,46 +1221,34 @@ Return strict JSON ONLY:
           meterSerialDetected: meterSerial || null,
           meterCondition: parsedData.meterCondition || 'Normal',
           potentialLeak: !!parsedData.potentialLeak,
-          notes: parsedData.notes || 'Mechanical dial digits identified.',
+          notes: parsedData.notes || 'Mechanical dial digits identified from meter photo.',
           source: 'camera_vision_ocr_gemini',
         });
       }
     }
 
-    // Fallback reading calculation based on previous reading or default
-    const prev = previousReading || 356;
-    const fallbackReading = prev + 12;
-    const fallbackFormatted = String(fallbackReading).padStart(5, '0');
-
     return res.json({
-      success: true,
-      status: 'SUCCESS',
-      readingValue: fallbackReading,
-      odometerFormatted: fallbackFormatted,
-      digits: fallbackFormatted.split(''),
-      confidence: 0.92,
+      success: false,
+      status: 'REJECTED_NO_5_DIGITS',
+      readingValue: null,
+      odometerFormatted: null,
+      digits: [],
+      confidence: parsedData?.confidence || 0,
       meterSerialDetected: meterSerial || null,
-      meterCondition: 'Normal',
-      potentialLeak: false,
-      notes: 'Mechanical dial digits identified from meter register.',
-      source: 'camera_vision_ocr_register',
+      message: 'No clear 5-digit mechanical meter dial detected in photo. Please frame the rolling odometer wheels with good lighting or enter the reading directly.',
+      source: 'camera_vision_ocr_gemini',
     });
   } catch (error: any) {
     console.error('OCR analyze endpoint error:', error);
-    const prev = req.body?.previousReading || 356;
-    const fallbackVal = prev + 10;
-    const fallbackFormatted = String(fallbackVal).padStart(5, '0');
     return res.json({
-      success: true,
-      status: 'SUCCESS',
-      tagDetected: 'TAG-01042',
-      entitiesDetected: ['TAG-01042', '2024-00104'],
-      readingValue: fallbackVal,
-      odometerFormatted: fallbackFormatted,
-      digits: fallbackFormatted.split(''),
-      confidence: 0.90,
-      notes: 'Meter record identified.',
-      source: 'ocr_resilient_fallback',
+      success: false,
+      status: 'REJECTED_NO_5_DIGITS',
+      readingValue: null,
+      odometerFormatted: null,
+      digits: [],
+      confidence: 0,
+      message: 'Camera photo analysis failed. Please retake the photo or enter the reading directly.',
+      source: 'camera_vision_ocr',
     });
   }
 });
