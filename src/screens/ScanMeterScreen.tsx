@@ -607,7 +607,7 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
   };
 
   return (
-    <div className="relative w-full h-full min-h-0 max-h-full bg-slate-950 flex flex-col justify-start select-none overflow-hidden touch-none">
+    <div className="relative w-full h-full min-h-0 max-h-full bg-slate-950 flex flex-col justify-start select-none overflow-hidden touch-pan-y">
       {/* 🔝 COMPACT TOP HEADER & NAVIGATION BAR */}
       <div className="z-30 px-3 py-2 space-y-1.5 pointer-events-auto bg-slate-950/90 backdrop-blur-md border-b border-slate-800 shrink-0">
         <div className="flex items-center justify-between">

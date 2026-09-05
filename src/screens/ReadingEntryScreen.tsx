@@ -92,6 +92,24 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
     return null;
   }, [allConsumers, consumer.id]);
 
+  // Reset form and post-save states whenever the consumer changes (e.g. moving to Next Consumer)
+  useEffect(() => {
+    setCurrentReading(initialReadingValue !== undefined && initialReadingValue !== null ? String(initialReadingValue) : '');
+    setPhotoUrl(initialPhotoUrl);
+    setMeterCondition('NORMAL');
+    setRemarks('');
+    setSavedReading(null);
+    setSendSuccess(false);
+    setSendFeedback(null);
+    if (consumer.gpsCoordinates) {
+      setGpsLocation({
+        lat: consumer.gpsCoordinates.lat,
+        lng: consumer.gpsCoordinates.lng,
+        accuracy: 4,
+      });
+    }
+  }, [consumer.id, initialReadingValue, initialPhotoUrl]);
+
   // Capture GPS on mount
   useEffect(() => {
     setIsCapturingGPS(true);
@@ -102,7 +120,7 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
       .finally(() => {
         setIsCapturingGPS(false);
       });
-  }, []);
+  }, [consumer.id]);
 
   const numReading = Number(currentReading) || 0;
   const prevReading = consumer.previousReading || 0;

@@ -171,14 +171,25 @@ export class DatabaseHelper {
     if (exact) return exact;
 
     // 2. Normalized alphanumeric match
+    const GENERIC_LABELS = new Set([
+      'tag', 'twd', 'wdt', 'mtr', 'meter', 'water', 'district', 'philippines', 
+      'class', 'classb', 'classc', 'iso', 'iso4064', 'lxsg', 'lxsg15', 'barangay', 
+      'poblacion', 'baluarte', 'casinglot', 'mohon', 'natumolan', 'stacruz', 'staana', 
+      'sugbongcogon', 'gracia', 'rosario', 'misamis', 'oriental', 'serial', 'model'
+    ]);
+
+    if (GENERIC_LABELS.has(alphanumericOnly) || GENERIC_LABELS.has(rawClean)) {
+      return null;
+    }
+
     const normalizedMatch = all.find((c) => {
       const cTag = (c.meterNumber || '').toLowerCase().replace(/[^a-z0-9]/g, '');
       const cSerial = (c.meterSerial || '').toLowerCase().replace(/[^a-z0-9]/g, '');
       const cAcc = (c.accountNumber || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
       return (
-        (cTag && (cTag === alphanumericOnly || (cTag.length >= 4 && alphanumericOnly.includes(cTag)) || (alphanumericOnly.length >= 4 && cTag.includes(alphanumericOnly)))) ||
-        (cSerial && (cSerial === alphanumericOnly || (cSerial.length >= 4 && alphanumericOnly.includes(cSerial)) || (alphanumericOnly.length >= 4 && cSerial.includes(alphanumericOnly)))) ||
+        (cTag && (cTag === alphanumericOnly || (cTag.length >= 4 && alphanumericOnly.includes(cTag)))) ||
+        (cSerial && (cSerial === alphanumericOnly || (cSerial.length >= 4 && alphanumericOnly.includes(cSerial)))) ||
         (cAcc && (cAcc === alphanumericOnly || (cAcc.length >= 4 && alphanumericOnly.includes(cAcc))))
       );
     });

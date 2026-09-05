@@ -26,6 +26,9 @@ export class RealTimeScanner {
   private static lastServerScanTime: number = 0;
   private static isServerScanBusy: boolean = false;
 
+  private static isTesseractDisabled: boolean = false;
+  private static isWorkerBusy: boolean = false;
+
   private static getCanvas(): HTMLCanvasElement {
     if (!this.canvas) {
       this.canvas = document.createElement('canvas');
@@ -55,9 +58,10 @@ export class RealTimeScanner {
   }
 
   /**
-   * Lazy initialization for in-browser client Tesseract OCR worker
+   * Lazy initialization for in-browser client Tesseract OCR worker with fail-safe flag
    */
   private static async getTesseractWorker(): Promise<any> {
+    if (this.isTesseractDisabled) return null;
     if (this.tesseractWorker) return this.tesseractWorker;
     if (this.isWorkerInitializing) return null;
 
@@ -68,7 +72,8 @@ export class RealTimeScanner {
       this.isWorkerInitializing = false;
       return worker;
     } catch (err) {
-      console.warn('Tesseract client worker init notice:', err);
+      console.info('Client-side Tesseract worker unavailable, fallback to stream detector:', err);
+      this.isTesseractDisabled = true;
       this.isWorkerInitializing = false;
       return null;
     }
@@ -158,30 +163,33 @@ export class RealTimeScanner {
     }
 
     // --- STEP 2: Client In-Browser OCR Worker ---
-    try {
-      const worker = await this.getTesseractWorker();
-      if (worker) {
-        // Preprocess high contrast
-        this.preprocessImage(ctx, canvas.width, canvas.height, 120);
-        const result = await worker.recognize(canvas);
-        const text = result?.data?.text || '';
-        if (text && text.trim().length >= 2) {
-          const lines = text.toUpperCase().split(/\r?\n/);
-          for (const line of lines) {
-            const match = this.findMatchingConsumer(line, allConsumers);
-            if (match) {
-              return {
-                matchedConsumer: match.consumer,
-                tagDetected: match.matchedTag,
-                confidence: 0.95,
-                source: 'tesseract_live_ocr',
-              };
+    if (!this.isWorkerBusy) {
+      try {
+        const worker = await this.getTesseractWorker();
+        if (worker) {
+          this.isWorkerBusy = true;
+          this.preprocessImage(ctx, canvas.width, canvas.height, 120);
+          const result = await worker.recognize(canvas);
+          this.isWorkerBusy = false;
+          const text = result?.data?.text || '';
+          if (text && text.trim().length >= 2) {
+            const lines = text.toUpperCase().split(/\r?\n/);
+            for (const line of lines) {
+              const match = this.findMatchingConsumer(line, allConsumers);
+              if (match) {
+                return {
+                  matchedConsumer: match.consumer,
+                  tagDetected: match.matchedTag,
+                  confidence: 0.95,
+                  source: 'tesseract_live_ocr',
+                };
+              }
             }
           }
         }
+      } catch {
+        this.isWorkerBusy = false;
       }
-    } catch {
-      // Continue to live server optical stream
     }
 
     // --- STEP 3: Live Server Optical Stream (Debounced every 1.5s for real-time responsiveness) ---
@@ -284,29 +292,33 @@ export class RealTimeScanner {
     }
 
     // --- STEP 2: Client In-Browser OCR Worker ---
-    try {
-      const worker = await this.getTesseractWorker();
-      if (worker) {
-        this.preprocessImage(ctx, canvas.width, canvas.height, 130);
-        const result = await worker.recognize(canvas);
-        const text = result?.data?.text || '';
-        const rawDigits = text.replace(/[^0-9]/g, '');
-        if (rawDigits.length >= 4 && rawDigits.length <= 6) {
-          const numVal = parseInt(rawDigits.slice(0, 5), 10);
-          if (!isNaN(numVal) && numVal >= 0) {
-            const formatted = String(numVal).padStart(5, '0');
-            return {
-              readingValue: numVal,
-              formatted5Digits: formatted,
-              digits: formatted.split(''),
-              confidence: 0.93,
-              source: 'tesseract_dial_ocr',
-            };
+    if (!this.isWorkerBusy) {
+      try {
+        const worker = await this.getTesseractWorker();
+        if (worker) {
+          this.isWorkerBusy = true;
+          this.preprocessImage(ctx, canvas.width, canvas.height, 130);
+          const result = await worker.recognize(canvas);
+          this.isWorkerBusy = false;
+          const text = result?.data?.text || '';
+          const rawDigits = text.replace(/[^0-9]/g, '');
+          if (rawDigits.length >= 4 && rawDigits.length <= 6) {
+            const numVal = parseInt(rawDigits.slice(0, 5), 10);
+            if (!isNaN(numVal) && numVal >= 0) {
+              const formatted = String(numVal).padStart(5, '0');
+              return {
+                readingValue: numVal,
+                formatted5Digits: formatted,
+                digits: formatted.split(''),
+                confidence: 0.93,
+                source: 'tesseract_dial_ocr',
+              };
+            }
           }
         }
+      } catch {
+        this.isWorkerBusy = false;
       }
-    } catch {
-      // Continue
     }
 
     // --- STEP 3: Server Optical Stream ---
@@ -355,32 +367,72 @@ export class RealTimeScanner {
 
   /**
    * Helper: Matches detected text string against consumer tags, meter numbers, or account numbers.
+   * Uses strict matching and filters out generic words (TAG, TWD, MTR, WATER, etc.) to prevent false-positive locks.
    */
   private static findMatchingConsumer(
     text: string,
     allConsumers: Consumer[]
   ): { consumer: Consumer; matchedTag: string } | null {
-    const cleanText = text.trim().toUpperCase().replace(/[\s\-_]/g, '');
-    if (cleanText.length < 2) return null;
+    const rawUpper = text.trim().toUpperCase();
+    const cleanText = rawUpper.replace(/[\s\-_]/g, '');
+    if (cleanText.length < 3) return null;
 
-    // Check exact or partial containment across consumer credentials
+    // Reject generic water meter words and brand labels that are not distinctive identifiers
+    const GENERIC_LABELS = new Set([
+      'TAG', 'TWD', 'WDT', 'MTR', 'METER', 'WATER', 'DISTRICT', 'PHILIPPINES', 
+      'CLASS', 'CLASSB', 'CLASSC', 'ISO', 'ISO4064', 'LXSG', 'LXSG15', 'BARANGAY', 
+      'POBLACION', 'BALUARTE', 'CASINGLOT', 'MOHON', 'NATUMOLAN', 'STACRUZ', 'STAANA', 
+      'SUGBONGCOGON', 'GRACIA', 'ROSARIO', 'MISAMIS', 'ORIENTAL', 'SERIAL', 'MODEL'
+    ]);
+
+    if (GENERIC_LABELS.has(cleanText) || GENERIC_LABELS.has(rawUpper)) {
+      return null;
+    }
+
+    const textDigits = cleanText.replace(/[^0-9]/g, '');
+
+    // Check exact or specific containment across consumer credentials
     for (const c of allConsumers) {
       const tag = (c.meterNumber || '').toUpperCase().replace(/[\s\-_]/g, '');
       const serial = (c.meterSerial || '').toUpperCase().replace(/[\s\-_]/g, '');
       const acc = (c.accountNumber || '').toUpperCase().replace(/[\s\-_]/g, '');
-      const numOnly = (c.meterNumber || '').replace(/[^0-9]/g, '');
+      const tagDigits = (c.meterNumber || '').replace(/[^0-9]/g, '');
+      const serialDigits = (c.meterSerial || '').replace(/[^0-9]/g, '');
+      const accDigits = (c.accountNumber || '').replace(/[^0-9]/g, '');
 
-      if (tag && (cleanText === tag || (tag.length >= 3 && cleanText.includes(tag)) || (cleanText.length >= 3 && tag.includes(cleanText)))) {
+      // 1. Exact match on clean string
+      if (tag && cleanText === tag) {
         return { consumer: c, matchedTag: c.meterNumber || c.meterSerial };
       }
-      if (serial && (cleanText === serial || (serial.length >= 3 && cleanText.includes(serial)) || (cleanText.length >= 3 && serial.includes(cleanText)))) {
+      if (serial && cleanText === serial) {
         return { consumer: c, matchedTag: c.meterSerial || c.meterNumber };
       }
-      if (acc && (cleanText === acc || (acc.length >= 3 && cleanText.includes(acc)))) {
+      if (acc && cleanText === acc) {
         return { consumer: c, matchedTag: c.meterNumber || c.accountNumber };
       }
-      if (numOnly.length >= 3 && cleanText.includes(numOnly)) {
+
+      // 2. Detected text contains the entire distinctive tag/serial/account
+      if (tag && tag.length >= 4 && cleanText.includes(tag)) {
         return { consumer: c, matchedTag: c.meterNumber || c.meterSerial };
+      }
+      if (serial && serial.length >= 4 && cleanText.includes(serial)) {
+        return { consumer: c, matchedTag: c.meterSerial || c.meterNumber };
+      }
+      if (acc && acc.length >= 4 && cleanText.includes(acc)) {
+        return { consumer: c, matchedTag: c.meterNumber || c.accountNumber };
+      }
+
+      // 3. Significant distinctive numeric match (at least 4 digits matching meter tag or serial number exactly)
+      if (textDigits.length >= 4) {
+        if (tagDigits.length >= 4 && (textDigits === tagDigits || textDigits.includes(tagDigits))) {
+          return { consumer: c, matchedTag: c.meterNumber || c.meterSerial };
+        }
+        if (serialDigits.length >= 4 && (textDigits === serialDigits || textDigits.includes(serialDigits))) {
+          return { consumer: c, matchedTag: c.meterSerial || c.meterNumber };
+        }
+        if (accDigits.length >= 4 && textDigits === accDigits) {
+          return { consumer: c, matchedTag: c.meterNumber || c.accountNumber };
+        }
       }
     }
 
