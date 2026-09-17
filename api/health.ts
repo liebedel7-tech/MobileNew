@@ -1,4 +1,6 @@
 // Vercel Serverless Function: /api/health
+import { INITIAL_CONSUMERS, INITIAL_READERS } from '../src/data/seedData';
+
 export default function handler(req: any, res?: any) {
   const send = (status: number, payload: any) => {
     const json = JSON.stringify(payload);
@@ -42,8 +44,8 @@ export default function handler(req: any, res?: any) {
     code: 'WDT-MISOR',
     lwuaCategory: 'Category C Water District',
     serverTime: new Date().toISOString(),
-    totalConsumers: 12,
-    totalRegisteredReaders: 4,
+    totalConsumers: INITIAL_CONSUMERS.length,
+    totalRegisteredReaders: INITIAL_READERS.length,
     service: 'Tagoloan Water District Central Billing & Field Sync API',
   };
 

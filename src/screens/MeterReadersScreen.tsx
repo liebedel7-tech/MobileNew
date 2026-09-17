@@ -22,7 +22,8 @@ import {
   Calendar,
   Send,
   Sliders,
-  LogIn
+  LogIn,
+  Lock
 } from 'lucide-react';
 import { ReaderAccount, ActiveScreen, StaffUser, ReaderStatus } from '../types';
 import { DatabaseHelper } from '../services/databaseHelper';
@@ -30,6 +31,13 @@ import { SyncService } from '../services/syncService';
 import { WebSocketService } from '../services/websocketService';
 import { universalApiFetch } from '../services/apiConfig';
 import { LoggerService } from '../services/loggerService';
+import { 
+  TAGOLOAN_BARANGAYS, 
+  calculateLocationOccupancies, 
+  checkIsLocationOccupied, 
+  areLocationsEqual,
+  LocationOccupancy 
+} from '../constants/routes';
 
 interface MeterReadersScreenProps {
   currentUser: StaffUser | null;
@@ -37,17 +45,7 @@ interface MeterReadersScreenProps {
   onSwitchUser?: (user: StaffUser) => void;
 }
 
-const AVAILABLE_ROUTES = [
-  'Poblacion',
-  'Natumolan',
-  'Baluarte',
-  'Casinglot',
-  'Sta. Ana',
-  'Rosario',
-  'Sta. Cruz',
-  'Mohon',
-  'Sugbongcogon',
-];
+const AVAILABLE_ROUTES = TAGOLOAN_BARANGAYS;
 
 export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
   currentUser,
@@ -166,6 +164,23 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
     setErrorMessage(null);
     const routesToAssign = assignedRoutes || reader.assignedRoutes || ['Poblacion'];
 
+    // Local occupancy pre-check
+    const otherOccupancies = calculateLocationOccupancies(readers, reader.id);
+    const occupiedConflicts = routesToAssign.filter(rt => {
+      const occ = otherOccupancies.find(o => areLocationsEqual(o.location, rt));
+      return occ && occ.isOccupied;
+    });
+
+    if (occupiedConflicts.length > 0) {
+      const conflictMsg = occupiedConflicts.map(rt => {
+        const occ = otherOccupancies.find(o => areLocationsEqual(o.location, rt));
+        return `"${rt}" (occupied by ${occ?.assignedReaderName})`;
+      }).join(', ');
+      setErrorMessage(`Cannot assign routes: ${conflictMsg}. Please reassign or select available locations.`);
+      setIsSubmittingApproval(false);
+      return;
+    }
+
     try {
       // 1. Central Server Update
       const res = await universalApiFetch(`/api/readers/${encodeURIComponent(reader.id)}/status`, {
@@ -178,6 +193,11 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
         }),
       });
 
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.message || 'Server rejected route assignment');
+      }
+
       let updatedRecord: ReaderAccount = {
         ...reader,
         status: 'active',
@@ -186,12 +206,10 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
         approvedBy: currentUser?.name || 'Administrator',
       };
 
-      if (res.ok) {
-        try {
-          const data = await res.json();
-          if (data.reader) updatedRecord = data.reader;
-        } catch { /* ignore */ }
-      }
+      try {
+        const data = await res.json();
+        if (data.reader) updatedRecord = data.reader;
+      } catch { /* ignore */ }
 
       // 2. Local Database Update
       await DatabaseHelper.updateLocalReaderStatus(
@@ -793,31 +811,68 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
               </div>
 
               <div>
-                <span className="text-xs font-bold text-slate-300 block mb-2">
-                  Select Barangays & Coverage Zones:
-                </span>
-                <div className="grid grid-cols-2 gap-2">
-                  {AVAILABLE_ROUTES.map((route) => {
-                    const isSelected = editRoutes.includes(route);
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold text-slate-300">
+                    Select Barangays & Coverage Zones:
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {editRoutes.length} selected
+                  </span>
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto p-1 bg-slate-950 rounded-xl border border-slate-800 scrollbar-thin scrollbar-thumb-slate-800">
+                  {calculateLocationOccupancies(readers, selectedReaderForEdit.id).map((loc) => {
+                    const route = loc.location;
+                    const isSelected = editRoutes.some(r => areLocationsEqual(r, route));
+                    const isOccupiedByOther = loc.isOccupied;
+
+                    if (isOccupiedByOther) {
+                      return (
+                        <div
+                          key={route}
+                          className="p-2 rounded-xl border border-slate-800 bg-slate-900/30 text-slate-500 opacity-60 flex items-center justify-between cursor-not-allowed select-none"
+                          title={`Assigned to ${loc.assignedReaderName}`}
+                        >
+                          <div className="flex flex-col min-w-0 pr-1">
+                            <div className="flex items-center gap-1.5">
+                              <Lock className="w-3 h-3 text-amber-500/80 shrink-0" />
+                              <span className="text-xs line-through truncate text-slate-400 font-medium">{route}</span>
+                            </div>
+                            <span className="text-[9px] text-amber-500/80 truncate font-mono">
+                              By: {loc.assignedReaderName}
+                            </span>
+                          </div>
+                          <span className="px-1.5 py-0.5 rounded bg-amber-950/70 border border-amber-800/50 text-amber-400 text-[8.5px] font-bold uppercase shrink-0">
+                            Occupied
+                          </span>
+                        </div>
+                      );
+                    }
+
                     return (
                       <button
                         key={route}
                         type="button"
                         onClick={() => {
                           if (isSelected) {
-                            setEditRoutes(editRoutes.filter(r => r !== route));
+                            setEditRoutes(editRoutes.filter(r => !areLocationsEqual(r, route)));
                           } else {
                             setEditRoutes([...editRoutes, route]);
                           }
                         }}
-                        className={`p-2.5 rounded-xl border text-xs font-medium flex items-center justify-between transition cursor-pointer ${
+                        className={`p-2 rounded-xl border text-xs font-medium flex items-center justify-between transition cursor-pointer text-left ${
                           isSelected
-                            ? 'bg-sky-500/20 border-sky-500 text-sky-300'
-                            : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                            ? 'bg-sky-500/20 border-sky-500 text-sky-300 font-bold'
+                            : 'bg-slate-900/80 border-slate-800 text-slate-300 hover:border-slate-700'
                         }`}
                       >
-                        <span>{route}</span>
-                        {isSelected && <Check className="w-3.5 h-3.5 text-sky-400" />}
+                        <div className="flex flex-col min-w-0 pr-1">
+                          <span className="truncate">{route}</span>
+                          <span className="text-[9px] text-emerald-400/90 font-mono">
+                            🟢 Available
+                          </span>
+                        </div>
+                        {isSelected && <Check className="w-3.5 h-3.5 text-sky-400 shrink-0 ml-1" />}
                       </button>
                     );
                   })}
@@ -947,31 +1002,68 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
-                    Assign Coverage Routes
-                  </label>
-                  <div className="grid grid-cols-2 gap-1.5 max-h-36 overflow-y-auto p-1 bg-slate-950 rounded-xl border border-slate-800">
-                    {AVAILABLE_ROUTES.map((route) => {
-                      const isChecked = newRoutes.includes(route);
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Assign Coverage Routes
+                    </label>
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      {newRoutes.length} selected
+                    </span>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-40 overflow-y-auto p-1 bg-slate-950 rounded-xl border border-slate-800 scrollbar-thin scrollbar-thumb-slate-800">
+                    {calculateLocationOccupancies(readers).map((loc) => {
+                      const route = loc.location;
+                      const isChecked = newRoutes.some(r => areLocationsEqual(r, route));
+                      const isOccupied = loc.isOccupied;
+
+                      if (isOccupied) {
+                        return (
+                          <div
+                            key={route}
+                            className="p-2 rounded-lg text-[11px] bg-slate-900/40 border border-slate-800 text-slate-500 opacity-60 flex items-center justify-between cursor-not-allowed select-none"
+                            title={`Unavailable: Assigned to ${loc.assignedReaderName}`}
+                          >
+                            <div className="flex flex-col min-w-0 pr-1">
+                              <div className="flex items-center gap-1.5">
+                                <Lock className="w-3 h-3 text-amber-500/80 shrink-0" />
+                                <span className="line-through text-slate-400 truncate">{route}</span>
+                              </div>
+                              <span className="text-[9px] text-amber-500/80 truncate font-mono">
+                                Taken by: {loc.assignedReaderName}
+                              </span>
+                            </div>
+                            <span className="px-1.5 py-0.5 rounded bg-amber-950/70 border border-amber-800/50 text-amber-400 text-[8.5px] font-bold uppercase shrink-0">
+                              Occupied
+                            </span>
+                          </div>
+                        );
+                      }
+
                       return (
                         <button
                           key={route}
                           type="button"
                           onClick={() => {
                             if (isChecked) {
-                              setNewRoutes(newRoutes.filter(r => r !== route));
+                              setNewRoutes(newRoutes.filter(r => !areLocationsEqual(r, route)));
                             } else {
                               setNewRoutes([...newRoutes, route]);
                             }
                           }}
-                          className={`p-1.5 rounded-lg text-[11px] flex items-center justify-between border transition ${
+                          className={`p-2 rounded-lg text-[11px] flex items-center justify-between border transition text-left cursor-pointer ${
                             isChecked
-                              ? 'bg-sky-500/20 border-sky-500 text-sky-300'
-                              : 'bg-slate-900 border-slate-800 text-slate-400'
+                              ? 'bg-sky-500/20 border-sky-500 text-sky-300 font-bold'
+                              : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
                           }`}
                         >
-                          <span>{route}</span>
-                          {isChecked && <Check className="w-3 h-3 text-sky-400" />}
+                          <div className="flex flex-col min-w-0 pr-1">
+                            <span className="truncate">{route}</span>
+                            <span className="text-[9px] text-emerald-400/90 font-mono">
+                              🟢 Available
+                            </span>
+                          </div>
+                          {isChecked && <Check className="w-3.5 h-3.5 text-sky-400 shrink-0 ml-1" />}
                         </button>
                       );
                     })}

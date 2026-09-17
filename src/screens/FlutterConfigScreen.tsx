@@ -15,6 +15,7 @@ import {
   Copy
 } from 'lucide-react';
 import { StaffUser, ActiveScreen } from '../types';
+import { useDeviceInstallStatus } from '../services/installService';
 
 interface FlutterConfigScreenProps {
   user: StaffUser;
@@ -27,6 +28,7 @@ export const FlutterConfigScreen: React.FC<FlutterConfigScreenProps> = ({
   onNavigate,
   onOpenApkModal 
 }) => {
+  const { isInstalled } = useDeviceInstallStatus();
   const [serverUrl, setServerUrl] = useState('https://billing.tagoloanwaterdistrict.gov.ph/api');
   const [districtCode, setDistrictCode] = useState('WDT-MISOR-1002');
   const [timeoutSecs, setTimeoutSecs] = useState('30');
@@ -173,10 +175,10 @@ class WDTMeterReaderApp extends StatelessWidget {
           </p>
         </div>
 
-        {onOpenApkModal && (
+        {onOpenApkModal && !isInstalled && (
           <button
             onClick={onOpenApkModal}
-            className="px-4 py-2.5 bg-sky-600 hover:bg-sky-500 text-white text-xs font-black rounded-xl shadow-lg shadow-sky-600/30 flex items-center gap-2 shrink-0 transition"
+            className="px-4 py-2.5 bg-sky-600 hover:bg-sky-500 text-white text-xs font-black rounded-xl shadow-lg shadow-sky-600/30 flex items-center gap-2 shrink-0 transition cursor-pointer"
           >
             <Download className="w-4 h-4" />
             <span>Install App on Your Device</span>

@@ -27,6 +27,7 @@ import {
   APP_OFFICIAL_BADGE, 
   APP_OFFICIAL_TITLE 
 } from '../constants/branding';
+import { useDeviceInstallStatus } from '../services/installService';
 
 interface LandingScreenProps {
   user: StaffUser | null;
@@ -47,6 +48,7 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
   onOpenApkModal,
   wsStatus = 'CONNECTED',
 }) => {
+  const { isInstalled } = useDeviceInstallStatus();
   const [wsStats, setWsStats] = useState<WSTelemetryStats>(WebSocketService.getStats());
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
@@ -124,14 +126,16 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
               <span>{wsStatus === 'CONNECTED' ? `${wsStats.latencyMs}ms` : 'OFFLINE'}</span>
             </span>
 
-            <button
-              type="button"
-              onClick={onOpenApkModal}
-              className="p-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-emerald-400 transition"
-              title="Download Android APK"
-            >
-              <Smartphone className="w-3.5 h-3.5" />
-            </button>
+            {!isInstalled && (
+              <button
+                type="button"
+                onClick={onOpenApkModal}
+                className="p-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-emerald-400 transition cursor-pointer"
+                title="Download Android APK / Install App"
+              >
+                <Smartphone className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -261,21 +265,23 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
               </button>
             </div>
 
-            {/* Direct Mobile APK / PWA Download Action */}
-            <button
-              type="button"
-              onClick={onOpenApkModal}
-              className="w-full py-2.5 px-3 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/50 text-slate-300 hover:text-white text-xs font-semibold flex items-center justify-between transition group"
-            >
-              <div className="flex items-center gap-2">
-                <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="text-[11px]">Install / Download Mobile App</span>
-              </div>
-              <div className="flex items-center gap-1 text-[10px] text-emerald-400 font-mono">
-                <Download className="w-3 h-3 group-hover:translate-y-0.5 transition-transform" />
-                <span>APK / PWA</span>
-              </div>
-            </button>
+            {/* Direct Mobile APK / PWA Download Action - Only shown if app is not yet installed */}
+            {!isInstalled && (
+              <button
+                type="button"
+                onClick={onOpenApkModal}
+                className="w-full py-2.5 px-3 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/50 text-slate-300 hover:text-white text-xs font-semibold flex items-center justify-between transition group cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
+                  <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="text-[11px]">Install / Download Mobile App</span>
+                </div>
+                <div className="flex items-center gap-1 text-[10px] text-emerald-400 font-mono">
+                  <Download className="w-3 h-3 group-hover:translate-y-0.5 transition-transform" />
+                  <span>APK / PWA</span>
+                </div>
+              </button>
+            )}
           </div>
         ) : (
           /* User Is Logged In - Unlocked Field Terminal Modules */
@@ -452,26 +458,28 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
                 <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-sky-400 group-hover:translate-x-0.5 transition" />
               </div>
 
-              {/* Module 6: Android APK & Diagnostics */}
-              <div 
-                onClick={onOpenApkModal}
-                className="p-3 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-emerald-500/50 transition cursor-pointer flex items-center justify-between group active:scale-[0.99]"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0">
-                    <Smartphone className="w-4 h-4" />
+              {/* Module 6: Android APK & Diagnostics - Only shown if not yet installed */}
+              {!isInstalled && (
+                <div 
+                  onClick={onOpenApkModal}
+                  className="p-3 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-emerald-500/50 transition cursor-pointer flex items-center justify-between group active:scale-[0.99]"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0">
+                      <Smartphone className="w-4 h-4" />
+                    </div>
+                    <div className="text-left">
+                      <h3 className="text-xs font-bold text-white group-hover:text-emerald-300 transition">
+                        Android APK / PWA Install
+                      </h3>
+                      <p className="text-[10px] text-slate-400">
+                        Native Android WebAPK field deployment package
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-left">
-                    <h3 className="text-xs font-bold text-white group-hover:text-emerald-300 transition">
-                      Android APK / PWA Install
-                    </h3>
-                    <p className="text-[10px] text-slate-400">
-                      Native Android WebAPK field deployment package
-                    </p>
-                  </div>
+                  <Download className="w-4 h-4 text-emerald-400 group-hover:translate-y-0.5 transition" />
                 </div>
-                <Download className="w-4 h-4 text-emerald-400 group-hover:translate-y-0.5 transition" />
-              </div>
+              )}
             </div>
           </div>
         )}

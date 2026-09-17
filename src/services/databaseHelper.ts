@@ -1,6 +1,7 @@
 import { Consumer, MeterReading, AuditLog, AppConfig, StaffUser, ReaderAccount, ReaderStatus } from '../types';
 import { universalApiFetch, getApiEndpoint } from './apiConfig';
-import { INITIAL_CONSUMERS as FULL_SEED_CONSUMERS } from '../data/seedData';
+import { INITIAL_CONSUMERS as FULL_SEED_CONSUMERS, INITIAL_READERS } from '../data/seedData';
+import { isConsumerInAssignedAreas } from '../constants/routes';
 
 const DB_NAME = 'WDT_MeterReader_DB_v2';
 const DB_VERSION = 1;
@@ -88,49 +89,36 @@ export class DatabaseHelper {
   /**
    * Returns only the consumers that fall under the meter reader's assigned coverage areas / barangays
    */
-  static async getConsumersForReader(routes?: string[] | string): Promise<Consumer[]> {
+  static async getConsumersForReader(routes?: string[] | string | null): Promise<Consumer[]> {
     const all = await this.getAllConsumers();
     if (!routes) return all;
 
-    const allowed = (Array.isArray(routes) ? routes : routes.split(','))
-      .map((r) => r.trim().toLowerCase())
-      .filter(Boolean);
-
-    if (allowed.length === 0 || allowed.some((r) => r === 'all' || r === 'all tagoloan districts')) {
-      return all;
+    if (Array.isArray(routes) && routes.length === 0) {
+      return [];
     }
 
-    return all.filter((c) => {
-      const brgy = (c.barangay || '').toLowerCase();
-      const route = (c.routeCode || '').toLowerCase();
-      const addr = (c.address || '').toLowerCase();
-      return allowed.some(
-        (z) =>
-          brgy.includes(z) ||
-          route.includes(z) ||
-          addr.includes(z) ||
-          (z === 'sta. cruz' && brgy.includes('santa cruz')) ||
-          (z === 'santa cruz' && brgy.includes('sta. cruz')) ||
-          (z === 'sta. ana' && brgy.includes('santa ana')) ||
-          (z === 'santa ana' && brgy.includes('sta. ana'))
-      );
-    });
+    return all.filter((c) => isConsumerInAssignedAreas(c, routes));
   }
 
-  static async getConsumerById(id: string): Promise<Consumer | null> {
+  static async getConsumerById(id: string, routes?: string[] | string | null): Promise<Consumer | null> {
     const db = await this.getDB();
-    return new Promise((resolve, reject) => {
+    const consumer = await new Promise<Consumer | null>((resolve, reject) => {
       const tx = db.transaction('consumers', 'readonly');
       const store = tx.objectStore('consumers');
       const request = store.get(id);
       request.onsuccess = () => resolve(request.result || null);
       request.onerror = () => reject(request.error);
     });
+
+    if (consumer && routes && !isConsumerInAssignedAreas(consumer, routes)) {
+      return null;
+    }
+    return consumer;
   }
 
-  static async getConsumerByAccountNumber(accNo: string): Promise<Consumer | null> {
+  static async getConsumerByAccountNumber(accNo: string, routes?: string[] | string | null): Promise<Consumer | null> {
     const db = await this.getDB();
-    return new Promise((resolve, reject) => {
+    const consumer = await new Promise<Consumer | null>((resolve, reject) => {
       const tx = db.transaction('consumers', 'readonly');
       const store = tx.objectStore('consumers');
       const index = store.index('accountNumber');
@@ -138,11 +126,16 @@ export class DatabaseHelper {
       request.onsuccess = () => resolve(request.result || null);
       request.onerror = () => reject(request.error);
     });
+
+    if (consumer && routes && !isConsumerInAssignedAreas(consumer, routes)) {
+      return null;
+    }
+    return consumer;
   }
 
-  static async getConsumerByMeterSerial(serial: string): Promise<Consumer | null> {
+  static async getConsumerByMeterSerial(serial: string, routes?: string[] | string | null): Promise<Consumer | null> {
     const db = await this.getDB();
-    return new Promise((resolve, reject) => {
+    const consumer = await new Promise<Consumer | null>((resolve, reject) => {
       const tx = db.transaction('consumers', 'readonly');
       const store = tx.objectStore('consumers');
       const index = store.index('meterSerial');
@@ -150,11 +143,16 @@ export class DatabaseHelper {
       request.onsuccess = () => resolve(request.result || null);
       request.onerror = () => reject(request.error);
     });
+
+    if (consumer && routes && !isConsumerInAssignedAreas(consumer, routes)) {
+      return null;
+    }
+    return consumer;
   }
 
-  static async getConsumerByTagOrMeterNumber(tag: string): Promise<Consumer | null> {
+  static async getConsumerByTagOrMeterNumber(tag: string, routes?: string[] | string | null): Promise<Consumer | null> {
     if (!tag) return null;
-    const all = await this.getAllConsumers();
+    const all = routes ? await this.getConsumersForReader(routes) : await this.getAllConsumers();
     const rawClean = tag.trim().toLowerCase();
     const alphanumericOnly = rawClean.replace(/[^a-z0-9]/g, '');
 
@@ -358,6 +356,9 @@ export class DatabaseHelper {
     }
   }
 
+  // Default Initial Readers for Tagoloan Water District
+  private static DEFAULT_INITIAL_READERS: ReaderAccount[] = [...(INITIAL_READERS as any)];
+
   // Local Registered Readers (supports offline field operations & Vercel static fallback)
   static async getLocalReaders(): Promise<ReaderAccount[]> {
     try {
@@ -372,11 +373,13 @@ export class DatabaseHelper {
       
       // Merge unique by username / id
       const map = new Map<string, ReaderAccount>();
+      // Base defaults
+      this.DEFAULT_INITIAL_READERS.forEach(r => map.set((r.username || r.id).toLowerCase(), r));
       (fromDB || []).forEach(r => map.set((r.username || r.id).toLowerCase(), r));
       (fromLS || []).forEach(r => map.set((r.username || r.id).toLowerCase(), r));
       return Array.from(map.values());
     } catch {
-      return [];
+      return [...this.DEFAULT_INITIAL_READERS];
     }
   }
 

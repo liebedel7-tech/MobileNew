@@ -13,7 +13,12 @@ import {
   Server,
   Zap,
   Radio,
-  Send
+  Send,
+  Smartphone,
+  CheckCircle2,
+  Download,
+  RotateCcw,
+  Users
 } from 'lucide-react';
 import { SyncState, ActiveScreen } from '../types';
 import { SyncService } from '../services/syncService';
@@ -21,6 +26,7 @@ import { DatabaseHelper } from '../services/databaseHelper';
 import { LoggerService } from '../services/loggerService';
 import { WebSocketService, WSTelemetryStats } from '../services/websocketService';
 import { universalApiFetch, getApiEndpoint } from '../services/apiConfig';
+import { useDeviceInstallStatus } from '../services/installService';
 
 interface DebugScreenProps {
   syncState: SyncState;
@@ -35,6 +41,7 @@ export const DebugScreen: React.FC<DebugScreenProps> = ({
   onResetDatabase,
   onSyncTrigger,
 }) => {
+  const { isInstalled, markAsInstalled, resetInstallStatus } = useDeviceInstallStatus();
   const [serverHealth, setServerHealth] = useState<any>(null);
   const [isPinging, setIsPinging] = useState(false);
   const [wsStats, setWsStats] = useState<WSTelemetryStats>(WebSocketService.getStats());
@@ -127,6 +134,27 @@ export const DebugScreen: React.FC<DebugScreenProps> = ({
         <p className="text-xs text-slate-400">
           Network condition simulator, SQLite local storage manager, and sync engine tuner
         </p>
+      </div>
+
+      {/* Meter Readers Management Quick-Access */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-md flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shrink-0">
+            <Users className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="font-bold text-sm text-white">Meter Readers & Route Assignment</h3>
+            <p className="text-xs text-slate-400">
+              Manage field reader accounts, approvals, and assigned coverage areas
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => onNavigate('meter_readers')}
+          className="px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition shrink-0 cursor-pointer shadow-sm active:scale-95"
+        >
+          Open Readers
+        </button>
       </div>
 
       {/* Network Simulator Card */}
@@ -339,7 +367,7 @@ export const DebugScreen: React.FC<DebugScreenProps> = ({
           <button
             onClick={handlePingServer}
             disabled={isPinging}
-            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1 transition"
+            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1 transition cursor-pointer"
           >
             <Activity className={`w-3.5 h-3.5 ${isPinging ? 'animate-spin' : ''}`} />
             <span>{isPinging ? 'Pinging...' : 'Ping /api/health'}</span>
@@ -356,11 +384,83 @@ export const DebugScreen: React.FC<DebugScreenProps> = ({
           <span className="text-xs text-slate-400">Configure District Server & Flutter Build:</span>
           <button
             onClick={() => onNavigate('flutter_config')}
-            className="text-xs text-sky-400 hover:text-sky-300 font-bold flex items-center gap-1"
+            className="text-xs text-sky-400 hover:text-sky-300 font-bold flex items-center gap-1 cursor-pointer"
           >
             <Sliders className="w-3.5 h-3.5" />
             <span>Flutter & District Config →</span>
           </button>
+        </div>
+      </div>
+
+      {/* Device & PWA/APK Installation Status Card */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3 shadow-md">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Smartphone className="w-5 h-5 text-sky-400" />
+            <div>
+              <h3 className="font-bold text-sm text-white">Device Application Installation State</h3>
+              <p className="text-xs text-slate-400">PWA standalone mode and native device package detector</p>
+            </div>
+          </div>
+
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${
+            isInstalled 
+              ? 'bg-emerald-950/80 text-emerald-300 border-emerald-700/60'
+              : 'bg-amber-950/80 text-amber-300 border-amber-700/60'
+          }`}>
+            {isInstalled ? (
+              <>
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Installed on Device</span>
+              </>
+            ) : (
+              <>
+                <Download className="w-3.5 h-3.5 text-amber-400" />
+                <span>Web Browser Mode</span>
+              </>
+            )}
+          </span>
+        </div>
+
+        <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-xs space-y-2">
+          <div className="flex justify-between items-center text-slate-300">
+            <span>Install Button Visibility:</span>
+            <strong className={isInstalled ? 'text-rose-400' : 'text-emerald-400'}>
+              {isInstalled ? 'Hidden (App is already downloaded)' : 'Visible ("Install this on your device")'}
+            </strong>
+          </div>
+          <div className="flex justify-between items-center text-slate-300">
+            <span>Detected Display Mode:</span>
+            <span className="font-mono text-slate-400">
+              {typeof window !== 'undefined' && window.matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser'}
+            </span>
+          </div>
+        </div>
+
+        <div className="pt-2 border-t border-slate-800 flex items-center gap-2">
+          {isInstalled ? (
+            <button
+              onClick={() => {
+                resetInstallStatus();
+                alert('Device installation status reset. "Install on Device" buttons will now be visible.');
+              }}
+              className="flex-1 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition border border-slate-700 cursor-pointer"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+              <span>Reset Status (Show Install Buttons)</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                markAsInstalled();
+                alert('Marked as installed on this device! "Install on Device" buttons will now be hidden.');
+              }}
+              className="flex-1 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>Simulate Installed State (Hide Install Buttons)</span>
+            </button>
+          )}
         </div>
       </div>
     </div>

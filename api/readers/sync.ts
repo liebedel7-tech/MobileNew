@@ -1,4 +1,6 @@
 // Vercel Serverless Function: /api/readers/sync
+import { INITIAL_READERS } from '../../src/data/seedData';
+
 export default function handler(req: any, res?: any) {
   const send = (status: number, payload: any) => {
     const json = JSON.stringify(payload);
@@ -44,43 +46,20 @@ export default function handler(req: any, res?: any) {
 
     const readers = Array.isArray(body.readers) ? body.readers : [];
 
-    const defaultStaff = [
-      {
-        id: 'RDR-001',
-        employeeId: 'TWD-2024-001',
-        username: 'jdelacruz',
-        name: 'Juan Dela Cruz',
-        role: 'Senior Meter Reader',
-        assignedRoutes: ['Poblacion', 'Baluarte'],
-        status: 'active',
-        employmentStatus: 'active',
-      },
-      {
-        id: 'RDR-002',
-        employeeId: 'TWD-2024-002',
-        username: 'msantos',
-        name: 'Maria Santos',
-        role: 'Meter Reader II',
-        assignedRoutes: ['Casinglot', 'Natumolan', 'Mohon'],
-        status: 'active',
-        employmentStatus: 'active',
-      },
-    ];
-
     const resp = {
       success: true,
       message: `Synced ${readers.length} reader account(s).`,
-      count: defaultStaff.length,
-      readers: defaultStaff,
-      staff: defaultStaff,
+      count: INITIAL_READERS.length,
+      readers: INITIAL_READERS,
+      staff: INITIAL_READERS,
     };
 
     return send(200, resp);
   } catch (err: any) {
     const fallback = {
       success: true,
-      readers: [],
-      staff: [],
+      readers: INITIAL_READERS,
+      staff: INITIAL_READERS,
     };
     return send(200, fallback);
   }

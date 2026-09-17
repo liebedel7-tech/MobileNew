@@ -72,7 +72,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 </span>
               </h2>
               <p className="text-[10.5px] text-slate-400 font-mono">
-                Authorized Reader: {user.name} • {user.zone}
+                Authorized Reader: {user.name} • {user.assignedRoutes && user.assignedRoutes.length > 0 ? user.assignedRoutes.join(', ') : user.zone}
               </p>
             </div>
           </div>
@@ -210,7 +210,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         <div className="flex items-center justify-between mb-3">
           <div>
             <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-              Shift Progress • {user.zone}
+              Shift Progress • {user.assignedRoutes && user.assignedRoutes.length > 0 ? user.assignedRoutes.join(', ') : user.zone}
             </h2>
             <p className="text-[11px] text-slate-500 font-mono mt-0.5">
               Assigned Consumer Accounts

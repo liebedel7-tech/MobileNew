@@ -1,30 +1,8 @@
 // Vercel Catch-All API Handler: /api/index
-const CONSUMERS = [
-  {
-    id: 'WDT-ACC-01042',
-    accountNumber: '01-042-0091',
-    name: 'AMORATO, VICENTE G.',
-    address: 'Zone 2, Brgy. Poblacion, Tagoloan, Misamis Oriental',
-    barangay: 'Poblacion',
-    meterSerial: 'MTR-8849201',
-    category: 'Residential',
-    status: 'Active',
-    previousReading: 342,
-    routeCode: 'RT-POB-04',
-  },
-  {
-    id: 'WDT-ACC-01043',
-    accountNumber: '01-042-0092',
-    name: 'CABALLERO, MA. ELENA S.',
-    address: 'Purok 4, Brgy. Baluarte, Tagoloan, Misamis Oriental',
-    barangay: 'Baluarte',
-    meterSerial: 'MTR-7738291',
-    category: 'Residential',
-    status: 'Active',
-    previousReading: 512,
-    routeCode: 'RT-BAL-01',
-  }
-];
+import { INITIAL_CONSUMERS } from '../src/data/seedData';
+import { isConsumerInAssignedAreas } from '../src/constants/routes';
+
+export const CONSUMERS = [...INITIAL_CONSUMERS];
 
 export default function handler(req: any, res?: any) {
   const send = (status: number, payload: any) => {
@@ -67,13 +45,42 @@ export default function handler(req: any, res?: any) {
     const rawUrl = req?.url || '';
     const url = rawUrl.toLowerCase();
 
+    let query: Record<string, string> = {};
+    if (req?.query && typeof req.query === 'object') {
+      for (const [k, v] of Object.entries(req.query)) {
+        if (typeof v === 'string') query[k] = v;
+      }
+    } else if (req?.url) {
+      try {
+        const u = new URL(req.url, 'http://localhost');
+        u.searchParams.forEach((val, key) => {
+          query[key] = val;
+        });
+      } catch {}
+    }
+
     if (url.includes('consumer') || url.includes('pull')) {
+      const { zones, zone, barangay, routes, route } = query;
+      let targetConsumers = [...CONSUMERS];
+
+      const areaParam = (routes || route || zones || zone || barangay || '') as string;
+      if (areaParam && typeof areaParam === 'string' && areaParam.trim()) {
+        const parsedAreas = areaParam
+          .split(/[,|+]/)
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0 && s.toUpperCase() !== 'ALL');
+
+        if (parsedAreas.length > 0) {
+          targetConsumers = targetConsumers.filter((c) => isConsumerInAssignedAreas(c, parsedAreas));
+        }
+      }
+
       const resp = {
         success: true,
         district: 'Tagoloan Water District (WDT-MISOR)',
-        count: CONSUMERS.length,
-        consumers: CONSUMERS,
-        data: CONSUMERS,
+        count: targetConsumers.length,
+        consumers: targetConsumers,
+        data: targetConsumers,
       };
       return send(200, resp);
     }

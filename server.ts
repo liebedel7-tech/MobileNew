@@ -133,7 +133,8 @@ const getGeminiClient = () => {
   });
 };
 
-import { INITIAL_CONSUMERS as DEFAULT_SEED_CONSUMERS } from './src/data/seedData';
+import { INITIAL_CONSUMERS as DEFAULT_SEED_CONSUMERS, INITIAL_READERS } from './src/data/seedData';
+import { isConsumerInAssignedAreas } from './src/constants/routes';
 
 // Initial Seed Consumers for Tagoloan Water District (WDT), Misamis Oriental
 const INITIAL_CONSUMERS: any[] = [...DEFAULT_SEED_CONSUMERS];
@@ -152,54 +153,40 @@ let serverAuditLogs: any[] = [
 ];
 
 // In-memory staff users and registered readers for WDT
-const REGISTERED_READERS = [
-  {
-    id: 'WDT-MR04',
-    employeeId: 'TWD-2026-088',
-    username: 'reader04',
-    pin: '1234',
-    name: 'Juan Carlo Bautista',
-    role: 'Meter Reader III',
-    contactNumber: '0917-234-5678',
-    email: 'j.bautista@tagoloanwater.gov.ph',
-    assignedRoutes: ['Poblacion', 'Baluarte'],
-    status: 'active',
-    deviceInfo: 'Samsung Galaxy A54 (Android 14)',
-    createdAt: '2026-08-01T08:00:00Z',
-    approvedAt: '2026-08-01T08:30:00Z',
-    approvedBy: 'Engr. Roberto M. Dael',
-  },
-  {
-    id: 'WDT-MR02',
-    employeeId: 'TWD-2026-042',
-    username: 'reader02',
-    pin: '1234',
-    name: 'Maria Lourdes Santos',
-    role: 'Meter Reader II',
-    contactNumber: '0928-891-2345',
-    email: 'm.santos@tagoloanwater.gov.ph',
-    assignedRoutes: ['Casinglot', 'Mohon'],
-    status: 'active',
-    deviceInfo: 'Xiaomi Redmi Note 13 (Android 14)',
-    createdAt: '2026-08-05T09:00:00Z',
-    approvedAt: '2026-08-05T09:15:00Z',
-    approvedBy: 'Engr. Roberto M. Dael',
-  },
-  {
-    id: 'RDR-005',
-    employeeId: 'TWD-2026-089',
-    username: 'arnel_reader',
-    pin: '1234',
-    name: 'Arnel Mendoza',
-    role: 'Meter Reader I',
-    contactNumber: '0917-123-4567',
-    email: 'arnel.reader@tagoloanwater.gov.ph',
-    assignedRoutes: ['Poblacion', 'Natumolan'],
-    status: 'pending',
-    deviceInfo: 'Samsung Galaxy A54 (Android 14)',
-    createdAt: '2026-08-18T10:00:00Z',
-  }
+const TAGOLOAN_BARANGAYS_LIST = [
+  'Poblacion',
+  'Baluarte',
+  'Casinglot',
+  'Mohon',
+  'Natumolan',
+  'Sta. Cruz',
+  'Sta. Ana',
+  'Sugbongcogon',
+  'Gracia',
+  'Rosario',
 ];
+
+function normalizeLoc(s: string) {
+  return (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function findOccupyingReader(locationName: string, excludeId?: string) {
+  const norm = normalizeLoc(locationName);
+  return REGISTERED_READERS.find(r => {
+    if (r.status !== 'active') return false;
+    const rId = (r.id || '').toLowerCase();
+    const rUname = (r.username || '').toLowerCase();
+    const rEmp = (r.employeeId || '').toLowerCase();
+    const targetEx = (excludeId || '').toLowerCase();
+    if (targetEx && (rId === targetEx || rUname === targetEx || rEmp === targetEx)) {
+      return false;
+    }
+    const routes = r.assignedRoutes || [];
+    return routes.some(rt => normalizeLoc(rt) === norm);
+  });
+}
+
+const REGISTERED_READERS: any[] = [...INITIAL_READERS];
 
 // In-memory staff users for WDT (compatible lookup)
 const STAFF_USERS = REGISTERED_READERS.map(r => ({
@@ -356,6 +343,28 @@ app.all(['/api/readers/register', '/api/readers/sync', '/api/readers/batch-sync'
       ? assignedRoutes 
       : (body.zone ? [body.zone] : ['Poblacion']);
 
+    // Validate that none of the requested routes are already occupied by another active reader
+    const occupiedConflicts: Array<{ route: string; occupiedBy: string }> = [];
+    for (const rt of routes) {
+      const occupying = findOccupyingReader(rt, body.id || employeeId || username);
+      if (occupying) {
+        occupiedConflicts.push({
+          route: rt,
+          occupiedBy: occupying.name,
+        });
+      }
+    }
+
+    if (occupiedConflicts.length > 0) {
+      const conflictMsg = occupiedConflicts.map(c => `'${c.route}' (assigned to ${c.occupiedBy})`).join(', ');
+      return res.status(400).json({
+        success: false,
+        message: `Selected location is unavailable because it already has an assigned meter reader: ${conflictMsg}. Please choose an available location.`,
+        conflicts: occupiedConflicts,
+        availableRoutes: TAGOLOAN_BARANGAYS_LIST.filter(b => !findOccupyingReader(b, body.id || employeeId || username)),
+      });
+    }
+
     const newReaderId = body.id || `RDR-${String(REGISTERED_READERS.length + 1).padStart(3, '0')}`;
     const newReader = {
       id: newReaderId,
@@ -405,6 +414,40 @@ app.all(['/api/readers/register', '/api/readers/sync', '/api/readers/batch-sync'
   }
 });
 
+// Location Occupancy & Availability Endpoint
+app.get(['/api/locations/availability', '/api/routes/availability', '/api/locations', '/locations/availability'], (req, res) => {
+  try {
+    const excludeId = req.query.excludeId ? String(req.query.excludeId) : undefined;
+    const locations = TAGOLOAN_BARANGAYS_LIST.map(b => {
+      const occ = findOccupyingReader(b, excludeId);
+      if (occ) {
+        return {
+          location: b,
+          isOccupied: true,
+          assignedReaderName: occ.name,
+          assignedReaderId: occ.id,
+          assignedReaderEmployeeId: occ.employeeId,
+          assignedReaderRole: occ.role || 'Meter Reader',
+          status: occ.status,
+        };
+      }
+      return {
+        location: b,
+        isOccupied: false,
+      };
+    });
+
+    res.json({
+      success: true,
+      totalLocations: TAGOLOAN_BARANGAYS_LIST.length,
+      occupiedCount: locations.filter(l => l.isOccupied).length,
+      availableCount: locations.filter(l => !l.isOccupied).length,
+      locations,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Failed to get location availability' });
+  }
+});
 
 // List all readers (for Admin Portal & Mobile Sync)
 app.get(['/api/readers', '/api/staff', '/readers', '/staff'], (req, res) => {
@@ -439,12 +482,31 @@ app.patch(['/api/staff/:id/status', '/api/readers/:id/status'], (req, res) => {
     return res.status(404).json({ success: false, message: 'Staff / Reader not found' });
   }
 
+  if (Array.isArray(assignedRoutes) && assignedRoutes.length > 0) {
+    // Validate routes are not occupied by ANOTHER active reader
+    const occupiedConflicts: Array<{ route: string; occupiedBy: string }> = [];
+    for (const rt of assignedRoutes) {
+      const occupying = findOccupyingReader(rt, reader.id || reader.employeeId || reader.username);
+      if (occupying) {
+        occupiedConflicts.push({ route: rt, occupiedBy: occupying.name });
+      }
+    }
+
+    if (occupiedConflicts.length > 0) {
+      const conflictMsg = occupiedConflicts.map(c => `'${c.route}' (occupied by ${c.occupiedBy})`).join(', ');
+      return res.status(400).json({
+        success: false,
+        message: `Cannot assign location: ${conflictMsg}. Location already has an active meter reader assigned.`,
+        conflicts: occupiedConflicts,
+      });
+    }
+
+    reader.assignedRoutes = assignedRoutes;
+  }
+
   if (status) {
     reader.status = status;
     (reader as any).employmentStatus = status;
-  }
-  if (Array.isArray(assignedRoutes) && assignedRoutes.length > 0) {
-    reader.assignedRoutes = assignedRoutes;
   }
   if (status === 'active') {
     reader.approvedAt = new Date().toISOString();
@@ -645,7 +707,7 @@ app.post(['/api/auth/login', '/auth/login'], (req, res) => {
 // Consumers list download & Route Sync Pull (Multi-Zone coverage support)
 app.get(['/api/consumers', '/api/sync/pull', '/consumers', '/sync/pull'], (req, res) => {
   try {
-    const { since, zones, zone, barangay, routes, route, search, q, status, category } = req.query;
+    const { since, zones, zone, barangay, routes, route, search, q, status, category, readerId, username } = req.query;
     let filtered = [...INITIAL_CONSUMERS];
 
     const searchTerm = (search || q || '') as string;
@@ -660,30 +722,39 @@ app.get(['/api/consumers', '/api/sync/pull', '/consumers', '/sync/pull'], (req, 
       );
     }
 
+    // Determine reader assigned coverage areas if readerId or username is provided
+    const targetReaderKey = ((readerId || username || req.headers['x-reader-id'] || req.headers['x-reader-username'] || '') as string).toLowerCase().trim();
+    let readerAssignedRoutes: string[] | null = null;
+    if (targetReaderKey) {
+      const matchedReader = REGISTERED_READERS.find(
+        r =>
+          (r.id && r.id.toLowerCase() === targetReaderKey) ||
+          (r.username && r.username.toLowerCase() === targetReaderKey) ||
+          (r.employeeId && r.employeeId.toLowerCase() === targetReaderKey)
+      );
+      if (matchedReader && matchedReader.assignedRoutes) {
+        readerAssignedRoutes = matchedReader.assignedRoutes;
+      }
+    }
+
     // Filter strictly by the meter reader's assigned coverage areas / barangays
     const zonesParam = (zones || zone || barangay || routes || route || '') as string;
-    if (zonesParam && typeof zonesParam === 'string' && zonesParam.toLowerCase() !== 'all' && zonesParam.toLowerCase() !== 'all tagoloan districts') {
-      const allowed = zonesParam
-        .split(',')
-        .map(s => s.trim().toLowerCase())
-        .filter(Boolean);
+    let allowedRoutes: string[] | null = null;
 
-      if (allowed.length > 0) {
-        filtered = filtered.filter(c => {
-          const brgy = (c.barangay || '').toLowerCase();
-          const routeCode = (c.routeCode || '').toLowerCase();
-          const addr = (c.address || '').toLowerCase();
-          return allowed.some(z => 
-            brgy.includes(z) || 
-            routeCode.includes(z) || 
-            addr.includes(z) ||
-            (z === 'sta. cruz' && brgy.includes('santa cruz')) ||
-            (z === 'santa cruz' && brgy.includes('sta. cruz')) ||
-            (z === 'sta. ana' && brgy.includes('santa ana')) ||
-            (z === 'santa ana' && brgy.includes('sta. ana'))
-          );
-        });
-      }
+    if (zonesParam && typeof zonesParam === 'string' && zonesParam.toLowerCase() !== 'all' && zonesParam.toLowerCase() !== 'all tagoloan districts') {
+      allowedRoutes = zonesParam
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+    } else if (readerAssignedRoutes) {
+      allowedRoutes = readerAssignedRoutes;
+    }
+
+    if (allowedRoutes && allowedRoutes.length > 0) {
+      filtered = filtered.filter(c => isConsumerInAssignedAreas(c, allowedRoutes));
+    } else if (targetReaderKey && readerAssignedRoutes && readerAssignedRoutes.length === 0) {
+      // Reader has no assigned routes, isolate data completely
+      filtered = [];
     }
 
     if (status && typeof status === 'string' && status.toLowerCase() !== 'all') {

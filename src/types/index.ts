@@ -202,6 +202,6 @@ export type ActiveScreen =
   | 'history'
   | 'audit_log'
   | 'debug'
-  | 'meter_readers' // Deprecated in favor of 'debug'
+  | 'meter_readers'
   | 'flutter_config'
   | 'token_setup'; // Backwards-compatible alias

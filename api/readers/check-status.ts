@@ -1,4 +1,6 @@
 // Vercel Serverless Function: /api/readers/check-status
+import { INITIAL_READERS } from '../../src/data/seedData';
+
 export default function handler(req: any, res?: any) {
   const send = (status: number, payload: any) => {
     const json = JSON.stringify(payload);
@@ -50,16 +52,23 @@ export default function handler(req: any, res?: any) {
     } catch {}
   }
 
-  const id = (query.id || 'RDR-001') as string;
+  const lookupKey = (query.id || query.username || query.employeeId || '').toLowerCase().trim();
+  const reader = INITIAL_READERS.find(
+    r => r.id.toLowerCase() === lookupKey ||
+         r.username.toLowerCase() === lookupKey ||
+         r.employeeId.toLowerCase() === lookupKey
+  ) || INITIAL_READERS[0];
 
   const resp = {
     success: true,
-    id,
-    name: 'Juan Dela Cruz',
-    employeeId: 'TWD-2024-001',
-    status: 'active',
-    assignedRoutes: ['Poblacion', 'Baluarte'],
-    approvedAt: '2026-01-15T08:30:00Z',
+    id: reader.id,
+    username: reader.username,
+    name: reader.name,
+    employeeId: reader.employeeId,
+    status: reader.status,
+    employmentStatus: reader.employmentStatus,
+    assignedRoutes: reader.assignedRoutes,
+    approvedAt: '2026-08-01T08:30:00Z',
     approvedBy: 'Engr. Roberto M. Dael',
   };
 

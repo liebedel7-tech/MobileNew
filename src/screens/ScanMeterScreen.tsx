@@ -417,13 +417,14 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
           setIdentifiedTagNumber(tag);
           setIdentifiedEntities(entities);
 
-          // Step A: Check if direct tag or serial matches database
-          let matched = await DatabaseHelper.getConsumerByTagOrMeterNumber(tag);
+          // Step A: Check if direct tag or serial matches database strictly within assigned routes
+          const readerRoutes = currentUser?.assignedRoutes || (currentUser?.zone ? [currentUser.zone] : undefined);
+          let matched = await DatabaseHelper.getConsumerByTagOrMeterNumber(tag, readerRoutes);
 
           // Step B: Check other entities detected
           if (!matched && entities.length > 1) {
             for (const entity of entities) {
-              const m = await DatabaseHelper.getConsumerByTagOrMeterNumber(entity);
+              const m = await DatabaseHelper.getConsumerByTagOrMeterNumber(entity, readerRoutes);
               if (m) {
                 matched = m;
                 break;

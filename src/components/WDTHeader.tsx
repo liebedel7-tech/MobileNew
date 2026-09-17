@@ -12,6 +12,7 @@ import {
 import { StaffUser, SyncState, ActiveScreen } from '../types';
 import { OfficialLogo } from './OfficialLogo';
 import { APP_OFFICIAL_TITLE } from '../constants/branding';
+import { useDeviceInstallStatus } from '../services/installService';
 
 interface WDTHeaderProps {
   user: StaffUser | null;
@@ -38,6 +39,8 @@ export const WDTHeader: React.FC<WDTHeaderProps> = ({
   onOpenApkModal,
   wsStatus = 'CONNECTED',
 }) => {
+  const { isInstalled } = useDeviceInstallStatus();
+
   return (
     <header className="w-full flex items-center justify-between px-3 sm:px-4 py-2.5 bg-slate-900 border-b border-slate-800 text-slate-100 select-none sticky top-0 left-0 right-0 z-40 shadow-md shrink-0 overscroll-none [overscroll-behavior:none] touch-none">
       {/* Brand Identity with Official Logo */}
@@ -91,14 +94,16 @@ export const WDTHeader: React.FC<WDTHeaderProps> = ({
           <RefreshCw className={`w-3.5 h-3.5 ${syncState.syncInProgress ? 'animate-spin text-sky-400' : ''}`} />
         </button>
 
-        {/* Download / Install Mobile App Button */}
-        <button
-          onClick={onOpenApkModal}
-          className="p-2 rounded-lg bg-slate-800 hover:bg-slate-750 border border-slate-700 text-emerald-400 hover:text-emerald-300 transition"
-          title="Download Android APK / Install App"
-        >
-          <Smartphone className="w-3.5 h-3.5" />
-        </button>
+        {/* Download / Install Mobile App Button - Only shown if not yet installed */}
+        {!isInstalled && (
+          <button
+            onClick={onOpenApkModal}
+            className="p-2 rounded-lg bg-slate-800 hover:bg-slate-750 border border-slate-700 text-emerald-400 hover:text-emerald-300 transition cursor-pointer"
+            title="Download Android APK / Install App"
+          >
+            <Smartphone className="w-3.5 h-3.5" />
+          </button>
+        )}
 
         {/* Diagnostics / Settings */}
         <button

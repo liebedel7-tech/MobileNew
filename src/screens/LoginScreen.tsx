@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Droplet, 
   ShieldCheck, 
@@ -16,7 +16,9 @@ import {
   RefreshCw,
   Smartphone,
   AlertCircle,
-  Sparkles
+  Sparkles,
+  Ban,
+  UserCheck
 } from 'lucide-react';
 import { StaffUser, ReaderAccount } from '../types';
 import { WebSocketService } from '../services/websocketService';
@@ -25,6 +27,13 @@ import { SyncService } from '../services/syncService';
 import { universalApiFetch, getApiEndpoint } from '../services/apiConfig';
 import { OfficialLogo } from '../components/OfficialLogo';
 import { APP_OFFICIAL_BADGE, APP_OFFICIAL_TITLE } from '../constants/branding';
+import { 
+  TAGOLOAN_BARANGAYS, 
+  calculateLocationOccupancies, 
+  checkIsLocationOccupied, 
+  areLocationsEqual,
+  LocationOccupancy 
+} from '../constants/routes';
 
 interface LoginScreenProps {
   onLogin: (user: StaffUser) => void;
@@ -51,6 +60,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Registered Readers State for Real-Time Location Occupancy
+  const [registeredReaders, setRegisteredReaders] = useState<ReaderAccount[]>([]);
+  const [isLoadingLocations, setIsLoadingLocations] = useState(false);
+
   // Registration Form State
   const [regName, setRegName] = useState('');
   const [regEmployeeId, setRegEmployeeId] = useState('');
@@ -58,27 +71,74 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [regPin, setRegPin] = useState('');
   const [regContact, setRegContact] = useState('');
   const [regEmail, setRegEmail] = useState('');
-  const [regSelectedRoutes, setRegSelectedRoutes] = useState<string[]>(['Poblacion']);
+  const [regSelectedRoutes, setRegSelectedRoutes] = useState<string[]>([]);
   const [isRegistering, setIsRegistering] = useState(false);
 
-  const TAGOLOAN_BARANGAYS = [
-    'Poblacion',
-    'Baluarte',
-    'Casinglot',
-    'Mohon',
-    'Natumolan',
-    'Sta. Cruz',
-    'Sta. Ana',
-    'Sugbongcogon',
-    'Gracia',
-    'Rosario',
-  ];
+  // Fetch current readers from local database and Central Server to determine occupied routes
+  const loadReadersAndOccupancy = useCallback(async () => {
+    try {
+      const local = await DatabaseHelper.getLocalReaders();
+      setRegisteredReaders(local);
+
+      try {
+        const res = await universalApiFetch('/api/readers');
+        if (res.ok) {
+          const data = await res.json();
+          const serverList = data.readers || data.staff || [];
+          if (Array.isArray(serverList) && serverList.length > 0) {
+            const map = new Map<string, ReaderAccount>();
+            local.forEach(r => map.set((r.username || r.id).toLowerCase(), r));
+            serverList.forEach((r: ReaderAccount) => map.set((r.username || r.id).toLowerCase(), r));
+            const merged = Array.from(map.values());
+            setRegisteredReaders(merged);
+          }
+        }
+      } catch {
+        // Offline fallback is already loaded
+      }
+    } catch (err) {
+      console.warn('Error loading readers for occupancy:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadReadersAndOccupancy();
+    const interval = setInterval(loadReadersAndOccupancy, 4000);
+    return () => clearInterval(interval);
+  }, [loadReadersAndOccupancy]);
+
+  // Compute live location occupancies
+  const locationOccupancies: LocationOccupancy[] = calculateLocationOccupancies(registeredReaders);
+  const availableLocations = locationOccupancies.filter(l => !l.isOccupied).map(l => l.location);
+  const occupiedLocations = locationOccupancies.filter(l => l.isOccupied);
+
+  // Set default initial selection to the first available/unoccupied route
+  useEffect(() => {
+    if (availableLocations.length > 0) {
+      setRegSelectedRoutes(prev => {
+        // Filter out any previously selected routes that are now occupied
+        const stillAvailable = prev.filter(r => availableLocations.some(av => areLocationsEqual(av, r)));
+        if (stillAvailable.length > 0) return stillAvailable;
+        return [availableLocations[0]];
+      });
+    } else {
+      setRegSelectedRoutes([]);
+    }
+  }, [registeredReaders]);
 
   const toggleRouteSelection = (route: string) => {
+    const occ = locationOccupancies.find(l => areLocationsEqual(l.location, route));
+    if (occ && occ.isOccupied) {
+      // Location is occupied by an active reader - cannot select!
+      setError(`⚠️ Location "${route}" is already occupied by assigned reader ${occ.assignedReaderName}. Please select an available location.`);
+      return;
+    }
+
+    setError(null);
     setRegSelectedRoutes((prev) => {
-      if (prev.includes(route)) {
+      if (prev.some(r => areLocationsEqual(r, route))) {
         if (prev.length === 1) return prev; // Keep at least one selected
-        return prev.filter((r) => r !== route);
+        return prev.filter((r) => !areLocationsEqual(r, route));
       } else {
         return [...prev, route];
       }
@@ -333,6 +393,26 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       return;
     }
 
+    if (regSelectedRoutes.length === 0) {
+      setError('Please select at least one available coverage area');
+      return;
+    }
+
+    // Verify none of the selected routes are occupied by an active reader
+    const occupiedConflicts: Array<{ route: string; occupiedBy: string }> = [];
+    for (const route of regSelectedRoutes) {
+      const occ = locationOccupancies.find(l => areLocationsEqual(l.location, route));
+      if (occ && occ.isOccupied) {
+        occupiedConflicts.push({ route, occupiedBy: occ.assignedReaderName || 'another meter reader' });
+      }
+    }
+
+    if (occupiedConflicts.length > 0) {
+      const details = occupiedConflicts.map(c => `"${c.route}" (assigned to ${c.occupiedBy})`).join(', ');
+      setError(`Cannot register: Location ${details} is already occupied. Please select only available locations.`);
+      return;
+    }
+
     setIsRegistering(true);
     setError(null);
 
@@ -345,49 +425,68 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       pin: regPin.trim(),
       contactNumber: regContact.trim(),
       email: regEmail.trim() || `${regUsername.toLowerCase()}@tagoloanwater.gov.ph`,
-      assignedRoutes: regSelectedRoutes.length > 0 ? regSelectedRoutes : ['Poblacion'],
+      assignedRoutes: [...regSelectedRoutes],
       status: 'active', // Automatically active immediately upon creation
       deviceInfo: navigator.userAgent || 'Field Mobile Device',
       createdAt: new Date().toISOString(),
     };
 
-    // 1. Instantly save to local database
-    await DatabaseHelper.saveLocalReader(localReaderRecord);
+    try {
+      // 1. Instantly save to local database
+      await DatabaseHelper.saveLocalReader(localReaderRecord);
 
-    // 2. Dispatch background synchronization to central admin
-    universalApiFetch('/api/readers/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+      // 2. Dispatch background synchronization to central admin
+      try {
+        const response = await universalApiFetch('/api/readers/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: localReaderRecord.id,
+            name: localReaderRecord.name,
+            employeeId: localReaderRecord.employeeId,
+            username: localReaderRecord.username,
+            pin: localReaderRecord.pin,
+            contactNumber: localReaderRecord.contactNumber,
+            email: localReaderRecord.email,
+            assignedRoutes: localReaderRecord.assignedRoutes,
+            deviceInfo: localReaderRecord.deviceInfo,
+            status: 'active',
+          }),
+        });
+
+        if (!response.ok) {
+          const resData = await response.json().catch(() => null);
+          if (resData && resData.message) {
+            setError(resData.message);
+            setIsRegistering(false);
+            return;
+          }
+        }
+      } catch {
+        // Continue with local save if offline
+      }
+
+      SyncService.syncReaders().catch(() => {});
+
+      // Configure sync engine for the reader's chosen routes
+      SyncService.setActiveRoutes(localReaderRecord.assignedRoutes);
+
+      // 3. Immediately launch meter reader terminal for instant operational use
+      setIsRegistering(false);
+      onLogin({
         id: localReaderRecord.id,
-        name: localReaderRecord.name,
         employeeId: localReaderRecord.employeeId,
         username: localReaderRecord.username,
-        pin: localReaderRecord.pin,
-        contactNumber: localReaderRecord.contactNumber,
-        email: localReaderRecord.email,
+        name: localReaderRecord.name,
+        role: 'Meter Reader I',
+        zone: localReaderRecord.assignedRoutes.join(', '),
         assignedRoutes: localReaderRecord.assignedRoutes,
-        deviceInfo: localReaderRecord.deviceInfo,
         status: 'active',
-      }),
-    }).catch(() => {});
-    SyncService.syncReaders().catch(() => {});
-
-    // Configure sync engine for the reader's chosen routes
-    SyncService.setActiveRoutes(localReaderRecord.assignedRoutes);
-
-    // 3. Immediately launch meter reader terminal for instant operational use
-    setIsRegistering(false);
-    onLogin({
-      id: localReaderRecord.id,
-      employeeId: localReaderRecord.employeeId,
-      username: localReaderRecord.username,
-      name: localReaderRecord.name,
-      role: 'Meter Reader I',
-      zone: localReaderRecord.assignedRoutes.join(', '),
-      assignedRoutes: localReaderRecord.assignedRoutes,
-      status: 'active',
-    });
+      });
+    } catch (err: any) {
+      setIsRegistering(false);
+      setError(err?.message || 'Failed to complete registration. Please try again.');
+    }
   };
 
   // Check Approval Status manually
@@ -696,57 +795,110 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 </div>
               </div>
 
-              {/* Coverage Area Selection */}
+              {/* Coverage Area Selection with Real-Time Occupancy Detection */}
               <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-[11px] font-semibold text-slate-300">
-                    Assigned Coverage Areas <span className="text-emerald-400 font-normal">({regSelectedRoutes.length} selected)</span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (regSelectedRoutes.length === TAGOLOAN_BARANGAYS.length) {
-                        setRegSelectedRoutes(['Poblacion']);
-                      } else {
-                        setRegSelectedRoutes([...TAGOLOAN_BARANGAYS]);
+                <div className="flex items-center justify-between mb-1.5">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-300">
+                      Assigned Coverage Areas
+                    </label>
+                    <span className="text-[10px] text-slate-400">
+                      <span className="text-emerald-400 font-medium">{availableLocations.length} Available</span>
+                      {' • '}
+                      <span className="text-amber-400/90">{occupiedLocations.length} Occupied</span>
+                      {' • '}
+                      <span className="text-sky-300 font-bold">{regSelectedRoutes.length} Selected</span>
+                    </span>
+                  </div>
+                  {availableLocations.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (regSelectedRoutes.length === availableLocations.length) {
+                          setRegSelectedRoutes([availableLocations[0]]);
+                        } else {
+                          setRegSelectedRoutes([...availableLocations]);
+                        }
+                      }}
+                      className="text-[10px] text-sky-400 hover:text-sky-300 font-mono underline cursor-pointer"
+                    >
+                      {regSelectedRoutes.length === availableLocations.length ? 'Reset to 1' : 'Select All Available'}
+                    </button>
+                  )}
+                </div>
+
+                {availableLocations.length === 0 ? (
+                  <div className="p-3 bg-amber-950/70 border border-amber-800/80 rounded-xl text-xs text-amber-200 flex items-start gap-2.5">
+                    <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold block text-amber-300">All Locations Occupied</span>
+                      <p className="text-[10.5px] text-amber-200/90 mt-0.5">
+                        All 10 barangays in Tagoloan Water District currently have active meter readers assigned. Please contact the administrator.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-40 overflow-y-auto p-1.5 bg-slate-950/95 border border-slate-700/80 rounded-xl scrollbar-thin scrollbar-thumb-slate-800">
+                    {locationOccupancies.map((loc) => {
+                      const isOccupied = loc.isOccupied;
+                      const isSelected = regSelectedRoutes.some(r => areLocationsEqual(r, loc.location));
+
+                      if (isOccupied) {
+                        return (
+                          <div
+                            key={loc.location}
+                            className="flex items-center justify-between p-2 rounded-lg text-[11px] bg-slate-900/40 border border-slate-800/80 text-slate-500 opacity-65 cursor-not-allowed select-none transition"
+                            title={`Unavailable: Already assigned to active meter reader ${loc.assignedReaderName}`}
+                          >
+                            <div className="flex flex-col min-w-0 pr-1.5">
+                              <div className="flex items-center gap-1.5">
+                                <Lock className="w-3 h-3 text-amber-500/70 shrink-0" />
+                                <span className="font-medium text-slate-400 line-through truncate">{loc.location}</span>
+                              </div>
+                              <span className="text-[9px] text-amber-400/80 truncate font-mono mt-0.5">
+                                Taken by: {loc.assignedReaderName}
+                              </span>
+                            </div>
+                            <span className="px-1.5 py-0.5 rounded bg-amber-950/80 border border-amber-800/60 text-amber-400 text-[8.5px] font-bold uppercase tracking-wider shrink-0">
+                              Occupied
+                            </span>
+                          </div>
+                        );
                       }
-                    }}
-                    className="text-[10px] text-sky-400 hover:text-sky-300 font-mono underline cursor-pointer"
-                  >
-                    {regSelectedRoutes.length === TAGOLOAN_BARANGAYS.length ? 'Reset to 1' : 'Select All'}
-                  </button>
-                </div>
-                
-                <div className="grid grid-cols-2 sm:grid-cols-2 gap-1 max-h-32 overflow-y-auto p-1.5 bg-slate-950/90 border border-slate-700/80 rounded-xl scrollbar-thin scrollbar-thumb-slate-800">
-                  {TAGOLOAN_BARANGAYS.map((brgy) => {
-                    const isSelected = regSelectedRoutes.includes(brgy);
-                    return (
-                      <button
-                        key={brgy}
-                        type="button"
-                        onClick={() => toggleRouteSelection(brgy)}
-                        className={`flex items-center justify-between px-2 py-1 rounded-lg text-[11px] font-medium transition cursor-pointer border text-left touch-manipulation ${
-                          isSelected
-                            ? 'bg-sky-600/30 border-sky-500 text-white font-bold shadow-sm'
-                            : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200'
-                        }`}
-                      >
-                        <span className="truncate">{brgy}</span>
-                        {isSelected ? (
-                          <CheckCircle2 className="w-3 h-3 text-sky-400 shrink-0 ml-1" />
-                        ) : (
-                          <div className="w-3 h-3 rounded-full border border-slate-600 shrink-0 ml-1" />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
+
+                      return (
+                        <button
+                          key={loc.location}
+                          type="button"
+                          onClick={() => toggleRouteSelection(loc.location)}
+                          className={`flex items-center justify-between p-2 rounded-lg text-[11px] font-medium transition cursor-pointer border text-left touch-manipulation ${
+                            isSelected
+                              ? 'bg-sky-600/30 border-sky-500 text-white font-bold shadow-sm'
+                              : 'bg-slate-900/80 border-slate-800 text-slate-300 hover:border-slate-600 hover:text-white'
+                          }`}
+                        >
+                          <div className="flex flex-col min-w-0 pr-1">
+                            <span className="truncate">{loc.location}</span>
+                            <span className="text-[9px] text-emerald-400 font-mono mt-0.5">
+                              🟢 Available
+                            </span>
+                          </div>
+                          {isSelected ? (
+                            <CheckCircle2 className="w-3.5 h-3.5 text-sky-400 shrink-0 ml-1" />
+                          ) : (
+                            <div className="w-3.5 h-3.5 rounded-full border border-slate-600 shrink-0 ml-1" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               <button
                 type="submit"
-                disabled={isRegistering}
-                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 text-xs uppercase tracking-wider transition cursor-pointer disabled:opacity-50 active:scale-[0.99] mt-1"
+                disabled={isRegistering || availableLocations.length === 0 || regSelectedRoutes.length === 0}
+                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 text-xs uppercase tracking-wider transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.99] mt-1"
               >
                 <span>{isRegistering ? 'Creating Account...' : 'Create Account & Start'}</span>
                 <BadgeCheck className="w-4 h-4" />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Sparkles } from 'lucide-react';
 import { 
   Consumer, 
@@ -33,6 +33,7 @@ import { BatchSubmissionScreen } from './screens/BatchSubmissionScreen';
 import { HistoryScreen } from './screens/HistoryScreen';
 import { AuditLogScreen } from './screens/AuditLogScreen';
 import { DebugScreen } from './screens/DebugScreen';
+import { MeterReadersScreen } from './screens/MeterReadersScreen';
 import { FlutterConfigScreen } from './screens/FlutterConfigScreen';
 
 export function App() {
@@ -81,19 +82,27 @@ export function App() {
     confidence?: number;
   }>({});
 
+  const currentUserRef = useRef<StaffUser | null>(null);
+
+  useEffect(() => {
+    currentUserRef.current = currentUser;
+  }, [currentUser]);
+
   // Initialize DB, WebSocket and background services
   useEffect(() => {
     const initApp = async () => {
       // Initialize DatabaseHelper (loads default Tagoloan seed data if empty)
       await DatabaseHelper.init();
       
-      const [allConsumers, allReadings, allLogs] = await Promise.all([
-        DatabaseHelper.getAllConsumers(),
+      const user = currentUserRef.current;
+      const routes = user?.assignedRoutes || (user?.zone ? [user.zone] : undefined);
+      const [initialConsumers, allReadings, allLogs] = await Promise.all([
+        user ? DatabaseHelper.getConsumersForReader(routes) : Promise.resolve([]),
         DatabaseHelper.getAllReadings(),
         DatabaseHelper.getAllAuditLogs(),
       ]);
 
-      setConsumers(allConsumers);
+      setConsumers(initialConsumers);
       setReadings(allReadings);
       setAuditLogs(allLogs);
 
@@ -110,7 +119,13 @@ export function App() {
     // Subscribe to SyncService
     const unsubscribeSync = SyncService.subscribe((state) => {
       setSyncState(state);
-      DatabaseHelper.getAllConsumers().then(setConsumers);
+      const user = currentUserRef.current;
+      if (user) {
+        const routes = user.assignedRoutes || (user.zone ? [user.zone] : undefined);
+        DatabaseHelper.getConsumersForReader(routes).then(setConsumers);
+      } else {
+        setConsumers([]);
+      }
       DatabaseHelper.getAllReadings().then(setReadings);
       DatabaseHelper.getAllAuditLogs().then(setAuditLogs);
     });
@@ -184,11 +199,13 @@ export function App() {
 
   // Handlers
   const handleLogin = async (user: StaffUser) => {
+    currentUserRef.current = user;
     setCurrentUser(user);
     
     // Configure background sync & database queries strictly for reader's coverage zones
     const routes = user.assignedRoutes || (user.zone ? [user.zone] : ['Poblacion']);
     SyncService.setActiveRoutes(routes);
+    SyncService.setActiveReader(user);
 
     // Broadcast login over WebSocket
     WebSocketService.send('FIELD_STAFF_ACTIVITY', {
@@ -212,9 +229,6 @@ export function App() {
       durationMs: 380,
     });
 
-    // Trigger instant targeted sync for assigned coverage areas
-    SyncService.syncNow().catch(() => {});
-
     const [assignedConsumers, allReadings, allLogs] = await Promise.all([
       DatabaseHelper.getConsumersForReader(routes),
       DatabaseHelper.getAllReadings(),
@@ -223,6 +237,13 @@ export function App() {
     setConsumers(assignedConsumers);
     setReadings(allReadings);
     setAuditLogs(allLogs);
+
+    // Trigger instant targeted sync for assigned coverage areas
+    SyncService.syncNow()
+      .then(() => {
+        DatabaseHelper.getConsumersForReader(routes).then(setConsumers);
+      })
+      .catch(() => {});
   };
 
   const handleLogout = async () => {
@@ -242,8 +263,11 @@ export function App() {
       });
     }
 
+    currentUserRef.current = null;
     SyncService.setActiveRoutes([]);
+    SyncService.setActiveReader(null);
     setCurrentUser(null);
+    setConsumers([]);
 
     setLoadingProcess({
       type: 'logout',
@@ -537,6 +561,7 @@ export function App() {
           {activeScreen === 'consumers' && (
             <ConsumersScreen
               consumers={consumers}
+              currentUser={currentUser}
               onSelectConsumer={(c: Consumer) => {
                 setSelectedConsumer(c);
                 navigateTo('consumer_details', {
@@ -549,29 +574,61 @@ export function App() {
             />
           )}
 
-          {activeScreen === 'consumer_details' && selectedConsumer && (
-            <ConsumerDetailsScreen
-              consumer={selectedConsumer}
-              readings={readings}
-              onStartReading={handleStartReading}
-              onScanMeter={handleScanMeter}
-              onNavigate={navigateTo}
-            />
+          {activeScreen === 'consumer_details' && (
+            selectedConsumer ? (
+              <ConsumerDetailsScreen
+                consumer={selectedConsumer}
+                readings={readings}
+                onStartReading={handleStartReading}
+                onScanMeter={handleScanMeter}
+                onNavigate={navigateTo}
+              />
+            ) : (
+              <ConsumersScreen
+                consumers={consumers}
+                currentUser={currentUser}
+                onSelectConsumer={(c: Consumer) => {
+                  setSelectedConsumer(c);
+                  navigateTo('consumer_details', {
+                    title: 'Loading Consumer Profile',
+                    subtitle: `${c.name} (${c.accountNumber})`,
+                  });
+                }}
+                onNavigate={navigateTo}
+                onStartReading={handleStartReading}
+              />
+            )
           )}
 
-          {activeScreen === 'reading_entry' && selectedConsumer && (
-            <ReadingEntryScreen
-              consumer={selectedConsumer}
-              user={currentUser}
-              allConsumers={consumers}
-              initialReadingValue={ocrInitialData.readingValue}
-              initialPhotoUrl={ocrInitialData.photoUrl}
-              initialOcrConfidence={ocrInitialData.confidence}
-              onSaveReading={handleSaveReading}
-              onNavigate={navigateTo}
-              onScanWithCamera={handleScanMeter}
-              onSelectNextConsumer={(c: Consumer) => setSelectedConsumer(c)}
-            />
+          {activeScreen === 'reading_entry' && (
+            selectedConsumer ? (
+              <ReadingEntryScreen
+                consumer={selectedConsumer}
+                user={currentUser}
+                allConsumers={consumers}
+                initialReadingValue={ocrInitialData.readingValue}
+                initialPhotoUrl={ocrInitialData.photoUrl}
+                initialOcrConfidence={ocrInitialData.confidence}
+                onSaveReading={handleSaveReading}
+                onNavigate={navigateTo}
+                onScanWithCamera={handleScanMeter}
+                onSelectNextConsumer={(c: Consumer) => setSelectedConsumer(c)}
+              />
+            ) : (
+              <ConsumersScreen
+                consumers={consumers}
+                currentUser={currentUser}
+                onSelectConsumer={(c: Consumer) => {
+                  setSelectedConsumer(c);
+                  navigateTo('reading_entry', {
+                    title: 'Loading Reading Form',
+                    subtitle: `${c.name} (${c.accountNumber})`,
+                  });
+                }}
+                onNavigate={navigateTo}
+                onStartReading={handleStartReading}
+              />
+            )
           )}
 
           {activeScreen === 'scan_meter' && (
@@ -611,12 +668,24 @@ export function App() {
             />
           )}
 
-          {(activeScreen === 'debug' || activeScreen === 'meter_readers') && (
+          {activeScreen === 'debug' && (
             <DebugScreen
               syncState={syncState}
               onNavigate={navigateTo}
               onResetDatabase={handleResetDatabase}
               onSyncTrigger={handleTriggerSync}
+            />
+          )}
+
+          {activeScreen === 'meter_readers' && (
+            <MeterReadersScreen
+              currentUser={currentUser}
+              onNavigate={navigateTo}
+              onSwitchUser={(user) => {
+                setCurrentUser(user);
+                SyncService.setActiveReader(user);
+                reloadData();
+              }}
             />
           )}
 

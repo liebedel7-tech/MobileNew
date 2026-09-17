@@ -12,10 +12,11 @@ import {
   Droplet,
   Smartphone
 } from 'lucide-react';
-import { Consumer, ActiveScreen } from '../types';
+import { Consumer, ActiveScreen, StaffUser } from '../types';
 
 interface ConsumersScreenProps {
   consumers: Consumer[];
+  currentUser?: StaffUser | null;
   onSelectConsumer: (consumer: Consumer) => void;
   onNavigate: (screen: ActiveScreen) => void;
   onStartReading: (consumer: Consumer) => void;
@@ -23,6 +24,7 @@ interface ConsumersScreenProps {
 
 export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
   consumers,
+  currentUser,
   onSelectConsumer,
   onNavigate,
   onStartReading,
@@ -75,10 +77,15 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
         </span>
       </div>
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <h2 className="text-lg font-black text-white uppercase tracking-tight">
           Consumer Directory
         </h2>
+        {currentUser && (
+          <span className="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-sky-950 border border-sky-700/80 text-sky-300 font-semibold">
+            Assigned: {currentUser.assignedRoutes && currentUser.assignedRoutes.length > 0 ? currentUser.assignedRoutes.join(', ') : currentUser.zone}
+          </span>
+        )}
       </div>
 
       {/* Search Input */}

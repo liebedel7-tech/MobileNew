@@ -2,10 +2,13 @@ import { Consumer, MeterReading, SyncState } from '../types';
 import { DatabaseHelper } from './databaseHelper';
 import { LoggerService } from './loggerService';
 import { universalApiFetch, getApiEndpoint } from './apiConfig';
+import { isConsumerInAssignedAreas } from '../constants/routes';
 
 export class SyncService {
   private static timerId: any = null;
   private static activeRoutes: string[] = [];
+  private static activeReaderId: string = '';
+  private static activeReaderUsername: string = '';
   private static syncState: SyncState = {
     isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
     isSimulatedOffline: false,
@@ -37,6 +40,20 @@ export class SyncService {
 
   static setActiveRoutes(routes: string[]) {
     this.activeRoutes = Array.isArray(routes) ? routes : [];
+  }
+
+  static setActiveReader(reader: { id?: string; username?: string; assignedRoutes?: string[] } | null) {
+    if (reader) {
+      this.activeReaderId = reader.id || '';
+      this.activeReaderUsername = reader.username || '';
+      if (reader.assignedRoutes) {
+        this.activeRoutes = Array.isArray(reader.assignedRoutes) ? reader.assignedRoutes : [];
+      }
+    } else {
+      this.activeReaderId = '';
+      this.activeReaderUsername = '';
+      this.activeRoutes = [];
+    }
   }
 
   static getActiveRoutes(): string[] {
@@ -313,10 +330,17 @@ export class SyncService {
       // 2. Pull latest consumers (strictly for active meter reader's assigned coverage areas)
       this.updateState({ lastSyncMessage: 'Downloading assigned consumer records...' });
       try {
-        let consumerQuery = '';
+        const params = new URLSearchParams();
         if (this.activeRoutes && this.activeRoutes.length > 0) {
-          consumerQuery = `?zones=${encodeURIComponent(this.activeRoutes.join(','))}`;
+          params.append('zones', this.activeRoutes.join(','));
         }
+        if (this.activeReaderId) {
+          params.append('readerId', this.activeReaderId);
+        }
+        if (this.activeReaderUsername) {
+          params.append('username', this.activeReaderUsername);
+        }
+        const consumerQuery = params.toString() ? `?${params.toString()}` : '';
         const consumerRes = await universalApiFetch(`/api/consumers${consumerQuery}`, {
           headers: { 'Accept': 'application/json' },
         });
@@ -324,11 +348,16 @@ export class SyncService {
           const consumerData = await safeParseJson(consumerRes);
           const rawConsumers = consumerData?.consumers || consumerData?.data;
           if (rawConsumers && Array.isArray(rawConsumers)) {
+            // Strictly filter by active reader's assigned routes if configured
+            const allowedConsumers = this.activeRoutes && this.activeRoutes.length > 0
+              ? rawConsumers.filter((c: Consumer) => isConsumerInAssignedAreas(c, this.activeRoutes))
+              : rawConsumers;
+
             // Merge with local reading flags
             const localReadings = await DatabaseHelper.getAllReadings();
             const readingsMap = new Map(localReadings.map((r) => [r.consumerId, r]));
 
-            const enrichedConsumers: Consumer[] = rawConsumers.map((c: Consumer) => {
+            const enrichedConsumers: Consumer[] = allowedConsumers.map((c: Consumer) => {
               const existingReading = readingsMap.get(c.id);
               return {
                 ...c,

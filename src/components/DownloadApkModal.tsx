@@ -11,10 +11,12 @@ import {
   HelpCircle,
   Layers,
   Copy,
-  Sparkles
+  Sparkles,
+  RotateCcw
 } from 'lucide-react';
 import { OfficialLogo } from './OfficialLogo';
 import { APP_OFFICIAL_TITLE, APP_OFFICIAL_BADGE } from '../constants/branding';
+import { useDeviceInstallStatus, markAppAsInstalled } from '../services/installService';
 
 interface DownloadApkModalProps {
   onClose: () => void;
@@ -25,9 +27,12 @@ export const DownloadApkModal: React.FC<DownloadApkModalProps> = ({
   onClose,
   deferredPrompt,
 }) => {
+  const { isInstalled, resetInstallStatus } = useDeviceInstallStatus();
   const [installStatus, setInstallStatus] = useState<'IDLE' | 'INSTALLED' | 'FAILED'>('IDLE');
   const [activeTab, setActiveTab] = useState<'INSTALL' | 'FLUTTER_APK' | 'MANUAL'>('INSTALL');
   const [copiedCmd, setCopiedCmd] = useState(false);
+
+  const effectiveIsInstalled = isInstalled || installStatus === 'INSTALLED';
 
   const handleTriggerNativeInstall = async () => {
     if (deferredPrompt && typeof deferredPrompt.prompt === 'function') {
@@ -37,12 +42,15 @@ export const DownloadApkModal: React.FC<DownloadApkModalProps> = ({
           const { outcome } = await deferredPrompt.userChoice;
           if (outcome === 'accepted') {
             setInstallStatus('INSTALLED');
+            markAppAsInstalled();
           }
         }
       } catch (err) {
         console.warn('Install prompt was already triggered or dismissed:', err);
       }
     } else {
+      markAppAsInstalled();
+      setInstallStatus('INSTALLED');
       alert(
         'To install the app on your device:\n\n1. Open this app in Chrome / Samsung Internet / Safari.\n2. Tap the browser Menu (⋮ or Share).\n3. Tap "Install App" or "Add to Home Screen".\n\nYour device will install the standalone Tagoloan Water District App!'
       );
@@ -50,6 +58,8 @@ export const DownloadApkModal: React.FC<DownloadApkModalProps> = ({
   };
 
   const handleDownloadFlutterApkManifest = () => {
+    markAppAsInstalled();
+    setInstallStatus('INSTALLED');
     const flutterApkManifest = {
       app_name: 'Tagoloan Water District Meter Reader',
       framework: 'Flutter 3.29.0 (Dart 3.7.0)',
@@ -176,13 +186,36 @@ export const DownloadApkModal: React.FC<DownloadApkModalProps> = ({
               </div>
 
               {/* Action Button */}
-              <button
-                onClick={handleTriggerNativeInstall}
-                className="w-full bg-sky-600 hover:bg-sky-500 text-white font-black py-3.5 rounded-2xl shadow-xl shadow-sky-600/30 flex items-center justify-center gap-2 text-sm uppercase tracking-wider transition hover:scale-[1.01] active:scale-[0.99]"
-              >
-                <Download className="w-4 h-4" />
-                <span>Install the App on Your Device</span>
-              </button>
+              {effectiveIsInstalled ? (
+                <div className="space-y-2">
+                  <div className="w-full bg-emerald-950/80 border border-emerald-600/60 text-emerald-300 font-bold py-3.5 px-4 rounded-2xl shadow-lg flex items-center justify-center gap-2.5 text-sm text-center">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                    <span>App is Already Installed on This Device</span>
+                  </div>
+                  <div className="flex items-center justify-between px-1 text-[11px] text-slate-400">
+                    <span>Running in standalone native environment</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        resetInstallStatus();
+                        setInstallStatus('IDLE');
+                      }}
+                      className="text-slate-400 hover:text-sky-400 underline flex items-center gap-1"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      <span>Re-check / Reset</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={handleTriggerNativeInstall}
+                  className="w-full bg-sky-600 hover:bg-sky-500 text-white font-black py-3.5 rounded-2xl shadow-xl shadow-sky-600/30 flex items-center justify-center gap-2 text-sm uppercase tracking-wider transition hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Install the App on Your Device</span>
+                </button>
+              )}
 
               {/* Flutter Native Capabilities */}
               <div className="bg-slate-950 p-3.5 rounded-2xl border border-slate-800 space-y-2">
