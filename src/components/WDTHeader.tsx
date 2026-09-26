@@ -58,10 +58,30 @@ export const WDTHeader: React.FC<WDTHeaderProps> = ({
             <span className={`inline-flex items-center gap-1 text-[8px] sm:text-[9px] font-mono px-1.5 py-0.2 rounded-full border shrink-0 ${
               wsStatus === 'CONNECTED'
                 ? 'bg-emerald-950/80 text-emerald-300 border-emerald-700/60'
-                : 'bg-amber-950/80 text-amber-300 border-amber-700/60'
+                : wsStatus === 'RECONNECTING'
+                ? 'bg-amber-950/80 text-amber-300 border-amber-700/60 animate-pulse'
+                : wsStatus === 'CONNECTING'
+                ? 'bg-sky-950/80 text-sky-300 border-sky-700/60'
+                : 'bg-slate-800 text-slate-400 border-slate-700'
             }`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${wsStatus === 'CONNECTED' ? 'bg-emerald-400 animate-ping' : 'bg-amber-400'}`} />
-              <span>{wsStatus === 'CONNECTED' ? 'LIVE' : 'OFFLINE'}</span>
+              <span className={`w-1.5 h-1.5 rounded-full ${
+                wsStatus === 'CONNECTED' 
+                  ? 'bg-emerald-400 animate-ping' 
+                  : wsStatus === 'RECONNECTING'
+                  ? 'bg-amber-400 animate-pulse'
+                  : wsStatus === 'CONNECTING'
+                  ? 'bg-sky-400 animate-pulse'
+                  : 'bg-slate-400'
+              }`} />
+              <span>
+                {wsStatus === 'CONNECTED'
+                  ? 'LIVE'
+                  : wsStatus === 'RECONNECTING'
+                  ? 'RETRY'
+                  : wsStatus === 'CONNECTING'
+                  ? 'CONNECTING'
+                  : 'OFFLINE'}
+              </span>
             </span>
           </div>
           <p className="text-[9px] sm:text-[10px] text-slate-400 uppercase tracking-wider truncate">

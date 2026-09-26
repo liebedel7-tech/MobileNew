@@ -3,6 +3,7 @@ import http from 'http';
 import path from 'path';
 import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
+import { WebSocketServer, WebSocket as WsClient } from 'ws';
 
 dotenv.config();
 
@@ -24,7 +25,7 @@ app.use((req, res, next) => {
 });
 
 // Track active WebSocket connections (in standalone server mode)
-const activeClients = new Set<any>();
+const activeClients = new Set<WsClient>();
 
 function broadcastWebSocketEvent(eventType: string, data: any) {
   if (activeClients.size === 0) return;
@@ -39,7 +40,7 @@ function broadcastWebSocketEvent(eventType: string, data: any) {
       try {
         client.send(message);
       } catch (err) {
-        console.error('Error sending WS message:', err);
+        console.error('[WS] Error sending broadcast message:', err);
       }
     }
   }
@@ -47,75 +48,98 @@ function broadcastWebSocketEvent(eventType: string, data: any) {
 
 // Standalone HTTP & WebSocket server reference
 let server: http.Server | null = null;
+let wss: WebSocketServer | null = null;
 
 if (!process.env.VERCEL) {
   try {
     server = http.createServer(app);
-    // Dynamically initialize WebSocket server only in standalone container mode
-    import('ws').then(({ WebSocketServer }) => {
-      if (!server) return;
-      const wss = new WebSocketServer({ server, path: '/ws' });
+    wss = new WebSocketServer({ noServer: true });
 
-      wss.on('connection', (ws: any) => {
-        activeClients.add(ws);
-        console.log(`[WS] Field Device connected. Total active connections: ${activeClients.size}`);
+    // Explicit HTTP upgrade listener with path normalization and error trapping
+    server.on('upgrade', (request, socket, head) => {
+      try {
+        const rawUrl = request.url || '';
+        const pathname = rawUrl.split('?')[0];
 
-        ws.send(JSON.stringify({
-          type: 'CONNECTION_ESTABLISHED',
-          timestamp: new Date().toISOString(),
-          payload: {
-            status: 'CONNECTED',
-            server: 'Tagoloan Water District Central Billing Node',
-            activePeers: activeClients.size,
-            district: 'WDT-MISOR',
-          },
-        }));
-
-        ws.on('message', (raw: any) => {
-          try {
-            const parsed = JSON.parse(raw.toString());
-            if (parsed.type === 'PING') {
-              ws.send(JSON.stringify({
-                type: 'PONG',
-                timestamp: new Date().toISOString(),
-                payload: { echo: parsed.payload, serverTime: Date.now() },
-              }));
-            } else if (parsed.type === 'FIELD_READING_RECORDED') {
-              broadcastWebSocketEvent('LIVE_READING_UPDATE', parsed.payload);
-            } else if (parsed.type === 'FIELD_STAFF_ACTIVITY') {
-              broadcastWebSocketEvent('STAFF_ACTIVITY_STREAM', parsed.payload);
-            } else if (parsed.type === 'MODULE_NAVIGATION') {
-              broadcastWebSocketEvent('MODULE_NAVIGATION_BROADCAST', parsed.payload);
-            } else if (parsed.type === 'PROCESS_EVENT') {
-              broadcastWebSocketEvent('PROCESS_TELEMETRY_UPDATE', parsed.payload);
-            }
-          } catch {
-            // ignore malformed ws message
-          }
-        });
-
-        ws.on('close', () => {
-          activeClients.delete(ws);
-        });
-
-        ws.on('error', () => {
-          activeClients.delete(ws);
-        });
-      });
-
-      setInterval(() => {
-        if (activeClients.size > 0) {
-          broadcastWebSocketEvent('SERVER_HEARTBEAT', {
-            uptimeSeconds: process.uptime(),
-            activeClientsCount: activeClients.size,
+        if (pathname === '/ws' || pathname === '/ws/') {
+          wss!.handleUpgrade(request, socket, head, (ws) => {
+            wss!.emit('connection', ws, request);
           });
         }
-      }, 15000);
-    }).catch(() => {
-      // ws not loaded or in serverless mode
+        // If not /ws, do not destroy socket as Vite dev server or other tools may handle their own upgrades
+      } catch (upgradeErr) {
+        console.error('[WS] Error during upgrade handshake:', upgradeErr);
+        try {
+          socket.destroy();
+        } catch {
+          // ignore
+        }
+      }
     });
+
+    wss.on('connection', (ws: WsClient, req: http.IncomingMessage) => {
+      activeClients.add(ws);
+      const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+      console.log(`[WS] Field Device connected from ${clientIp}. Total active: ${activeClients.size}`);
+
+      // Send initial handshake confirmation packet
+      ws.send(JSON.stringify({
+        type: 'CONNECTION_ESTABLISHED',
+        timestamp: new Date().toISOString(),
+        payload: {
+          status: 'CONNECTED',
+          server: 'Tagoloan Water District Central Billing Node',
+          activePeers: activeClients.size,
+          district: 'WDT-MISOR',
+        },
+      }));
+
+      ws.on('message', (raw: any) => {
+        try {
+          const parsed = JSON.parse(raw.toString());
+          if (parsed.type === 'PING') {
+            ws.send(JSON.stringify({
+              type: 'PONG',
+              timestamp: new Date().toISOString(),
+              payload: { echo: parsed.payload, serverTime: Date.now() },
+            }));
+          } else if (parsed.type === 'FIELD_READING_RECORDED') {
+            broadcastWebSocketEvent('LIVE_READING_UPDATE', parsed.payload);
+          } else if (parsed.type === 'FIELD_STAFF_ACTIVITY') {
+            broadcastWebSocketEvent('STAFF_ACTIVITY_STREAM', parsed.payload);
+          } else if (parsed.type === 'MODULE_NAVIGATION') {
+            broadcastWebSocketEvent('MODULE_NAVIGATION_BROADCAST', parsed.payload);
+          } else if (parsed.type === 'PROCESS_EVENT') {
+            broadcastWebSocketEvent('PROCESS_TELEMETRY_UPDATE', parsed.payload);
+          }
+        } catch (msgErr) {
+          console.warn('[WS] Malformed message received:', msgErr);
+        }
+      });
+
+      ws.on('close', (code, reason) => {
+        activeClients.delete(ws);
+        console.log(`[WS] Field Device disconnected (${code}: ${reason || 'normal'}). Remaining active: ${activeClients.size}`);
+      });
+
+      ws.on('error', (err) => {
+        activeClients.delete(ws);
+        console.warn('[WS] Socket error encountered:', err);
+      });
+    });
+
+    // Server-to-client heartbeat interval
+    setInterval(() => {
+      if (activeClients.size > 0) {
+        broadcastWebSocketEvent('SERVER_HEARTBEAT', {
+          uptimeSeconds: process.uptime(),
+          activeClientsCount: activeClients.size,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    }, 15000);
   } catch (err) {
-    console.warn('WebSocket server init skipped:', err);
+    console.warn('[WS] WebSocket server initialization skipped or failed:', err);
   }
 }
 
@@ -214,6 +238,24 @@ app.get(['/api/health', '/health'], (req, res) => {
       totalReadingsLogged: serverReadings.length,
       totalRegisteredReaders: REGISTERED_READERS.length,
       pendingApprovalReaders: REGISTERED_READERS.filter(r => r.status === 'pending').length,
+      wsActiveConnections: activeClients.size,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Server error' });
+  }
+});
+
+// WebSocket Server Diagnostics Endpoint
+app.get(['/api/ws/status', '/api/ws/telemetry'], (req, res) => {
+  try {
+    res.json({
+      status: 'ok',
+      wsEnabled: true,
+      path: '/ws',
+      activeClientsCount: activeClients.size,
+      serverTime: new Date().toISOString(),
+      uptimeSeconds: process.uptime(),
+      district: 'Tagoloan Water District (WDT-MISOR)',
     });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message || 'Server error' });

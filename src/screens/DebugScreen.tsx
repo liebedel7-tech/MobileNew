@@ -18,14 +18,26 @@ import {
   CheckCircle2,
   Download,
   RotateCcw,
-  Users
+  Users,
+  AlertCircle,
+  FileText,
+  Clock,
+  Terminal
 } from 'lucide-react';
 import { SyncState, ActiveScreen } from '../types';
 import { SyncService } from '../services/syncService';
 import { DatabaseHelper } from '../services/databaseHelper';
 import { LoggerService } from '../services/loggerService';
 import { WebSocketService, WSTelemetryStats } from '../services/websocketService';
-import { universalApiFetch, getApiEndpoint } from '../services/apiConfig';
+import { 
+  universalApiFetch, 
+  getApiEndpoint, 
+  getApiLogs, 
+  getApiStats, 
+  clearApiLogs, 
+  subscribeApiLogs, 
+  ApiLogEntry 
+} from '../services/apiConfig';
 import { useDeviceInstallStatus } from '../services/installService';
 
 interface DebugScreenProps {
@@ -43,8 +55,15 @@ export const DebugScreen: React.FC<DebugScreenProps> = ({
 }) => {
   const { isInstalled, markAsInstalled, resetInstallStatus } = useDeviceInstallStatus();
   const [serverHealth, setServerHealth] = useState<any>(null);
+  const [wsTelemetryHealth, setWsTelemetryHealth] = useState<any>(null);
   const [isPinging, setIsPinging] = useState(false);
   const [wsStats, setWsStats] = useState<WSTelemetryStats>(WebSocketService.getStats());
+  const [showWsLogs, setShowWsLogs] = useState(false);
+  const [wsLogs, setWsLogs] = useState<string[]>(WebSocketService.getConnectionLogs());
+  const [apiLogs, setApiLogs] = useState<ApiLogEntry[]>(getApiLogs());
+  const [apiFilter, setApiFilter] = useState<'all' | 'errors'>('all');
+  const [apiStats, setApiStats] = useState(getApiStats());
+
   const [dbStats, setDbStats] = useState({
     consumers: 0,
     readings: 0,
@@ -71,10 +90,20 @@ export const DebugScreen: React.FC<DebugScreenProps> = ({
 
   useEffect(() => {
     loadDbStats();
-    const unsub = WebSocketService.subscribeStats((stats) => {
+    const unsubWs = WebSocketService.subscribeStats((stats) => {
       setWsStats(stats);
+      setWsLogs(WebSocketService.getConnectionLogs());
     });
-    return unsub;
+
+    const unsubApi = subscribeApiLogs((logs) => {
+      setApiLogs(logs);
+      setApiStats(getApiStats());
+    });
+
+    return () => {
+      unsubWs();
+      unsubApi();
+    };
   }, []);
 
   const handlePingServer = async () => {
@@ -106,6 +135,22 @@ export const DebugScreen: React.FC<DebugScreenProps> = ({
       setServerHealth({ error: 'Offline / Standalone local mode active' });
     } finally {
       setIsPinging(false);
+    }
+  };
+
+  const handlePingWsEndpoint = async () => {
+    try {
+      const res = await universalApiFetch('/api/ws/status', {
+        headers: { 'Accept': 'application/json' },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setWsTelemetryHealth(data);
+      } else {
+        setWsTelemetryHealth({ error: `HTTP ${res.status}` });
+      }
+    } catch (err: any) {
+      setWsTelemetryHealth({ error: err?.message || 'Failed to ping WS status endpoint' });
     }
   };
 
@@ -313,36 +358,62 @@ export const DebugScreen: React.FC<DebugScreenProps> = ({
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3 shadow-md">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Radio className="w-5 h-5 text-sky-400 animate-pulse" />
+            <Radio className={`w-5 h-5 ${wsStats.status === 'CONNECTED' ? 'text-emerald-400 animate-pulse' : wsStats.status === 'RECONNECTING' ? 'text-amber-400 animate-spin' : 'text-slate-400'}`} />
             <div>
-              <h3 className="font-bold text-sm text-white">WebSocket Real-Time Broadcast Node</h3>
-              <p className="text-xs text-slate-400">Tagoloan District Central Gateway telemetry</p>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-sm text-white">WebSocket Real-Time Broadcast Node</h3>
+                <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
+                  wsStats.status === 'CONNECTED'
+                    ? 'bg-emerald-950/80 text-emerald-300 border-emerald-700/60'
+                    : wsStats.status === 'RECONNECTING'
+                    ? 'bg-amber-950/80 text-amber-300 border-amber-700/60 animate-pulse'
+                    : wsStats.status === 'CONNECTING'
+                    ? 'bg-sky-950/80 text-sky-300 border-sky-700/60'
+                    : 'bg-rose-950/80 text-rose-300 border-rose-700/60'
+                }`}>
+                  {wsStats.status}
+                </span>
+              </div>
+              <p className="text-xs text-slate-400">Tagoloan District Central Gateway telemetry & backoff reconnection</p>
             </div>
           </div>
 
-          <button
-            onClick={() => WebSocketService.ping()}
-            className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold flex items-center gap-1 transition"
-          >
-            <Activity className="w-3.5 h-3.5" />
-            <span>Ping WebSocket</span>
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => WebSocketService.forceReconnect()}
+              className="px-2.5 py-1.5 bg-amber-600/90 hover:bg-amber-500 text-white rounded-xl text-xs font-bold flex items-center gap-1 transition cursor-pointer"
+              title="Initiate immediate exponential backoff reconnect"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Reconnect Now</span>
+            </button>
+
+            <button
+              onClick={() => WebSocketService.ping()}
+              className="px-2.5 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold flex items-center gap-1 transition cursor-pointer"
+            >
+              <Activity className="w-3.5 h-3.5" />
+              <span>Ping</span>
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
           <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-            <span className="text-slate-400 text-[10px] uppercase font-bold block">Status</span>
-            <span className={`text-sm font-black font-mono ${wsStats.status === 'CONNECTED' ? 'text-emerald-400' : 'text-amber-400'}`}>
-              {wsStats.status}
-            </span>
-          </div>
-          <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-            <span className="text-slate-400 text-[10px] uppercase font-bold block">Round-Trip Latency</span>
+            <span className="text-slate-400 text-[10px] uppercase font-bold block">Latency (RTT)</span>
             <span className="text-sm font-black text-sky-400 font-mono">{wsStats.latencyMs} ms</span>
           </div>
           <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-            <span className="text-slate-400 text-[10px] uppercase font-bold block">Packets Sent (TX)</span>
-            <span className="text-sm font-black text-purple-400 font-mono">{wsStats.messagesSent}</span>
+            <span className="text-slate-400 text-[10px] uppercase font-bold block">Retry Attempts</span>
+            <span className={`text-sm font-black font-mono ${wsStats.reconnectAttempts > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
+              {wsStats.reconnectAttempts}
+            </span>
+          </div>
+          <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+            <span className="text-slate-400 text-[10px] uppercase font-bold block">Buffered TX Queue</span>
+            <span className={`text-sm font-black font-mono ${wsStats.bufferedMessagesCount > 0 ? 'text-amber-400' : 'text-purple-400'}`}>
+              {wsStats.bufferedMessagesCount} pkts
+            </span>
           </div>
           <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
             <span className="text-slate-400 text-[10px] uppercase font-bold block">Packets Recv (RX)</span>
@@ -350,35 +421,234 @@ export const DebugScreen: React.FC<DebugScreenProps> = ({
           </div>
         </div>
 
-        <div className="p-2.5 bg-slate-950 rounded-xl border border-slate-800 text-[11px] font-mono text-slate-400 flex items-center justify-between">
+        <div className="p-2.5 bg-slate-950 rounded-xl border border-slate-800 text-[11px] font-mono text-slate-400 flex flex-wrap items-center justify-between gap-2">
           <span>Server Node: <strong className="text-slate-200">{wsStats.serverNode}</strong></span>
+          {wsStats.nextReconnectDelayMs && (
+            <span className="text-amber-400 font-semibold">
+              Retrying in {(wsStats.nextReconnectDelayMs / 1000).toFixed(1)}s
+            </span>
+          )}
           <span>Last Event: <strong className="text-sky-300">{wsStats.lastEventType || 'None'}</strong></span>
+        </div>
+
+        {/* WebSocket Connection Log Drawer */}
+        <div className="pt-1">
+          <div className="flex items-center justify-between mb-1.5">
+            <button
+              onClick={() => setShowWsLogs(!showWsLogs)}
+              className="text-xs text-sky-400 hover:text-sky-300 font-bold flex items-center gap-1 cursor-pointer"
+            >
+              <Terminal className="w-3.5 h-3.5" />
+              <span>{showWsLogs ? 'Hide WebSocket Connection Logs' : 'View WebSocket Connection Logs (Diagnostics)'}</span>
+            </button>
+            {showWsLogs && (
+              <button
+                onClick={() => {
+                  WebSocketService.clearConnectionLogs();
+                  setWsLogs([]);
+                }}
+                className="text-[10px] text-slate-400 hover:text-slate-200 cursor-pointer"
+              >
+                Clear Log History
+              </button>
+            )}
+          </div>
+
+          {showWsLogs && (
+            <div className="p-2.5 bg-slate-950 rounded-xl border border-slate-800 max-h-44 overflow-y-auto space-y-1 font-mono text-[10px]">
+              {wsLogs.length === 0 ? (
+                <p className="text-slate-500 italic">No WebSocket connection logs recorded yet.</p>
+              ) : (
+                wsLogs.map((logLine, idx) => (
+                  <div 
+                    key={idx} 
+                    className={`leading-relaxed ${
+                      logLine.includes('error') || logLine.includes('Failed')
+                        ? 'text-rose-400'
+                        : logLine.includes('warn') || logLine.includes('closed') || logLine.includes('Scheduling')
+                        ? 'text-amber-300'
+                        : logLine.includes('established') || logLine.includes('Handshake')
+                        ? 'text-emerald-400'
+                        : 'text-slate-300'
+                    }`}
+                  >
+                    {logLine}
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Central Server Health Ping */}
+      {/* API Client Layer Telemetry & Error Logging Card */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3 shadow-md">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Server className="w-5 h-5 text-emerald-400" />
-            <h3 className="font-bold text-sm text-white">Central Billing Server Connection</h3>
+            <div>
+              <h3 className="font-bold text-sm text-white">API Client Layer Diagnostics & Telemetry</h3>
+              <p className="text-xs text-slate-400">Request tracing, failover metrics, and error logging</p>
+            </div>
           </div>
 
-          <button
-            onClick={handlePingServer}
-            disabled={isPinging}
-            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1 transition cursor-pointer"
-          >
-            <Activity className={`w-3.5 h-3.5 ${isPinging ? 'animate-spin' : ''}`} />
-            <span>{isPinging ? 'Pinging...' : 'Ping /api/health'}</span>
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={handlePingServer}
+              disabled={isPinging}
+              className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1 transition cursor-pointer"
+            >
+              <Activity className={`w-3.5 h-3.5 ${isPinging ? 'animate-spin' : ''}`} />
+              <span>Ping /api/health</span>
+            </button>
+            <button
+              onClick={handlePingWsEndpoint}
+              className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center gap-1 transition cursor-pointer border border-slate-700"
+            >
+              <span>Ping /api/ws/status</span>
+            </button>
+          </div>
+        </div>
+
+        {/* API Statistics Strip */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center text-xs">
+          <div className="bg-slate-950 p-2 rounded-xl border border-slate-800">
+            <span className="text-slate-400 text-[10px] uppercase font-bold block">Total Calls</span>
+            <span className="text-sm font-black text-white font-mono">{apiStats.total}</span>
+          </div>
+          <div className="bg-slate-950 p-2 rounded-xl border border-slate-800">
+            <span className="text-slate-400 text-[10px] uppercase font-bold block">Successful</span>
+            <span className="text-sm font-black text-emerald-400 font-mono">{apiStats.success}</span>
+          </div>
+          <div className="bg-slate-950 p-2 rounded-xl border border-slate-800">
+            <span className="text-slate-400 text-[10px] uppercase font-bold block">Errors (4xx/5xx)</span>
+            <span className={`text-sm font-black font-mono ${apiStats.errors > 0 ? 'text-rose-400' : 'text-slate-400'}`}>
+              {apiStats.errors}
+            </span>
+          </div>
+          <div className="bg-slate-950 p-2 rounded-xl border border-slate-800">
+            <span className="text-slate-400 text-[10px] uppercase font-bold block">Offline Fallbacks</span>
+            <span className={`text-sm font-black font-mono ${apiStats.fallbacks > 0 ? 'text-amber-400' : 'text-slate-400'}`}>
+              {apiStats.fallbacks}
+            </span>
+          </div>
+          <div className="bg-slate-950 p-2 rounded-xl border border-slate-800">
+            <span className="text-slate-400 text-[10px] uppercase font-bold block">Avg Latency</span>
+            <span className="text-sm font-black text-sky-400 font-mono">{apiStats.avgLatencyMs} ms</span>
+          </div>
         </div>
 
         {serverHealth && (
-          <pre className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-[11px] font-mono text-emerald-300 overflow-x-auto">
+          <pre className="p-2.5 bg-slate-950 rounded-xl border border-slate-800 text-[11px] font-mono text-emerald-300 overflow-x-auto">
             {JSON.stringify(serverHealth, null, 2)}
           </pre>
         )}
+
+        {wsTelemetryHealth && (
+          <pre className="p-2.5 bg-slate-950 rounded-xl border border-slate-800 text-[11px] font-mono text-sky-300 overflow-x-auto">
+            {JSON.stringify(wsTelemetryHealth, null, 2)}
+          </pre>
+        )}
+
+        {/* API Logs Filter & List */}
+        <div className="space-y-2 pt-1">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setApiFilter('all')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  apiFilter === 'all'
+                    ? 'bg-sky-600 text-white'
+                    : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                All Requests ({apiLogs.length})
+              </button>
+              <button
+                onClick={() => setApiFilter('errors')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  apiFilter === 'errors'
+                    ? 'bg-rose-600 text-white'
+                    : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Errors Only ({apiLogs.filter((l) => !l.success).length})
+              </button>
+            </div>
+
+            <button
+              onClick={() => clearApiLogs()}
+              className="text-[11px] text-slate-400 hover:text-slate-200 cursor-pointer"
+            >
+              Clear API Logs
+            </button>
+          </div>
+
+          <div className="bg-slate-950 rounded-xl border border-slate-800 max-h-56 overflow-y-auto divide-y divide-slate-800/60 font-mono text-xs">
+            {apiLogs
+              .filter((log) => apiFilter === 'all' || !log.success)
+              .slice(0, 50)
+              .map((log) => (
+                <div key={log.id} className="p-2.5 flex items-center justify-between gap-2 hover:bg-slate-900/60 transition">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-black uppercase shrink-0 ${
+                        log.method === 'GET'
+                          ? 'bg-sky-950 text-sky-400 border border-sky-800'
+                          : log.method === 'POST'
+                          ? 'bg-purple-950 text-purple-400 border border-purple-800'
+                          : 'bg-slate-800 text-slate-300'
+                      }`}
+                    >
+                      {log.method}
+                    </span>
+
+                    <span className="text-slate-200 text-xs font-semibold truncate">
+                      {log.endpoint}
+                    </span>
+
+                    {log.isOfflineFallback && (
+                      <span className="px-1.5 py-0.2 rounded text-[9px] bg-amber-950/80 text-amber-300 border border-amber-800 shrink-0">
+                        OFFLINE SYNTHETIC
+                      </span>
+                    )}
+
+                    {log.error && (
+                      <span className="text-rose-400 text-[10px] truncate max-w-[200px]" title={log.error}>
+                        {log.error}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0 text-right">
+                    <span
+                      className={`text-[11px] font-bold ${
+                        log.status && log.status < 400
+                          ? 'text-emerald-400'
+                          : log.status && log.status < 500
+                          ? 'text-amber-400'
+                          : 'text-rose-400'
+                      }`}
+                    >
+                      {log.status || 'ERR'}
+                    </span>
+                    <span className="text-slate-400 text-[10px]">
+                      {log.durationMs}ms
+                    </span>
+                    <span className="text-slate-500 text-[10px]">
+                      {log.timestamp}
+                    </span>
+                  </div>
+                </div>
+              ))}
+
+            {apiLogs.length === 0 && (
+              <div className="p-4 text-center text-slate-500 text-xs italic">
+                No API requests recorded yet.
+              </div>
+            )}
+          </div>
+        </div>
 
         <div className="pt-2 border-t border-slate-800 flex justify-between items-center">
           <span className="text-xs text-slate-400">Configure District Server & Flutter Build:</span>
