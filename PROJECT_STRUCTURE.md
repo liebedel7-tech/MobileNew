@@ -38,7 +38,6 @@ project/
 │   │   │   ├── ModuleLoadingScreen.tsx
 │   │   │   ├── ScanOverlay.tsx
 │   │   │   ├── ThermalReceiptModal.tsx
-│   │   │   ├── WebSocketActivityFeed.tsx
 │   │   │   └── DownloadApkModal.tsx
 │   │   │
 │   │   ├── screens/ (pages/)        # Application modules & views

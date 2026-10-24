@@ -36,8 +36,8 @@ export interface DistrictReader {
   contactNumber: string;
   email: string;
   assignedRoutes: string[];
-  status: 'pending' | 'active' | 'rejected';
-  employmentStatus: 'pending' | 'active' | 'rejected';
+  status: 'pending' | 'active' | 'rejected' | 'terminated';
+  employmentStatus: 'pending' | 'active' | 'rejected' | 'terminated';
   deviceInfo?: string;
   createdAt: string;
 }

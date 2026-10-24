@@ -22,7 +22,7 @@ export const WDTBottomNav: React.FC<WDTBottomNavProps> = ({
   // Map sub-screens to main bottom navigation tabs
   const getMappedActiveTab = (screen: ActiveScreen): ActiveScreen => {
     if (screen === 'consumer_details' || screen === 'reading_entry') return 'consumers';
-    if (screen === 'audit_log' || screen === 'meter_readers' || screen === 'flutter_config' || screen === 'token_setup') return 'debug';
+    if (screen === 'audit_log' || screen === 'meter_readers' || screen === 'flutter_config' || screen === 'token_setup' || screen === 'system_connection') return 'debug';
     return screen;
   };
 

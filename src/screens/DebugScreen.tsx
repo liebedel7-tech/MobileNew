@@ -9,6 +9,7 @@ import {
   Trash2, 
   Activity, 
   ShieldCheck, 
+  Shield,
   KeyRound,
   Server,
   Zap,
@@ -179,6 +180,59 @@ export const DebugScreen: React.FC<DebugScreenProps> = ({
         <p className="text-xs text-slate-400">
           Network condition simulator, SQLite local storage manager, and sync engine tuner
         </p>
+      </div>
+
+      {/* System Connection Path & Gateway Hub */}
+      <div className="bg-slate-900 border border-sky-500/40 rounded-2xl p-4 shadow-md flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/30 text-sky-400 flex items-center justify-center shrink-0">
+            <Server className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-sm text-white">System Connection Path & Gateway</h3>
+              <span className="text-[10px] font-mono text-emerald-400 font-bold px-1.5 py-0.2 rounded bg-emerald-950 border border-emerald-800">
+                100% Ready
+              </span>
+            </div>
+            <p className="text-xs text-slate-400">
+              Live link to Tagoloan Water District system: probe health, download routes &amp; push field batches
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => onNavigate('system_connection')}
+          className="px-3.5 py-2 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-500 text-white transition shrink-0 cursor-pointer shadow-sm active:scale-95 flex items-center gap-1.5"
+        >
+          <Zap className="w-3.5 h-3.5" />
+          <span>Open Hub</span>
+        </button>
+      </div>
+
+      {/* Security, Scale & Resilience Operations Quick-Access */}
+      <div className="bg-slate-900 border border-emerald-500/30 rounded-2xl p-4 shadow-md flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0">
+            <Shield className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-sm text-white">Security, Scale &amp; Resilience Operations</h3>
+              <span className="text-[10px] font-mono text-emerald-400 font-bold px-1.5 py-0.2 rounded bg-emerald-950 border border-emerald-800">
+                Active
+              </span>
+            </div>
+            <p className="text-xs text-slate-400">
+              RBAC access matrix, 10,000 bot simulation, speed guarantees &amp; Error Boundary survival
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => onNavigate('architecture_security')}
+          className="px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition shrink-0 cursor-pointer shadow-sm active:scale-95"
+        >
+          Open Shield Ops
+        </button>
       </div>
 
       {/* Meter Readers Management Quick-Access */}
@@ -412,11 +466,11 @@ export const DebugScreen: React.FC<DebugScreenProps> = ({
           <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
             <span className="text-slate-400 text-[10px] uppercase font-bold block">Buffered TX Queue</span>
             <span className={`text-sm font-black font-mono ${wsStats.bufferedMessagesCount > 0 ? 'text-amber-400' : 'text-purple-400'}`}>
-              {wsStats.bufferedMessagesCount} pkts
+              {wsStats.bufferedMessagesCount} msgs
             </span>
           </div>
           <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-            <span className="text-slate-400 text-[10px] uppercase font-bold block">Packets Recv (RX)</span>
+            <span className="text-slate-400 text-[10px] uppercase font-bold block">Messages Recv (RX)</span>
             <span className="text-sm font-black text-emerald-400 font-mono">{wsStats.messagesReceived}</span>
           </div>
         </div>

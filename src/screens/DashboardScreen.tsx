@@ -77,9 +77,15 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             </div>
           </div>
 
-          <span className="text-[10px] text-sky-400 font-mono bg-sky-950/80 px-2 py-0.5 rounded border border-sky-800 hidden sm:inline-block">
-            6 Operational Modules
-          </span>
+          <button
+            type="button"
+            onClick={() => onNavigate('system_connection')}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-950/90 hover:bg-sky-900 border border-sky-800 text-sky-300 text-[10px] font-mono font-bold transition cursor-pointer"
+            title="Open System Connection Gateway"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+            <span>System Path: Connected</span>
+          </button>
         </div>
 
         {/* 6 Grid Module Cards */}
@@ -441,9 +447,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         </div>
 
         {/* Table Viewport */}
-        <div className="flex-1 overflow-x-auto overflow-y-auto max-h-[600px]">
-          <table className="w-full text-left border-collapse">
-            <thead className="bg-slate-950/70 text-[10px] uppercase text-slate-500 font-bold sticky top-0 z-10 backdrop-blur-sm">
+        <div className="flex-1 overflow-x-auto overflow-y-auto max-h-[600px] data-table-container">
+          <table className="w-full text-left border-collapse data-table bg-slate-950 text-slate-200">
+            <thead className="bg-slate-950/90 text-[10px] uppercase text-slate-400 font-bold sticky top-0 z-10 backdrop-blur-md border-b border-slate-800">
               <tr>
                 <th className="px-4 py-3">Account / Name</th>
                 <th className="px-4 py-3">Meter Tag / SN</th>
@@ -453,7 +459,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 <th className="px-4 py-3 text-right">Status / Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800 text-slate-200">
+            <tbody className="divide-y divide-slate-800/80 text-slate-200">
               {consumers.map((consumer: Consumer, index: number) => {
                 const isNext = !consumer.isReadThisMonth && index === consumers.findIndex((c: Consumer) => !c.isReadThisMonth);
                 
@@ -467,14 +473,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                         onSelectConsumer(consumer);
                       }
                     }}
-                    className={`transition-colors cursor-pointer hover:bg-slate-800/60 ${
-                      isNext ? 'bg-sky-500/5 font-medium' : consumer.isReadThisMonth ? 'opacity-90' : ''
+                    className={`transition-colors cursor-pointer hover:bg-slate-800/70 border-b border-slate-800/60 ${
+                      isNext ? 'bg-sky-950/20 font-medium' : consumer.isReadThisMonth ? 'opacity-85' : 'bg-slate-900/40'
                     }`}
                   >
                     {/* Account & Name */}
                     <td className="px-4 py-3.5">
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-bold font-mono text-white">
+                        <p className="text-sm font-bold font-mono text-slate-100">
                           {consumer.accountNumber}
                         </p>
                         <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-800 text-slate-400">

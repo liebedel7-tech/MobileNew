@@ -18,7 +18,9 @@ import {
   AlertCircle,
   Sparkles,
   Ban,
-  UserCheck
+  UserCheck,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { StaffUser, ReaderAccount } from '../types';
 import { WebSocketService } from '../services/websocketService';
@@ -46,10 +48,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   onBackToLanding,
   initialMode = 'LOGIN',
 }) => {
-  const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER' | 'PENDING_APPROVAL'>(initialMode);
+  const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER'>(initialMode === 'REGISTER' ? 'REGISTER' : 'LOGIN');
 
   useEffect(() => {
-    if (initialMode) {
+    if (initialMode === 'LOGIN' || initialMode === 'REGISTER') {
       setAuthMode(initialMode);
     }
   }, [initialMode]);
@@ -57,6 +59,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   // Sign In State
   const [username, setUsername] = useState('');
   const [pin, setPin] = useState('');
+  const [showPin, setShowPin] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -69,6 +72,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [regEmployeeId, setRegEmployeeId] = useState('');
   const [regUsername, setRegUsername] = useState('');
   const [regPin, setRegPin] = useState('');
+  const [showRegPin, setShowRegPin] = useState(false);
   const [regContact, setRegContact] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regSelectedRoutes, setRegSelectedRoutes] = useState<string[]>([]);
@@ -145,89 +149,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     });
   };
 
-  // Pending State
-  const [pendingReader, setPendingReader] = useState<any>(null);
-  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
+  // Instant registration success or operational notification
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
-
-  // Listen for Real-Time Approval via WebSocket & Periodic REST Polling
-  useEffect(() => {
-    // 1. WebSocket stream listener
-    const unsub = WebSocketService.subscribe((msg) => {
-      if (msg.type === 'READER_APPROVED_ACTIVE' && pendingReader) {
-        const isMatch = 
-          (msg.payload?.readerId && (msg.payload.readerId === pendingReader.id || msg.payload.readerId === pendingReader.employeeId)) ||
-          (msg.payload?.employeeId && (msg.payload.employeeId === pendingReader.employeeId || msg.payload.employeeId === pendingReader.id)) ||
-          (msg.payload?.username && msg.payload.username.toLowerCase() === (pendingReader.username || '').toLowerCase()) ||
-          (msg.payload?.name && msg.payload.name.toLowerCase() === (pendingReader.name || '').toLowerCase());
-
-        if (isMatch) {
-          setStatusMessage('🎉 Account APPROVED by Admin! Activating Mobile Terminal...');
-          DatabaseHelper.updateLocalReaderStatus(
-            pendingReader.id,
-            'active',
-            msg.payload.assignedRoutes,
-            msg.payload.approvedBy
-          ).catch(() => {});
-
-          setTimeout(() => {
-            onLogin({
-              id: msg.payload.readerId || pendingReader.id,
-              employeeId: msg.payload.employeeId || pendingReader.employeeId,
-              username: msg.payload.username || pendingReader.username || pendingReader.name,
-              name: msg.payload.name || pendingReader.name,
-              role: 'Meter Reader I',
-              zone: (msg.payload.assignedRoutes || regSelectedRoutes).join(', '),
-              assignedRoutes: msg.payload.assignedRoutes || regSelectedRoutes,
-              status: 'active',
-            });
-          }, 1000);
-        }
-      }
-    });
-
-    // 2. High-frequency background check while in PENDING_APPROVAL mode
-    let pollTimer: any = null;
-    if (authMode === 'PENDING_APPROVAL' && pendingReader) {
-      pollTimer = setInterval(async () => {
-        try {
-          const targetId = pendingReader.employeeId || pendingReader.id || pendingReader.username;
-          const res = await universalApiFetch(`/api/readers/check-status/${encodeURIComponent(targetId)}`);
-          if (res.ok) {
-            const data = await res.json();
-            if (data.status === 'active') {
-              await DatabaseHelper.updateLocalReaderStatus(
-                pendingReader.id,
-                'active',
-                data.assignedRoutes,
-                data.approvedBy
-              );
-              setStatusMessage('🎉 Account APPROVED by Admin! Activating Mobile Terminal...');
-              setTimeout(() => {
-                onLogin({
-                  id: data.id || pendingReader.id,
-                  employeeId: data.employeeId || pendingReader.employeeId,
-                  username: pendingReader.username,
-                  name: data.name || pendingReader.name,
-                  role: 'Meter Reader I',
-                  zone: (data.assignedRoutes || ['Poblacion']).join(', '),
-                  assignedRoutes: data.assignedRoutes || ['Poblacion'],
-                  status: 'active',
-                });
-              }, 800);
-            }
-          }
-        } catch {
-          // Offline/silent check
-        }
-      }, 2500);
-    }
-
-    return () => {
-      unsub();
-      if (pollTimer) clearInterval(pollTimer);
-    };
-  }, [authMode, pendingReader, regSelectedRoutes, onLogin]);
 
   // Handle Staff Sign In
   const handleLoginSubmit = async (e?: React.FormEvent) => {
@@ -489,80 +412,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     }
   };
 
-  // Check Approval Status manually
-  const checkApprovalStatus = async () => {
-    if (!pendingReader) return;
-    setIsCheckingStatus(true);
-    setStatusMessage(null);
 
-    // 1. Check local database first
-    try {
-      const localReaders = await DatabaseHelper.getLocalReaders();
-      const current = localReaders.find(
-        (r) =>
-          r.id.toLowerCase() === (pendingReader.id || '').toLowerCase() ||
-          r.username.toLowerCase() === (pendingReader.username || '').toLowerCase()
-      );
-
-      if (current && current.status === 'active') {
-        setStatusMessage('🎉 Your account is APPROVED! Opening Meter Reader Terminal...');
-        setTimeout(() => {
-          onLogin({
-            id: current.id,
-            employeeId: current.employeeId,
-            username: current.username,
-            name: current.name,
-            role: 'Meter Reader I',
-            zone: (current.assignedRoutes || ['Poblacion']).join(', '),
-            assignedRoutes: current.assignedRoutes || ['Poblacion'],
-            status: 'active',
-          });
-        }, 800);
-        return;
-      }
-    } catch (err) {
-      console.warn('Local check error:', err);
-    }
-
-    // 2. Check Central Server API
-    try {
-      const targetId = pendingReader.employeeId || pendingReader.id || pendingReader.username;
-      const res = await universalApiFetch(`/api/readers/check-status/${encodeURIComponent(targetId)}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.status === 'active') {
-          await DatabaseHelper.updateLocalReaderStatus(
-            pendingReader.id,
-            'active',
-            data.assignedRoutes,
-            data.approvedBy
-          );
-          setStatusMessage('🎉 Your account is APPROVED! Opening Meter Reader Terminal...');
-          setTimeout(() => {
-            onLogin({
-              id: data.id || pendingReader.id,
-              employeeId: data.employeeId || pendingReader.employeeId,
-              username: pendingReader.username,
-              name: data.name || pendingReader.name,
-              role: 'Meter Reader I',
-              zone: (data.assignedRoutes || ['Poblacion']).join(', '),
-              assignedRoutes: data.assignedRoutes || ['Poblacion'],
-              status: 'active',
-            });
-          }, 800);
-          return;
-        } else if (data.status === 'rejected') {
-          setError('Your registration was rejected by Administrator. Contact District HR.');
-          return;
-        }
-      }
-      setStatusMessage('Status: Still PENDING admin review. The Supervisor will assign your routes shortly.');
-    } catch {
-      setStatusMessage('Status: PENDING approval. Open Admin Portal to approve this reader.');
-    } finally {
-      setIsCheckingStatus(false);
-    }
-  };
 
   return (
     <div className="w-full h-full min-h-0 flex-1 overflow-y-auto overflow-x-hidden flex flex-col justify-start px-3 sm:px-4 py-3 sm:py-4 max-w-md mx-auto scrollbar-thin scrollbar-thumb-slate-800">
@@ -600,41 +450,39 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       </div>
 
       {/* Auth Mode Toggle Tabs (Sign In vs Register) */}
-      {authMode !== 'PENDING_APPROVAL' && (
-        <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800 mb-2.5 shadow-sm shrink-0">
-          <button
-            type="button"
-            onClick={() => {
-              setAuthMode('LOGIN');
-              setError(null);
-            }}
-            className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition flex items-center justify-center gap-1.5 cursor-pointer ${
-              authMode === 'LOGIN'
-                ? 'bg-sky-600 text-white shadow-md'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <ShieldCheck className="w-3.5 h-3.5" />
-            <span>Sign In</span>
-          </button>
+      <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800 mb-2.5 shadow-sm shrink-0">
+        <button
+          type="button"
+          onClick={() => {
+            setAuthMode('LOGIN');
+            setError(null);
+          }}
+          className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition flex items-center justify-center gap-1.5 cursor-pointer ${
+            authMode === 'LOGIN'
+              ? 'bg-sky-600 text-white shadow-md'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <ShieldCheck className="w-3.5 h-3.5" />
+          <span>Sign In</span>
+        </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              setAuthMode('REGISTER');
-              setError(null);
-            }}
-            className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition flex items-center justify-center gap-1.5 cursor-pointer ${
-              authMode === 'REGISTER'
-                ? 'bg-sky-600 text-white shadow-md'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <UserPlus className="w-3.5 h-3.5" />
-            <span>Register</span>
-          </button>
-        </div>
-      )}
+        <button
+          type="button"
+          onClick={() => {
+            setAuthMode('REGISTER');
+            setError(null);
+          }}
+          className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition flex items-center justify-center gap-1.5 cursor-pointer ${
+            authMode === 'REGISTER'
+              ? 'bg-sky-600 text-white shadow-md'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <UserPlus className="w-3.5 h-3.5" />
+          <span>Register</span>
+        </button>
+      </div>
 
       {/* Card Content based on Mode */}
       <div className="bg-slate-900/95 border border-slate-800 rounded-2xl p-3.5 sm:p-4 shadow-2xl backdrop-blur-sm space-y-3 shrink-0">
@@ -692,7 +540,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     <Lock className="w-4 h-4" />
                   </div>
                   <input
-                    type="password"
+                    type={showPin ? "text" : "password"}
                     value={pin}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                       setPin(e.target.value);
@@ -700,8 +548,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     }}
                     placeholder="Password"
                     required
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition font-mono tracking-widest"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-10 py-2 text-xs text-white focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition font-mono tracking-widest"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPin(!showPin)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-200 transition focus:outline-none"
+                    aria-label={showPin ? "Hide password" : "Show password"}
+                  >
+                    {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
               </div>
 
@@ -729,8 +585,19 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 </h2>
               </div>
               <span className="text-[10px] text-emerald-400 font-mono font-bold bg-emerald-950 px-2 py-0.5 rounded border border-emerald-800">
-                Instant Access
+                ⚡ Auto-Activated
               </span>
+            </div>
+
+            {/* Instant Terminal Availability Banner */}
+            <div className="p-2.5 bg-emerald-950/60 border border-emerald-800/80 rounded-xl text-xs text-emerald-300 flex items-start gap-2">
+              <Sparkles className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold block text-emerald-200">Instant Mobile Terminal Access</span>
+                <p className="text-[10.5px] text-emerald-300/90 mt-0.5">
+                  Your mobile terminal is automatically available upon registration. You do not need to wait for system approval.
+                </p>
+              </div>
             </div>
 
             {error && (
@@ -784,13 +651,21 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                       <Lock className="w-3.5 h-3.5" />
                     </div>
                     <input
-                      type="password"
+                      type={showRegPin ? "text" : "password"}
                       value={regPin}
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegPin(e.target.value)}
                       placeholder="Password"
                       required
-                      className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-8 pr-2.5 py-1.5 text-xs text-white font-mono tracking-wider focus:outline-none focus:border-sky-500 transition"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-8 pr-8 py-1.5 text-xs text-white font-mono tracking-wider focus:outline-none focus:border-sky-500 transition"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowRegPin(!showRegPin)}
+                      className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-200 transition focus:outline-none"
+                      aria-label={showRegPin ? "Hide password" : "Show password"}
+                    >
+                      {showRegPin ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
                   </div>
                 </div>
               </div>
@@ -905,69 +780,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               </button>
             </form>
           </>
-        )}
-
-        {/* ================= MODE 3: PENDING APPROVAL VIEW ================= */}
-        {authMode === 'PENDING_APPROVAL' && pendingReader && (
-          <div className="space-y-3 text-center py-1">
-            <div className="w-12 h-12 bg-amber-950/80 border border-amber-600/60 rounded-2xl mx-auto flex items-center justify-center text-amber-400 shadow-lg shadow-amber-950/50">
-              <Clock className="w-6 h-6 animate-pulse" />
-            </div>
-
-            <div>
-              <span className="inline-block px-2.5 py-0.5 rounded-full text-[9.5px] font-bold uppercase tracking-wider bg-amber-950 text-amber-400 border border-amber-800 mb-1">
-                Status: Pending Admin Review
-              </span>
-              <h3 className="text-sm font-black text-white">
-                {pendingReader.name}
-              </h3>
-              <p className="text-[11px] font-mono text-sky-400 mt-0.5">
-                Employee ID: {pendingReader.employeeId || 'TWD-RDR'}
-              </p>
-            </div>
-
-            <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-left text-xs space-y-1">
-              <div className="flex items-center justify-between text-slate-400">
-                <span>Requested Route:</span>
-                <span className="text-white font-bold">{pendingReader.assignedRoutes?.join(', ') || regSelectedRoutes.join(', ')}</span>
-              </div>
-              <div className="flex items-center justify-between text-slate-400">
-                <span>Central Portal Sync:</span>
-                <span className="text-emerald-400 font-mono font-bold flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3" /> Received
-                </span>
-              </div>
-            </div>
-
-            {statusMessage && (
-              <div className="p-2 bg-sky-950/80 border border-sky-800 rounded-xl text-xs text-sky-300 text-left">
-                {statusMessage}
-              </div>
-            )}
-
-            <div className="space-y-1.5 pt-1">
-              <button
-                type="button"
-                onClick={checkApprovalStatus}
-                disabled={isCheckingStatus}
-                className="w-full py-2 px-3 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-sky-600/30 transition cursor-pointer"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${isCheckingStatus ? 'animate-spin' : ''}`} />
-                <span>{isCheckingStatus ? 'Checking Status...' : 'Check Approval Status'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setAuthMode('LOGIN');
-                  setPendingReader(null);
-                }}
-                className="w-full py-1.5 text-xs text-slate-400 hover:text-white transition"
-              >
-                Back to Sign In
-              </button>
-            </div>
-          </div>
         )}
       </div>
 

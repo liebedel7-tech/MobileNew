@@ -1,7 +1,7 @@
 import { Consumer, MeterReading, AuditLog, AppConfig, StaffUser, ReaderAccount, ReaderStatus } from '../types';
 import { universalApiFetch, getApiEndpoint } from './apiConfig';
 import { INITIAL_CONSUMERS as FULL_SEED_CONSUMERS, INITIAL_READERS } from '../data/seedData';
-import { isConsumerInAssignedAreas } from '../constants/routes';
+import { isConsumerInAssignedAreas, isValidatedForFieldReading } from '../constants/routes';
 
 const DB_NAME = 'WDT_MeterReader_DB_v2';
 const DB_VERSION = 1;
@@ -97,7 +97,8 @@ export class DatabaseHelper {
       return [];
     }
 
-    return all.filter((c) => isConsumerInAssignedAreas(c, routes));
+    // ID Issuance Gate: Consumers are strictly withheld from mobile readers until validated and assigned
+    return all.filter((c) => isValidatedForFieldReading(c) && isConsumerInAssignedAreas(c, routes));
   }
 
   static async getConsumerById(id: string, routes?: string[] | string | null): Promise<Consumer | null> {

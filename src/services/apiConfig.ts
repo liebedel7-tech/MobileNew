@@ -1,5 +1,6 @@
 // Central API & System Connect Cycle for Tagoloan Water District
 // Handles Multi-Deployment discovery, CORS preflight failovers, and offline resiliency
+import { apiRateLimiter } from './rateLimiter';
 
 export interface ApiLogEntry {
   id: string;
@@ -92,7 +93,53 @@ export const LIVE_BACKEND_URL = typeof window !== 'undefined' && window.location
   ? window.location.origin 
   : '';
 
-export const DEFAULT_SERVER_URL = LIVE_BACKEND_URL;
+export const TAGOLOAN_SYSTEM_BASE_URL = 'https://ais-dev-ui6fsepfskrowqsfycbac7-946013608969.asia-southeast1.run.app';
+export const DEFAULT_SERVER_URL = TAGOLOAN_SYSTEM_BASE_URL;
+
+export interface SystemConnectionConfig {
+  baseUrl: string;
+  apiPrefix: string;
+  authMethod: 'bearer' | 'x-reader-id';
+  readerId: string;
+  bearerToken: string;
+  autoSyncOnConnect: boolean;
+}
+
+export function getSystemConnectionConfig(): SystemConnectionConfig {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    const baseUrl = window.localStorage.getItem('TWD_API_BASE_URL') || TAGOLOAN_SYSTEM_BASE_URL;
+    const apiPrefix = window.localStorage.getItem('TWD_API_PREFIX') || '/api';
+    const authMethod = (window.localStorage.getItem('TWD_AUTH_METHOD') || 'bearer') as 'bearer' | 'x-reader-id';
+    const readerId = window.localStorage.getItem('TWD_READER_ID') || 'RDR-001';
+    const bearerToken = window.localStorage.getItem('TWD_BEARER_TOKEN') || 'twd_jwt_token_verified_reader';
+    const autoSyncOnConnect = window.localStorage.getItem('TWD_AUTO_SYNC_CONNECT') !== 'false';
+    return { baseUrl, apiPrefix, authMethod, readerId, bearerToken, autoSyncOnConnect };
+  }
+  return {
+    baseUrl: TAGOLOAN_SYSTEM_BASE_URL,
+    apiPrefix: '/api',
+    authMethod: 'bearer',
+    readerId: 'RDR-001',
+    bearerToken: 'twd_jwt_token_verified_reader',
+    autoSyncOnConnect: true,
+  };
+}
+
+export function saveSystemConnectionConfig(cfg: Partial<SystemConnectionConfig>): void {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    if (cfg.baseUrl !== undefined) {
+      const clean = cfg.baseUrl.trim().replace(/\/+$/, '').replace(/\/api$/, '');
+      window.localStorage.setItem('TWD_API_BASE_URL', clean);
+      window.localStorage.setItem('twd_api_base_url', clean);
+    }
+    if (cfg.apiPrefix !== undefined) window.localStorage.setItem('TWD_API_PREFIX', cfg.apiPrefix);
+    if (cfg.authMethod !== undefined) window.localStorage.setItem('TWD_AUTH_METHOD', cfg.authMethod);
+    if (cfg.readerId !== undefined) window.localStorage.setItem('TWD_READER_ID', cfg.readerId);
+    if (cfg.bearerToken !== undefined) window.localStorage.setItem('TWD_BEARER_TOKEN', cfg.bearerToken);
+    if (cfg.autoSyncOnConnect !== undefined) window.localStorage.setItem('TWD_AUTO_SYNC_CONNECT', String(cfg.autoSyncOnConnect));
+    cachedWorkingBaseUrl = null;
+  }
+}
 
 let cachedWorkingBaseUrl: string | null = null;
 let lastHealthCheckTime = 0;
@@ -127,15 +174,8 @@ export function getApiBaseUrl(): string {
     // Ignore in non-vite environments
   }
 
-  // 3. Current window origin (Works directly on Vercel, Cloud Run, Custom Servers, or Localhost)
-  if (typeof window !== 'undefined' && window.location && window.location.origin) {
-    const origin = window.location.origin;
-    if (origin.startsWith('http://') || origin.startsWith('https://')) {
-      return origin;
-    }
-  }
-
-  return LIVE_BACKEND_URL;
+  // 3. Official Tagoloan Water District Real-Time Cloud Service
+  return TAGOLOAN_SYSTEM_BASE_URL;
 }
 
 /**
@@ -155,7 +195,12 @@ export function getCandidateBackendUrls(): string[] {
     }
   }
 
-  // Candidate 2: Current origin (relative / same domain) - High priority
+  // Candidate 2: Official Tagoloan Cloud Service
+  if (!candidates.includes(TAGOLOAN_SYSTEM_BASE_URL)) {
+    candidates.push(TAGOLOAN_SYSTEM_BASE_URL);
+  }
+
+  // Candidate 3: Current origin (relative / same domain)
   if (typeof window !== 'undefined' && window.location && window.location.origin) {
     const origin = window.location.origin;
     if (origin.startsWith('http') && !candidates.includes(origin)) {
@@ -178,6 +223,22 @@ export function getApiEndpoint(path: string): string {
 export async function universalApiFetch(path: string, init?: RequestInit): Promise<Response> {
   const method = (init?.method || 'GET').toUpperCase();
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
+
+  // Client-Side Rate Limiter: Smooth bursts and avoid server flood / UI freeze
+  const tokenAcquired = await apiRateLimiter.acquire(1, 3000);
+  if (!tokenAcquired) {
+    console.warn(`[TWD-API] Rate limiter: request queued/delayed for [${method}] ${cleanPath}`);
+  }
+
+  const connCfg = getSystemConnectionConfig();
+  const authHeaders: Record<string, string> = {};
+  if (connCfg.authMethod === 'bearer' && connCfg.bearerToken) {
+    authHeaders['Authorization'] = `Bearer ${connCfg.bearerToken}`;
+  }
+  if (connCfg.readerId) {
+    authHeaders['x-reader-id'] = connCfg.readerId;
+  }
+
   const candidates = getCandidateBackendUrls();
   const startTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
 
@@ -197,6 +258,7 @@ export async function universalApiFetch(path: string, init?: RequestInit): Promi
         ...init,
         headers: {
           'Accept': 'application/json',
+          ...authHeaders,
           ...(init?.headers || {}),
         },
       });
@@ -374,5 +436,106 @@ export function resetApiBaseUrl(): void {
     window.localStorage.removeItem('twd_api_base_url');
     cachedWorkingBaseUrl = null;
     window.location.reload();
+  }
+}
+
+export interface EndpointTestResult {
+  endpoint: string;
+  method: string;
+  success: boolean;
+  status: number;
+  statusText: string;
+  latencyMs: number;
+  targetUrl: string;
+  data: any;
+  error?: string;
+}
+
+export async function probeSystemEndpoint(
+  endpoint: string,
+  method: 'GET' | 'POST' = 'GET',
+  payload?: any
+): Promise<EndpointTestResult> {
+  const config = getSystemConnectionConfig();
+  const base = config.baseUrl.replace(/\/+$/, '');
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const fullUrl = `${base}${cleanEndpoint}`;
+  const startTime = Date.now();
+
+  try {
+    const authHeaders: Record<string, string> = {};
+    if (config.authMethod === 'bearer' && config.bearerToken) {
+      authHeaders['Authorization'] = `Bearer ${config.bearerToken}`;
+    }
+    if (config.readerId) {
+      authHeaders['x-reader-id'] = config.readerId;
+    }
+
+    const res = await fetch(fullUrl, {
+      method,
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        ...authHeaders,
+      },
+      body: payload ? JSON.stringify(payload) : undefined,
+    });
+
+    const latencyMs = Date.now() - startTime;
+    const contentType = res.headers.get('content-type') || '';
+    let data: any = null;
+    if (contentType.includes('application/json')) {
+      data = await res.json().catch(() => null);
+    } else {
+      const text = await res.text().catch(() => '');
+      data = { text: text.slice(0, 300) };
+    }
+
+    return {
+      endpoint,
+      method,
+      success: res.ok,
+      status: res.status,
+      statusText: res.statusText,
+      latencyMs,
+      targetUrl: fullUrl,
+      data,
+    };
+  } catch (err: any) {
+    // If direct browser fetch hits CORS or network error, fallback to proxy probe
+    try {
+      const proxyRes = await fetch(`/api/system/probe?baseUrl=${encodeURIComponent(base)}&endpoint=${encodeURIComponent(cleanEndpoint)}`, {
+        method: method === 'POST' ? 'POST' : 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload ? JSON.stringify({ baseUrl: base, endpoint: cleanEndpoint, payload }) : undefined,
+      });
+      if (proxyRes.ok) {
+        const proxyData = await proxyRes.json();
+        return {
+          endpoint,
+          method,
+          success: proxyData.success,
+          status: proxyData.status,
+          statusText: proxyData.statusText || 'OK (via Gateway Probe)',
+          latencyMs: proxyData.latencyMs || (Date.now() - startTime),
+          targetUrl: proxyData.targetUrl || fullUrl,
+          data: proxyData.data,
+        };
+      }
+    } catch {
+      // proxy failed too
+    }
+
+    return {
+      endpoint,
+      method,
+      success: false,
+      status: 0,
+      statusText: 'Network Error',
+      latencyMs: Date.now() - startTime,
+      targetUrl: fullUrl,
+      data: null,
+      error: err?.message || 'Connection failed',
+    };
   }
 }

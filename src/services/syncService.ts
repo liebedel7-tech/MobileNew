@@ -2,7 +2,7 @@ import { Consumer, MeterReading, SyncState } from '../types';
 import { DatabaseHelper } from './databaseHelper';
 import { LoggerService } from './loggerService';
 import { universalApiFetch, getApiEndpoint } from './apiConfig';
-import { isConsumerInAssignedAreas } from '../constants/routes';
+import { isConsumerInAssignedAreas, isValidatedForFieldReading } from '../constants/routes';
 
 export class SyncService {
   private static timerId: any = null;
@@ -348,10 +348,11 @@ export class SyncService {
           const consumerData = await safeParseJson(consumerRes);
           const rawConsumers = consumerData?.consumers || consumerData?.data;
           if (rawConsumers && Array.isArray(rawConsumers)) {
-            // Strictly filter by active reader's assigned routes if configured
+            // Strictly filter by ID Issuance Gate and active reader's assigned routes
+            const validatedConsumers = rawConsumers.filter(isValidatedForFieldReading);
             const allowedConsumers = this.activeRoutes && this.activeRoutes.length > 0
-              ? rawConsumers.filter((c: Consumer) => isConsumerInAssignedAreas(c, this.activeRoutes))
-              : rawConsumers;
+              ? validatedConsumers.filter((c: Consumer) => isConsumerInAssignedAreas(c, this.activeRoutes))
+              : validatedConsumers;
 
             // Merge with local reading flags
             const localReadings = await DatabaseHelper.getAllReadings();

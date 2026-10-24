@@ -16,7 +16,8 @@ import {
   UserPlus,
   Lock,
   Unlock,
-  CheckCircle2
+  CheckCircle2,
+  Shield
 } from 'lucide-react';
 import { ActiveScreen, StaffUser, SyncState } from '../types';
 import { WebSocketService, WSTelemetryStats } from '../services/websocketService';
@@ -458,7 +459,33 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
                 <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-sky-400 group-hover:translate-x-0.5 transition" />
               </div>
 
-              {/* Module 6: Android APK & Diagnostics - Only shown if not yet installed */}
+              {/* Module 6: Security, Scale & Survival Architecture */}
+              <div 
+                onClick={() => handleModuleClick('architecture_security')}
+                className="p-3 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-emerald-500/50 transition cursor-pointer flex items-center justify-between group active:scale-[0.99]"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0">
+                    <Shield className="w-4 h-4" />
+                  </div>
+                  <div className="text-left">
+                    <div className="flex items-center gap-1.5">
+                      <h3 className="text-xs font-bold text-white group-hover:text-emerald-300 transition">
+                        Security, Scale &amp; Survival Ops
+                      </h3>
+                      <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 text-[9px] font-mono font-bold">
+                        Shield
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-400">
+                      RBAC, 10k bot flood mitigation, speed &amp; crash reboot
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-emerald-400 group-hover:translate-x-0.5 transition" />
+              </div>
+
+              {/* Module 7: Android APK & Diagnostics - Only shown if not yet installed */}
               {!isInstalled && (
                 <div 
                   onClick={onOpenApkModal}

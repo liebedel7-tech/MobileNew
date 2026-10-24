@@ -204,4 +204,6 @@ export type ActiveScreen =
   | 'debug'
   | 'meter_readers'
   | 'flutter_config'
-  | 'token_setup'; // Backwards-compatible alias
+  | 'token_setup' // Backwards-compatible alias
+  | 'system_connection'
+  | 'architecture_security';

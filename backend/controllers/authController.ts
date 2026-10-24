@@ -18,19 +18,11 @@ export class AuthController {
       return res.status(401).json({ success: false, error: 'Incorrect PIN' });
     }
 
-    if (reader.status === 'pending') {
+    if (reader.status === 'terminated' || reader.status === 'rejected') {
       return res.status(403).json({
         success: false,
-        error: 'Your meter reader account is pending supervisory approval',
-        status: 'pending',
-      });
-    }
-
-    if (reader.status === 'rejected') {
-      return res.status(403).json({
-        success: false,
-        error: 'Account has been rejected or disabled by district supervisor',
-        status: 'rejected',
+        error: 'This meter reader account has been terminated by district administration. Mobile terminal access revoked.',
+        status: 'terminated',
       });
     }
 
@@ -71,23 +63,23 @@ export class AuthController {
       contactNumber: contactNumber || '',
       email: email || '',
       assignedRoutes: ['Poblacion'],
-      status: 'pending' as const,
-      employmentStatus: 'pending' as const,
+      status: 'active' as const,
+      employmentStatus: 'active' as const,
       createdAt: new Date().toISOString(),
     };
 
     db.addReader(newReader);
-    db.logAudit('READER_REGISTRATION', name, 'New field reader registration submitted for approval');
+    db.logAudit('READER_REGISTRATION', name, 'New field reader registered and automatically activated');
 
     WebSocketService.broadcast('READER_STATUS_CHANGED', {
       readerId: newReader.id,
       name: newReader.name,
-      status: 'pending',
+      status: 'active',
     });
 
     return res.status(201).json({
       success: true,
-      message: 'Registration submitted successfully. Awaiting supervisor approval.',
+      message: 'Meter reader registered successfully. Mobile terminal is automatically active.',
       reader: newReader,
     });
   }

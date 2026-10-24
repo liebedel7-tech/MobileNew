@@ -4,7 +4,6 @@ import {
   Users, 
   UserCheck, 
   UserX, 
-  Clock, 
   CheckCircle2, 
   XCircle, 
   AlertCircle, 
@@ -19,24 +18,23 @@ import {
   Sparkles,
   Phone,
   Mail,
-  Calendar,
-  Send,
   Sliders,
   LogIn,
-  Lock
+  Lock,
+  Eye,
+  EyeOff,
+  AlertTriangle,
+  Ban
 } from 'lucide-react';
 import { ReaderAccount, ActiveScreen, StaffUser, ReaderStatus } from '../types';
 import { DatabaseHelper } from '../services/databaseHelper';
-import { SyncService } from '../services/syncService';
 import { WebSocketService } from '../services/websocketService';
 import { universalApiFetch } from '../services/apiConfig';
 import { LoggerService } from '../services/loggerService';
 import { 
   TAGOLOAN_BARANGAYS, 
   calculateLocationOccupancies, 
-  checkIsLocationOccupied, 
-  areLocationsEqual,
-  LocationOccupancy 
+  areLocationsEqual
 } from '../constants/routes';
 
 interface MeterReadersScreenProps {
@@ -56,24 +54,30 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
   const [loading, setLoading] = useState<boolean>(true);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [filterStatus, setFilterStatus] = useState<'ALL' | 'pending' | 'active' | 'rejected'>('ALL');
+  const [filterStatus, setFilterStatus] = useState<'ALL' | 'active' | 'terminated'>('ALL');
   const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Modal State for New Reader Creation
+  // Modal State for New Reader Enrolment
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [newUsername, setNewUsername] = useState('');
   const [newPin, setNewPin] = useState('1234');
+  const [showNewPin, setShowNewPin] = useState(false);
   const [newEmployeeId, setNewEmployeeId] = useState('');
   const [newContact, setNewContact] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newRoutes, setNewRoutes] = useState<string[]>(['Poblacion']);
 
-  // Modal State for Custom Route Assignment / Approval
+  // Modal State for Route Assignment
   const [selectedReaderForEdit, setSelectedReaderForEdit] = useState<ReaderAccount | null>(null);
   const [editRoutes, setEditRoutes] = useState<string[]>([]);
-  const [isSubmittingApproval, setIsSubmittingApproval] = useState<boolean>(false);
+  const [isSubmittingRoutes, setIsSubmittingRoutes] = useState<boolean>(false);
+
+  // Modal State for Account Termination (Admin's primary single option)
+  const [readerToTerminate, setReaderToTerminate] = useState<ReaderAccount | null>(null);
+  const [terminationReason, setTerminationReason] = useState<string>('Account terminated by administrator');
+  const [isTerminating, setIsTerminating] = useState<boolean>(false);
 
   // Load and sync readers from both local DB and central API
   const loadAndSyncReaders = useCallback(async (showLoading = false) => {
@@ -102,11 +106,11 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
             serverList.forEach(r => map.set((r.username || r.id).toLowerCase(), r));
 
             const merged = Array.from(map.values());
-            // Sort: pending first, then by creation date / name
+            // Sort: active first, then alphabetically by name
             merged.sort((a, b) => {
-              if (a.status === 'pending' && b.status !== 'pending') return -1;
-              if (b.status === 'pending' && a.status !== 'pending') return 1;
-              return (b.createdAt || '').localeCompare(a.createdAt || '');
+              if (a.status === 'active' && b.status !== 'active') return -1;
+              if (b.status === 'active' && a.status !== 'active') return 1;
+              return (a.name || '').localeCompare(b.name || '');
             });
 
             setReaders(merged);
@@ -143,11 +147,18 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
 
     // WebSocket real-time subscription
     const unsub = WebSocketService.subscribe((msg) => {
-      if (msg.type === 'READER_REGISTERED_PENDING' || msg.type === 'READER_APPROVED_ACTIVE' || msg.type === 'READER_STATUS_CHANGED') {
+      if (
+        msg.type === 'READER_REGISTERED_ACTIVE' || 
+        msg.type === 'READER_ACCOUNT_TERMINATED' || 
+        msg.type === 'READER_STATUS_CHANGED'
+      ) {
         loadAndSyncReaders(false);
-        if (msg.type === 'READER_REGISTERED_PENDING') {
-          setActionSuccessMessage(`🔔 New meter reader registration received from mobile: ${msg.payload?.reader?.name || 'Applicant'}`);
+        if (msg.type === 'READER_REGISTERED_ACTIVE') {
+          setActionSuccessMessage(`⚡ New meter reader registered from mobile & automatically active: ${msg.payload?.reader?.name || 'Field Reader'}`);
           setTimeout(() => setActionSuccessMessage(null), 5000);
+        } else if (msg.type === 'READER_ACCOUNT_TERMINATED') {
+          setActionSuccessMessage(`⚠️ Meter reader account ${msg.payload?.name || ''} has been terminated.`);
+          setTimeout(() => setActionSuccessMessage(null), 4000);
         }
       }
     });
@@ -158,15 +169,110 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
     };
   }, [loadAndSyncReaders]);
 
-  // Handle Instant One-Click Approval
-  const handleApproveReader = async (reader: ReaderAccount, assignedRoutes?: string[]) => {
-    setIsSubmittingApproval(true);
+  // Handle Terminate Reader (The Admin's Single Action Option)
+  const confirmTerminateReader = async () => {
+    if (!readerToTerminate) return;
+    setIsTerminating(true);
     setErrorMessage(null);
-    const routesToAssign = assignedRoutes || reader.assignedRoutes || ['Poblacion'];
+
+    const target = readerToTerminate;
+    const reasonText = terminationReason.trim() || 'Account revoked by administrator';
+
+    try {
+      // 1. Central Server Update (supports both /terminate and status PATCH)
+      try {
+        await universalApiFetch(`/api/readers/${encodeURIComponent(target.id)}/terminate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            reason: reasonText,
+            terminatedBy: currentUser?.name || 'Administrator',
+          }),
+        });
+      } catch {
+        // Fallback PATCH if POST /terminate is unavailable
+        await universalApiFetch(`/api/readers/${encodeURIComponent(target.id)}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            status: 'terminated',
+            reason: reasonText,
+            approvedBy: currentUser?.name || 'Administrator',
+          }),
+        }).catch(() => {});
+      }
+
+      // 2. Local Database Update
+      await DatabaseHelper.updateLocalReaderStatus(
+        target.id,
+        'terminated',
+        target.assignedRoutes,
+        currentUser?.name || 'Administrator'
+      );
+
+      // 3. Log Audit Trail
+      await LoggerService.log(
+        'READER_TERMINATED',
+        `Administrator terminated meter reader account for ${target.name} (${target.employeeId}). Reason: ${reasonText}`
+      );
+
+      setActionSuccessMessage(`⛔ Meter reader '${target.name}' has been TERMINATED. Mobile terminal access revoked.`);
+      setReaderToTerminate(null);
+      setTerminationReason('Account terminated by administrator');
+      await loadAndSyncReaders(false);
+
+      setTimeout(() => setActionSuccessMessage(null), 4500);
+    } catch (err: any) {
+      setErrorMessage(`Failed to terminate reader: ${err?.message || 'Error updating status'}`);
+    } finally {
+      setIsTerminating(false);
+    }
+  };
+
+  // Optional Administrative Recovery: Reactivate / Reinstate Terminated Account
+  const handleReactivateReader = async (reader: ReaderAccount) => {
+    if (!window.confirm(`Reactivate meter reader account for ${reader.name}? They will regain mobile terminal access.`)) {
+      return;
+    }
+
+    try {
+      await universalApiFetch(`/api/readers/${encodeURIComponent(reader.id)}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'active',
+          approvedBy: currentUser?.name || 'Administrator',
+        }),
+      });
+
+      await DatabaseHelper.updateLocalReaderStatus(
+        reader.id,
+        'active',
+        reader.assignedRoutes,
+        currentUser?.name || 'Administrator'
+      );
+
+      await LoggerService.log(
+        'READER_REINSTATED',
+        `Administrator reactivated meter reader ${reader.name} (${reader.employeeId})`
+      );
+
+      setActionSuccessMessage(`✅ Reader '${reader.name}' reinstated and activated for mobile terminal access.`);
+      await loadAndSyncReaders(false);
+      setTimeout(() => setActionSuccessMessage(null), 3500);
+    } catch (err: any) {
+      setErrorMessage(`Error updating status: ${err?.message || 'Unknown error'}`);
+    }
+  };
+
+  // Handle Route Assignment Update
+  const handleUpdateRoutesSubmit = async (reader: ReaderAccount, assignedRoutes: string[]) => {
+    setIsSubmittingRoutes(true);
+    setErrorMessage(null);
 
     // Local occupancy pre-check
     const otherOccupancies = calculateLocationOccupancies(readers, reader.id);
-    const occupiedConflicts = routesToAssign.filter(rt => {
+    const occupiedConflicts = assignedRoutes.filter(rt => {
       const occ = otherOccupancies.find(o => areLocationsEqual(o.location, rt));
       return occ && occ.isOccupied;
     });
@@ -176,70 +282,8 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
         const occ = otherOccupancies.find(o => areLocationsEqual(o.location, rt));
         return `"${rt}" (occupied by ${occ?.assignedReaderName})`;
       }).join(', ');
-      setErrorMessage(`Cannot assign routes: ${conflictMsg}. Please reassign or select available locations.`);
-      setIsSubmittingApproval(false);
-      return;
-    }
-
-    try {
-      // 1. Central Server Update
-      const res = await universalApiFetch(`/api/readers/${encodeURIComponent(reader.id)}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          status: 'active',
-          assignedRoutes: routesToAssign,
-          approvedBy: currentUser ? `${currentUser.name} (${currentUser.role})` : 'Administrator',
-        }),
-      });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => null);
-        throw new Error(errData?.message || 'Server rejected route assignment');
-      }
-
-      let updatedRecord: ReaderAccount = {
-        ...reader,
-        status: 'active',
-        assignedRoutes: routesToAssign,
-        approvedAt: new Date().toISOString(),
-        approvedBy: currentUser?.name || 'Administrator',
-      };
-
-      try {
-        const data = await res.json();
-        if (data.reader) updatedRecord = data.reader;
-      } catch { /* ignore */ }
-
-      // 2. Local Database Update
-      await DatabaseHelper.updateLocalReaderStatus(
-        reader.id,
-        'active',
-        routesToAssign,
-        currentUser?.name || 'Administrator'
-      );
-
-      // 3. Log Audit Trail
-      await LoggerService.log(
-        'READER_APPROVED',
-        `Administrator approved meter reader ${reader.name} (${reader.employeeId}) for routes: ${routesToAssign.join(', ')}`
-      );
-
-      setActionSuccessMessage(`✅ Reader '${reader.name}' has been APPROVED and activated for mobile terminal access!`);
-      setSelectedReaderForEdit(null);
-      await loadAndSyncReaders(false);
-
-      setTimeout(() => setActionSuccessMessage(null), 4000);
-    } catch (err: any) {
-      setErrorMessage(`Failed to approve reader: ${err?.message || 'Network error'}`);
-    } finally {
-      setIsSubmittingApproval(false);
-    }
-  };
-
-  // Handle Reject / Deactivate Reader
-  const handleRejectReader = async (reader: ReaderAccount) => {
-    if (!window.confirm(`Are you sure you want to reject / revoke access for reader ${reader.name}?`)) {
+      setErrorMessage(`Cannot assign routes: ${conflictMsg}. Please select available locations.`);
+      setIsSubmittingRoutes(false);
       return;
     }
 
@@ -248,32 +292,35 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          status: 'rejected',
+          assignedRoutes,
           approvedBy: currentUser?.name || 'Administrator',
         }),
       });
 
       await DatabaseHelper.updateLocalReaderStatus(
         reader.id,
-        'rejected',
-        reader.assignedRoutes,
+        reader.status,
+        assignedRoutes,
         currentUser?.name || 'Administrator'
       );
 
       await LoggerService.log(
-        'READER_REJECTED',
-        `Administrator rejected meter reader account for ${reader.name} (${reader.employeeId})`
+        'READER_ROUTES_UPDATED',
+        `Administrator updated route coverage for ${reader.name} (${reader.employeeId}): ${assignedRoutes.join(', ')}`
       );
 
-      setActionSuccessMessage(`Account for '${reader.name}' marked as rejected.`);
+      setActionSuccessMessage(`✅ Route coverage updated for '${reader.name}' (${assignedRoutes.join(', ')}).`);
+      setSelectedReaderForEdit(null);
       await loadAndSyncReaders(false);
-      setTimeout(() => setActionSuccessMessage(null), 3000);
+      setTimeout(() => setActionSuccessMessage(null), 3500);
     } catch (err: any) {
-      setErrorMessage(`Error updating status: ${err?.message || 'Unknown error'}`);
+      setErrorMessage(`Failed to update routes: ${err?.message || 'Network error'}`);
+    } finally {
+      setIsSubmittingRoutes(false);
     }
   };
 
-  // Handle Create New Reader Directly in Admin
+  // Handle Create New Reader Directly in Admin (Automatically active)
   const handleCreateReaderSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName.trim() || !newUsername.trim()) {
@@ -290,8 +337,8 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
       contactNumber: newContact.trim(),
       email: newEmail.trim() || `${newUsername.toLowerCase()}@tagoloanwater.gov.ph`,
       assignedRoutes: newRoutes.length > 0 ? newRoutes : ['Poblacion'],
-      status: 'active', // Direct admin created readers start as active
-      deviceInfo: 'Admin Portal Direct Enrolment',
+      status: 'active', // Automatically active immediately upon creation
+      deviceInfo: 'Admin Portal Enrolment',
       createdAt: new Date().toISOString(),
       approvedAt: new Date().toISOString(),
       approvedBy: currentUser?.name || 'Administrator',
@@ -307,7 +354,7 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
       await DatabaseHelper.saveLocalReader(createdReader);
       await LoggerService.log(
         'READER_CREATED_ADMIN',
-        `Administrator directly enrolled meter reader ${createdReader.name} (${createdReader.employeeId})`
+        `Administrator enrolled meter reader ${createdReader.name} (${createdReader.employeeId})`
       );
 
       setIsAddModalOpen(false);
@@ -317,7 +364,7 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
       setNewContact('');
       setNewEmail('');
       setNewRoutes(['Poblacion']);
-      setActionSuccessMessage(`🎉 Reader '${createdReader.name}' created and immediately activated!`);
+      setActionSuccessMessage(`🎉 Reader '${createdReader.name}' enrolled and immediately active for field operations!`);
       await loadAndSyncReaders(false);
       setTimeout(() => setActionSuccessMessage(null), 4000);
     } catch (err: any) {
@@ -327,7 +374,12 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
 
   // Filtered Readers list
   const filteredReaders = readers.filter((r) => {
-    const matchesStatus = filterStatus === 'ALL' || r.status === filterStatus;
+    const isTerminated = r.status === 'terminated' || r.status === 'rejected';
+    const matchesStatus = 
+      filterStatus === 'ALL' || 
+      (filterStatus === 'active' && r.status === 'active') ||
+      (filterStatus === 'terminated' && isTerminated);
+
     const q = searchTerm.toLowerCase();
     const matchesSearch = 
       !searchTerm ||
@@ -338,8 +390,8 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
     return matchesStatus && matchesSearch;
   });
 
-  const pendingCount = readers.filter(r => r.status === 'pending').length;
   const activeCount = readers.filter(r => r.status === 'active').length;
+  const terminatedCount = readers.filter(r => r.status === 'terminated' || r.status === 'rejected').length;
 
   return (
     <div className="flex-1 p-3.5 sm:p-5 lg:p-7 flex flex-col gap-4 max-w-7xl mx-auto w-full pb-16">
@@ -358,15 +410,15 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
             <div className="flex items-center gap-2">
               <h1 className="text-base sm:text-lg font-black text-white uppercase tracking-tight flex items-center gap-2">
                 <Users className="w-5 h-5 text-sky-400" />
-                <span>Meter Readers & Staff Directory</span>
+                <span>Meter Readers Directory & Administration</span>
               </h1>
-              <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full bg-sky-500/10 border border-sky-500/30 text-sky-300">
+              <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                <span>Live Sync Active</span>
+                <span>Instant Mobile Activation</span>
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
-              Review mobile registration attempts, assign reading routes, and grant terminal authorization
+              Meter readers are automatically active upon registration. Administrator holds authority to terminate accounts.
             </p>
           </div>
         </div>
@@ -389,7 +441,7 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-slate-950 text-xs font-bold shadow-md shadow-sky-500/20 transition cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            <span>Add Meter Reader</span>
+            <span>Enrol Meter Reader</span>
           </button>
         </div>
       </div>
@@ -439,30 +491,28 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
             <span className="text-2xl font-bold text-white font-mono">{readers.length}</span>
             <Users className="w-4 h-4 text-slate-500" />
           </div>
+          <p className="text-[10px] text-slate-500 mt-1">Field roster count</p>
         </div>
 
-        <div className="bg-slate-900 border border-amber-500/30 rounded-xl p-3.5 flex flex-col justify-between relative overflow-hidden">
+        <div className="bg-slate-900 border border-emerald-500/30 rounded-xl p-3.5 flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-amber-400 uppercase tracking-wider">Pending Approval</span>
-            {pendingCount > 0 && (
-              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
-            )}
+            <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">Active in Field</span>
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
           </div>
-          <div className="flex items-baseline justify-between mt-1">
-            <span className="text-2xl font-bold text-amber-300 font-mono">{pendingCount}</span>
-            <Clock className="w-4 h-4 text-amber-400" />
-          </div>
-          {pendingCount > 0 && (
-            <p className="text-[10px] text-amber-400/80 mt-0.5">Mobile accounts awaiting approval</p>
-          )}
-        </div>
-
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between">
-          <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">Active in Field</span>
           <div className="flex items-baseline justify-between mt-1">
             <span className="text-2xl font-bold text-emerald-300 font-mono">{activeCount}</span>
             <UserCheck className="w-4 h-4 text-emerald-400" />
           </div>
+          <p className="text-[10px] text-emerald-400/80 mt-1">Auto-active terminal status</p>
+        </div>
+
+        <div className="bg-slate-900 border border-rose-500/30 rounded-xl p-3.5 flex flex-col justify-between">
+          <span className="text-[11px] font-bold text-rose-400 uppercase tracking-wider">Terminated Accounts</span>
+          <div className="flex items-baseline justify-between mt-1">
+            <span className="text-2xl font-bold text-rose-300 font-mono">{terminatedCount}</span>
+            <UserX className="w-4 h-4 text-rose-400" />
+          </div>
+          <p className="text-[10px] text-rose-400/80 mt-1">Revoked by administrator</p>
         </div>
 
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between">
@@ -471,6 +521,7 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
             <span className="text-2xl font-bold text-sky-400 font-mono">{AVAILABLE_ROUTES.length}</span>
             <MapPin className="w-4 h-4 text-sky-400" />
           </div>
+          <p className="text-[10px] text-slate-500 mt-1">Tagoloan Barangays</p>
         </div>
       </div>
 
@@ -492,45 +543,28 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
 
           <button
             type="button"
-            onClick={() => setFilterStatus('pending')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
-              filterStatus === 'pending'
-                ? 'bg-amber-500 text-slate-950'
-                : 'bg-slate-800 text-amber-400 hover:text-amber-300 border border-amber-500/20'
-            }`}
-          >
-            <span>Pending Approval</span>
-            {pendingCount > 0 && (
-              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-                filterStatus === 'pending' ? 'bg-slate-950 text-amber-400' : 'bg-amber-500 text-slate-950'
-              }`}>
-                {pendingCount}
-              </span>
-            )}
-          </button>
-
-          <button
-            type="button"
             onClick={() => setFilterStatus('active')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
               filterStatus === 'active'
                 ? 'bg-emerald-500 text-slate-950'
                 : 'bg-slate-800 text-emerald-400 hover:text-emerald-300'
             }`}
           >
-            Active ({activeCount})
+            <UserCheck className="w-3.5 h-3.5" />
+            <span>Active in Field ({activeCount})</span>
           </button>
 
           <button
             type="button"
-            onClick={() => setFilterStatus('rejected')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
-              filterStatus === 'rejected'
-                ? 'bg-rose-500 text-white'
-                : 'bg-slate-800 text-slate-400 hover:text-white'
+            onClick={() => setFilterStatus('terminated')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
+              filterStatus === 'terminated'
+                ? 'bg-rose-600 text-white'
+                : 'bg-slate-800 text-rose-400 hover:text-rose-300'
             }`}
           >
-            Rejected / Inactive
+            <UserX className="w-3.5 h-3.5" />
+            <span>Terminated ({terminatedCount})</span>
           </button>
         </div>
 
@@ -541,7 +575,7 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search name, ID, route..."
+            placeholder="Search name, username, ID, route..."
             className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500"
           />
           {searchTerm && (
@@ -569,9 +603,9 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
           <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
             {searchTerm 
               ? `No readers match your search query '${searchTerm}'.`
-              : filterStatus === 'pending'
-                ? 'No pending account approvals right now. All mobile registrations have been processed.'
-                : 'No meter readers currently registered. Create one using the button above or register from the mobile terminal.'}
+              : filterStatus === 'terminated'
+                ? 'No terminated meter reader accounts on record.'
+                : 'No meter readers registered yet. Readers can register directly on mobile or be enrolled using the button above.'}
           </p>
           {filterStatus !== 'ALL' && (
             <button
@@ -585,33 +619,19 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
           {filteredReaders.map((reader) => {
-            const isPending = reader.status === 'pending';
-            const isActive = reader.status === 'active';
-            const isRejected = reader.status === 'rejected';
+            const isTerminated = reader.status === 'terminated' || reader.status === 'rejected';
+            const isActive = !isTerminated;
 
             return (
               <div
                 key={reader.id || reader.username}
                 className={`bg-slate-900 border rounded-2xl p-4 flex flex-col justify-between gap-3.5 transition-all shadow-sm relative overflow-hidden ${
-                  isPending 
-                    ? 'border-amber-500/60 bg-gradient-to-b from-amber-950/20 to-slate-900 shadow-amber-500/5' 
-                    : isActive
-                      ? 'border-slate-800 hover:border-slate-700'
-                      : 'border-rose-900/40 opacity-75'
+                  isTerminated
+                    ? 'border-rose-900/40 bg-gradient-to-b from-rose-950/10 to-slate-900 opacity-80'
+                    : 'border-slate-800 hover:border-slate-700'
                 }`}
               >
-                {/* Pending Badge Banner */}
-                {isPending && (
-                  <div className="absolute top-0 right-0 left-0 bg-amber-500/20 border-b border-amber-500/30 px-3 py-1 flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-amber-300 flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-amber-400 animate-spin" />
-                      <span>MOBILE REGISTRATION ATTEMPT</span>
-                    </span>
-                    <span className="text-[9px] font-mono text-amber-400">Needs Review</span>
-                  </div>
-                )}
-
-                <div className={`space-y-2.5 ${isPending ? 'pt-4' : ''}`}>
+                <div className="space-y-2.5">
                   {/* Header: Name, Status & Employee ID */}
                   <div className="flex items-start justify-between gap-2">
                     <div>
@@ -626,14 +646,19 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
                     <span className={`inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full border shrink-0 ${
                       isActive 
                         ? 'bg-emerald-950/80 text-emerald-300 border-emerald-700/60'
-                        : isPending
-                          ? 'bg-amber-950/80 text-amber-300 border-amber-700/60 font-bold'
-                          : 'bg-rose-950/80 text-rose-300 border-rose-700/60'
+                        : 'bg-rose-950/80 text-rose-300 border-rose-700/60'
                     }`}>
-                      {isActive && <CheckCircle2 className="w-3 h-3 text-emerald-400" />}
-                      {isPending && <Clock className="w-3 h-3 text-amber-400" />}
-                      {isRejected && <XCircle className="w-3 h-3 text-rose-400" />}
-                      <span className="uppercase">{reader.status}</span>
+                      {isActive ? (
+                        <>
+                          <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                          <span>ACTIVE IN FIELD</span>
+                        </>
+                      ) : (
+                        <>
+                          <Ban className="w-3 h-3 text-rose-400" />
+                          <span>TERMINATED</span>
+                        </>
+                      )}
                     </span>
                   </div>
 
@@ -653,7 +678,7 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
                     )}
                     <div className="flex items-center gap-1.5">
                       <Smartphone className="w-3 h-3 text-slate-500" />
-                      <span className="truncate">{reader.deviceInfo || 'Field Mobile Device'}</span>
+                      <span className="truncate">{reader.deviceInfo || 'Android Field Mobile Terminal'}</span>
                     </div>
                   </div>
 
@@ -673,85 +698,29 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
                           </span>
                         ))
                       ) : (
-                        <span className="text-[10px] text-slate-500 italic">No routes assigned yet</span>
+                        <span className="text-[10px] text-slate-500 italic">No routes assigned</span>
                       )}
                     </div>
                   </div>
                 </div>
 
-                {/* Card Action Footer */}
+                {/* Card Action Footer: Admin's 1 Option is Terminate Account */}
                 <div className="pt-2 border-t border-slate-800 flex items-center justify-between gap-2">
-                  {isPending ? (
-                    <div className="flex items-center gap-2 w-full">
-                      {/* One-Click Quick Approve */}
-                      <button
-                        type="button"
-                        onClick={() => handleApproveReader(reader)}
-                        disabled={isSubmittingApproval}
-                        className="flex-1 py-1.5 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer shadow-md shadow-emerald-500/20"
-                      >
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Approve & Unlock</span>
-                      </button>
-
-                      {/* Customize Routes before approval */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedReaderForEdit(reader);
-                          setEditRoutes(reader.assignedRoutes || ['Poblacion']);
-                        }}
-                        className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white border border-slate-700 text-xs transition cursor-pointer"
-                        title="Configure assigned barangays"
-                      >
-                        <Sliders className="w-3.5 h-3.5" />
-                      </button>
-
-                      {/* Reject */}
-                      <button
-                        type="button"
-                        onClick={() => handleRejectReader(reader)}
-                        className="p-1.5 rounded-xl bg-rose-950/40 hover:bg-rose-950/80 text-rose-400 hover:text-rose-300 border border-rose-800/40 text-xs transition cursor-pointer"
-                        title="Reject application"
-                      >
-                        <XCircle className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ) : (
+                  {isActive ? (
                     <div className="flex items-center justify-between w-full">
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedReaderForEdit(reader);
-                            setEditRoutes(reader.assignedRoutes || ['Poblacion']);
-                          }}
-                          className="text-[11px] font-bold text-sky-400 hover:text-sky-300 transition cursor-pointer"
-                        >
-                          Edit Routes
-                        </button>
-                        <span className="text-slate-600">•</span>
-                        {isActive ? (
-                          <button
-                            type="button"
-                            onClick={() => handleRejectReader(reader)}
-                            className="text-[11px] text-rose-400 hover:text-rose-300 transition cursor-pointer"
-                          >
-                            Deactivate
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => handleApproveReader(reader)}
-                            className="text-[11px] text-emerald-400 hover:text-emerald-300 transition cursor-pointer"
-                          >
-                            Reactivate
-                          </button>
-                        )}
-                      </div>
+                      {/* Admin's Single Action Option: TERMINATE THE ACCOUNT / METER READER */}
+                      <button
+                        type="button"
+                        onClick={() => setReaderToTerminate(reader)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-950/70 hover:bg-rose-900 border border-rose-800/80 text-rose-300 hover:text-white text-xs font-bold transition cursor-pointer shadow-sm shadow-rose-950/40"
+                        title="Terminate Account - Revoke Field Mobile Access"
+                      >
+                        <UserX className="w-3.5 h-3.5 text-rose-400" />
+                        <span>Terminate Meter Reader</span>
+                      </button>
 
-                      {/* Direct Test Login as this reader */}
-                      {onSwitchUser && isActive && (
+                      {/* Direct Test Login / Terminal Preview */}
+                      {onSwitchUser && (
                         <button
                           type="button"
                           onClick={() => {
@@ -767,13 +736,29 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
                             });
                             onNavigate('dashboard');
                           }}
-                          className="flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-950/60 hover:bg-emerald-950 border border-emerald-800/60 px-2 py-0.5 rounded-lg transition"
-                          title="Open Field Mobile Terminal as this Reader"
+                          className="flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-950/60 hover:bg-emerald-950 border border-emerald-800/60 px-2 py-1 rounded-lg transition"
+                          title="Launch Field Mobile Terminal as this Reader"
                         >
                           <LogIn className="w-3 h-3" />
                           <span>Terminal</span>
                         </button>
                       )}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between w-full text-xs">
+                      <span className="text-[11px] text-rose-400 font-mono flex items-center gap-1">
+                        <Ban className="w-3 h-3 shrink-0" />
+                        <span>Terminal Access Revoked</span>
+                      </span>
+
+                      {/* Optional Administrative Safety: Reinstate Account */}
+                      <button
+                        type="button"
+                        onClick={() => handleReactivateReader(reader)}
+                        className="text-[11px] text-emerald-400 hover:text-emerald-300 font-bold transition cursor-pointer underline decoration-dotted"
+                      >
+                        Reinstate
+                      </button>
                     </div>
                   )}
                 </div>
@@ -783,7 +768,114 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
         </div>
       )}
 
-      {/* Modal: Custom Route Assignment & Approval */}
+      {/* ================= MODAL: TERMINATE METER READER ACCOUNT ================= */}
+      <AnimatePresence>
+        {readerToTerminate && (
+          <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-slate-900 border border-rose-800/60 rounded-2xl p-5 max-w-md w-full shadow-2xl space-y-4"
+            >
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-950 border border-rose-700 flex items-center justify-center text-rose-400 shrink-0">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-base font-black text-white">
+                    Terminate Meter Reader Account
+                  </h3>
+                  <p className="text-xs text-rose-300/90 mt-0.5 font-medium">
+                    Revoke all field mobile terminal authorization immediately
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReaderToTerminate(null)}
+                  className="text-slate-400 hover:text-white"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1.5 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Meter Reader:</span>
+                  <span className="text-white font-bold">{readerToTerminate.name}</span>
+                </div>
+                <div className="flex justify-between font-mono">
+                  <span className="text-slate-400">Employee ID:</span>
+                  <span className="text-sky-400">{readerToTerminate.employeeId}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Username:</span>
+                  <span className="text-slate-300">@{readerToTerminate.username}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Coverage Routes:</span>
+                  <span className="text-slate-300">{readerToTerminate.assignedRoutes?.join(', ') || 'None'}</span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-rose-950/40 border border-rose-800/50 rounded-xl text-xs text-rose-200">
+                <p className="font-semibold text-rose-300 mb-1">Administrative Action Effect:</p>
+                <ul className="list-disc pl-4 space-y-0.5 text-[11px] text-rose-200/90">
+                  <li>Immediately blocks this meter reader from logging into the mobile terminal.</li>
+                  <li>Rejects any in-progress batch sync submissions from their device.</li>
+                  <li>Frees assigned barangay coverage routes for reassignment.</li>
+                </ul>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider block mb-1">
+                  Reason for Termination:
+                </label>
+                <select
+                  value={terminationReason}
+                  onChange={(e) => setTerminationReason(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:border-rose-500 mb-2"
+                >
+                  <option value="Account terminated by administrator">Account terminated by administrator</option>
+                  <option value="Field employment terminated / resigned">Field employment terminated / resigned</option>
+                  <option value="Device lost or security compromised">Device lost or security compromised</option>
+                  <option value="Disciplinary policy violation">Disciplinary policy violation</option>
+                  <option value="Route transfer / Roster restructuring">Route transfer / Roster restructuring</option>
+                </select>
+                <input
+                  type="text"
+                  value={terminationReason}
+                  onChange={(e) => setTerminationReason(e.target.value)}
+                  placeholder="Specify custom reason..."
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:border-rose-500"
+                />
+              </div>
+
+              <div className="pt-2 border-t border-slate-800 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setReaderToTerminate(null)}
+                  disabled={isTerminating}
+                  className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-300 text-xs font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmTerminateReader}
+                  disabled={isTerminating}
+                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-rose-600/30 disabled:opacity-50 cursor-pointer"
+                >
+                  <UserX className="w-3.5 h-3.5" />
+                  <span>{isTerminating ? 'Terminating...' : 'Confirm Termination'}</span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ================= MODAL: ROUTE ASSIGNMENT ================= */}
       <AnimatePresence>
         {selectedReaderForEdit && (
           <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
@@ -889,11 +981,11 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleApproveReader(selectedReaderForEdit, editRoutes)}
-                  disabled={editRoutes.length === 0}
-                  className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold disabled:opacity-50"
+                  onClick={() => handleUpdateRoutesSubmit(selectedReaderForEdit, editRoutes)}
+                  disabled={editRoutes.length === 0 || isSubmittingRoutes}
+                  className="px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 text-xs font-bold disabled:opacity-50"
                 >
-                  Save & Authorize
+                  {isSubmittingRoutes ? 'Saving...' : 'Save Routes'}
                 </button>
               </div>
             </motion.div>
@@ -901,7 +993,7 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
         )}
       </AnimatePresence>
 
-      {/* Modal: Direct Meter Reader Enrolment */}
+      {/* ================= MODAL: DIRECT METER READER ENROLMENT ================= */}
       <AnimatePresence>
         {isAddModalOpen && (
           <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
@@ -962,15 +1054,25 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
                     <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
                       Security PIN *
                     </label>
-                    <input
-                      type="password"
-                      required
-                      maxLength={6}
-                      value={newPin}
-                      onChange={(e) => setNewPin(e.target.value)}
-                      placeholder="1234"
-                      className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:border-sky-500"
-                    />
+                    <div className="relative">
+                      <input
+                        type={showNewPin ? "text" : "password"}
+                        required
+                        maxLength={6}
+                        value={newPin}
+                        onChange={(e) => setNewPin(e.target.value)}
+                        placeholder="1234"
+                        className="w-full pl-3 pr-9 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:border-sky-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPin(!showNewPin)}
+                        className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-200 transition focus:outline-none"
+                        aria-label={showNewPin ? "Hide PIN" : "Show PIN"}
+                      >
+                        {showNewPin ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -1080,7 +1182,7 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 text-slate-950 text-xs font-bold shadow-md"
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 text-slate-950 text-xs font-bold shadow-md cursor-pointer"
                   >
                     Enrol Reader
                   </button>

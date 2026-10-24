@@ -11,3 +11,121 @@ html, body, #root {
   touch-action: manipulation;
 }
 
+/* ==========================================================================
+   Global Data Table Custom Dark Theme & Eye-Friendly Styles
+   Eliminates white backgrounds, stark highlights, and ensures smooth dark contrast
+   ========================================================================== */
+table,
+.data-table,
+[role="table"] {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background-color: #0b1120 !important; /* deep slate-950 */
+  color: #cbd5e1 !important; /* slate-300 */
+}
+
+/* Table Headers */
+thead,
+.data-table thead,
+table thead {
+  background-color: #030712 !important; /* slate-950 deep */
+  color: #94a3b8 !important; /* slate-400 */
+  border-bottom: 1px solid #1e293b !important; /* slate-800 */
+}
+
+th,
+.data-table th,
+table th {
+  background-color: #030712 !important;
+  color: #94a3b8 !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid #1e293b !important;
+  text-shadow: none !important;
+}
+
+/* Table Body Rows & Cells */
+tbody,
+.data-table tbody,
+table tbody {
+  background-color: transparent !important;
+  color: #e2e8f0 !important;
+}
+
+tbody tr,
+.data-table tbody tr,
+table tbody tr {
+  background-color: #0b1120;
+  border-bottom: 1px solid #1e293b !important;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+/* Eye-friendly alternate row striping (subtle dark tint, never white) */
+tbody tr:nth-child(even),
+.data-table tbody tr:nth-child(even),
+table tbody tr:nth-child(even) {
+  background-color: #0e172a !important; /* subtle slate-900 tint */
+}
+
+tbody tr:nth-child(odd),
+.data-table tbody tr:nth-child(odd),
+table tbody tr:nth-child(odd) {
+  background-color: #090e1a !important; /* deeper slate-950 */
+}
+
+/* Hover highlights - gentle dark slate/sky tone, no bright white or stark flashes */
+tbody tr:hover,
+.data-table tbody tr:hover,
+table tbody tr:hover {
+  background-color: #172554 !important; /* deep eye-friendly blue/slate-900 highlight */
+  color: #f8fafc !important;
+}
+
+/* Table Cells */
+td,
+.data-table td,
+table td {
+  border-bottom: 1px solid #1e293b !important;
+  color: #cbd5e1;
+  background-color: transparent;
+}
+
+/* Remove default browser white highlights and selections on table elements */
+table, tr, td, th {
+  -webkit-tap-highlight-color: transparent !important;
+}
+
+/* Eye-friendly text selection for data tables */
+table ::selection,
+.data-table ::selection {
+  background-color: #0284c7 !important; /* sky-600 */
+  color: #ffffff !important;
+}
+
+/* Data Table Scrollbars (dark & sleek) */
+.data-table-container,
+div:has(> table) {
+  scrollbar-width: thin;
+  scrollbar-color: #334155 #0b1120;
+}
+
+div:has(> table)::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+div:has(> table)::-webkit-scrollbar-track {
+  background: #0b1120;
+}
+
+div:has(> table)::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 9999px;
+}
+
+div:has(> table)::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+

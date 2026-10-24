@@ -19,7 +19,6 @@ import { DownloadApkModal } from './components/DownloadApkModal';
 import { ScreenTransition } from './components/ScreenTransition';
 import { ModuleLoadingScreen, LoadingProcessInfo } from './components/ModuleLoadingScreen';
 import { AppSplashScreen } from './components/AppSplashScreen';
-import { WebSocketActivityFeed } from './components/WebSocketActivityFeed';
 
 // Screens
 import { LandingScreen } from './screens/LandingScreen';
@@ -35,6 +34,9 @@ import { AuditLogScreen } from './screens/AuditLogScreen';
 import { DebugScreen } from './screens/DebugScreen';
 import { MeterReadersScreen } from './screens/MeterReadersScreen';
 import { FlutterConfigScreen } from './screens/FlutterConfigScreen';
+import { SystemConnectionScreen } from './screens/SystemConnectionScreen';
+import { ArchitectureSecurityScreen } from './screens/ArchitectureSecurityScreen';
+import { AppErrorBoundary, ScreenErrorBoundary } from './components/ErrorBoundary';
 
 export function App() {
   const [currentUser, setCurrentUser] = useState<StaffUser | null>(null);
@@ -467,8 +469,6 @@ export function App() {
           onToggleChassis={() => setIsMobileChassis(!isMobileChassis)}
         />
 
-        {/* Real-time WebSocket Live Activity Toast & Telemetry Drawer */}
-        <WebSocketActivityFeed />
 
         {/* Android APK & Mobile Installation Modal */}
         {isApkModalOpen && (
@@ -539,51 +539,29 @@ export function App() {
       >
         <ScreenTransition screenKey={activeScreen}>
           {activeScreen === 'dashboard' && (
-            <DashboardScreen
-              user={currentUser}
-              consumers={consumers}
-              readings={readings}
-              syncState={syncState}
-              onNavigate={navigateTo}
-              onSelectConsumer={(c: Consumer) => {
-                setSelectedConsumer(c);
-                navigateTo('consumer_details', {
-                  title: 'Loading Consumer Profile',
-                  subtitle: `${c.name} (${c.accountNumber})`,
-                });
-              }}
-              onStartReading={handleStartReading}
-              onSyncTrigger={handleTriggerSync}
-              onOpenApkModal={() => setIsApkModalOpen(true)}
-            />
+            <ScreenErrorBoundary screenName="Dashboard" onRecoverToDashboard={() => navigateTo('dashboard')}>
+              <DashboardScreen
+                user={currentUser}
+                consumers={consumers}
+                readings={readings}
+                syncState={syncState}
+                onNavigate={navigateTo}
+                onSelectConsumer={(c: Consumer) => {
+                  setSelectedConsumer(c);
+                  navigateTo('consumer_details', {
+                    title: 'Loading Consumer Profile',
+                    subtitle: `${c.name} (${c.accountNumber})`,
+                  });
+                }}
+                onStartReading={handleStartReading}
+                onSyncTrigger={handleTriggerSync}
+                onOpenApkModal={() => setIsApkModalOpen(true)}
+              />
+            </ScreenErrorBoundary>
           )}
 
           {activeScreen === 'consumers' && (
-            <ConsumersScreen
-              consumers={consumers}
-              currentUser={currentUser}
-              onSelectConsumer={(c: Consumer) => {
-                setSelectedConsumer(c);
-                navigateTo('consumer_details', {
-                  title: 'Loading Consumer Profile',
-                  subtitle: `${c.name} (${c.accountNumber})`,
-                });
-              }}
-              onNavigate={navigateTo}
-              onStartReading={handleStartReading}
-            />
-          )}
-
-          {activeScreen === 'consumer_details' && (
-            selectedConsumer ? (
-              <ConsumerDetailsScreen
-                consumer={selectedConsumer}
-                readings={readings}
-                onStartReading={handleStartReading}
-                onScanMeter={handleScanMeter}
-                onNavigate={navigateTo}
-              />
-            ) : (
+            <ScreenErrorBoundary screenName="Consumers Directory" onRecoverToDashboard={() => navigateTo('dashboard')}>
               <ConsumersScreen
                 consumers={consumers}
                 currentUser={currentUser}
@@ -597,110 +575,162 @@ export function App() {
                 onNavigate={navigateTo}
                 onStartReading={handleStartReading}
               />
-            )
+            </ScreenErrorBoundary>
+          )}
+
+          {activeScreen === 'consumer_details' && (
+            <ScreenErrorBoundary screenName="Consumer Details" onRecoverToDashboard={() => navigateTo('dashboard')}>
+              {selectedConsumer ? (
+                <ConsumerDetailsScreen
+                  consumer={selectedConsumer}
+                  readings={readings}
+                  onStartReading={handleStartReading}
+                  onScanMeter={handleScanMeter}
+                  onNavigate={navigateTo}
+                />
+              ) : (
+                <ConsumersScreen
+                  consumers={consumers}
+                  currentUser={currentUser}
+                  onSelectConsumer={(c: Consumer) => {
+                    setSelectedConsumer(c);
+                    navigateTo('consumer_details', {
+                      title: 'Loading Consumer Profile',
+                      subtitle: `${c.name} (${c.accountNumber})`,
+                    });
+                  }}
+                  onNavigate={navigateTo}
+                  onStartReading={handleStartReading}
+                />
+              )}
+            </ScreenErrorBoundary>
           )}
 
           {activeScreen === 'reading_entry' && (
-            selectedConsumer ? (
-              <ReadingEntryScreen
-                consumer={selectedConsumer}
-                user={currentUser}
-                allConsumers={consumers}
-                initialReadingValue={ocrInitialData.readingValue}
-                initialPhotoUrl={ocrInitialData.photoUrl}
-                initialOcrConfidence={ocrInitialData.confidence}
-                onSaveReading={handleSaveReading}
-                onNavigate={navigateTo}
-                onScanWithCamera={handleScanMeter}
-                onSelectNextConsumer={(c: Consumer) => setSelectedConsumer(c)}
-              />
-            ) : (
-              <ConsumersScreen
-                consumers={consumers}
-                currentUser={currentUser}
-                onSelectConsumer={(c: Consumer) => {
-                  setSelectedConsumer(c);
-                  navigateTo('reading_entry', {
-                    title: 'Loading Reading Form',
-                    subtitle: `${c.name} (${c.accountNumber})`,
-                  });
-                }}
-                onNavigate={navigateTo}
-                onStartReading={handleStartReading}
-              />
-            )
+            <ScreenErrorBoundary screenName="Reading Entry Form" onRecoverToDashboard={() => navigateTo('dashboard')}>
+              {selectedConsumer ? (
+                <ReadingEntryScreen
+                  consumer={selectedConsumer}
+                  user={currentUser}
+                  allConsumers={consumers}
+                  initialReadingValue={ocrInitialData.readingValue}
+                  initialPhotoUrl={ocrInitialData.photoUrl}
+                  initialOcrConfidence={ocrInitialData.confidence}
+                  onSaveReading={handleSaveReading}
+                  onNavigate={navigateTo}
+                  onScanWithCamera={handleScanMeter}
+                  onSelectNextConsumer={(c: Consumer) => setSelectedConsumer(c)}
+                />
+              ) : (
+                <ConsumersScreen
+                  consumers={consumers}
+                  currentUser={currentUser}
+                  onSelectConsumer={(c: Consumer) => {
+                    setSelectedConsumer(c);
+                    navigateTo('reading_entry', {
+                      title: 'Loading Reading Form',
+                      subtitle: `${c.name} (${c.accountNumber})`,
+                    });
+                  }}
+                  onNavigate={navigateTo}
+                  onStartReading={handleStartReading}
+                />
+              )}
+            </ScreenErrorBoundary>
           )}
 
           {activeScreen === 'scan_meter' && (
-            <ScanMeterScreen
-              consumer={selectedConsumer}
-              currentUser={currentUser}
-              onNavigate={navigateTo}
-              onOCRComplete={handleOCRComplete}
-              onSelectConsumer={(c: Consumer) => setSelectedConsumer(c)}
-              onSaveReading={handleSaveReading}
-              onReloadData={reloadData}
-            />
+            <ScreenErrorBoundary screenName="Camera OCR Viewfinder" onRecoverToDashboard={() => navigateTo('dashboard')}>
+              <ScanMeterScreen
+                consumer={selectedConsumer}
+                currentUser={currentUser}
+                onNavigate={navigateTo}
+                onOCRComplete={handleOCRComplete}
+                onSelectConsumer={(c: Consumer) => setSelectedConsumer(c)}
+                onSaveReading={handleSaveReading}
+                onReloadData={reloadData}
+              />
+            </ScreenErrorBoundary>
           )}
 
           {activeScreen === 'batch_submission' && (
-            <BatchSubmissionScreen
-              pendingReadings={pendingReadings}
-              syncedReadings={syncedReadings}
-              syncState={syncState}
-              onSyncTrigger={handleTriggerSync}
-              onNavigate={navigateTo}
-            />
+            <ScreenErrorBoundary screenName="Batch Submission" onRecoverToDashboard={() => navigateTo('dashboard')}>
+              <BatchSubmissionScreen
+                pendingReadings={pendingReadings}
+                syncedReadings={syncedReadings}
+                syncState={syncState}
+                onSyncTrigger={handleTriggerSync}
+                onNavigate={navigateTo}
+              />
+            </ScreenErrorBoundary>
           )}
 
           {activeScreen === 'history' && (
-            <HistoryScreen
-              readings={readings}
-              onNavigate={navigateTo}
-              onReload={reloadData}
-            />
+            <ScreenErrorBoundary screenName="Reading History" onRecoverToDashboard={() => navigateTo('dashboard')}>
+              <HistoryScreen
+                readings={readings}
+                onNavigate={navigateTo}
+                onReload={reloadData}
+              />
+            </ScreenErrorBoundary>
           )}
 
           {activeScreen === 'audit_log' && (
-            <AuditLogScreen
-              logs={auditLogs}
-              onNavigate={navigateTo}
-            />
+            <ScreenErrorBoundary screenName="Audit Log" onRecoverToDashboard={() => navigateTo('dashboard')}>
+              <AuditLogScreen
+                logs={auditLogs}
+                onNavigate={navigateTo}
+              />
+            </ScreenErrorBoundary>
           )}
 
           {activeScreen === 'debug' && (
-            <DebugScreen
-              syncState={syncState}
-              onNavigate={navigateTo}
-              onResetDatabase={handleResetDatabase}
-              onSyncTrigger={handleTriggerSync}
-            />
+            <ScreenErrorBoundary screenName="Diagnostics" onRecoverToDashboard={() => navigateTo('dashboard')}>
+              <DebugScreen
+                syncState={syncState}
+                onNavigate={navigateTo}
+                onResetDatabase={handleResetDatabase}
+                onSyncTrigger={handleTriggerSync}
+              />
+            </ScreenErrorBoundary>
+          )}
+
+          {activeScreen === 'architecture_security' && (
+            <ScreenErrorBoundary screenName="Security & Resilience Architecture" onRecoverToDashboard={() => navigateTo('dashboard')}>
+              <ArchitectureSecurityScreen
+                user={currentUser}
+                onNavigate={navigateTo}
+              />
+            </ScreenErrorBoundary>
           )}
 
           {activeScreen === 'meter_readers' && (
-            <MeterReadersScreen
-              currentUser={currentUser}
-              onNavigate={navigateTo}
-              onSwitchUser={(user) => {
-                setCurrentUser(user);
-                SyncService.setActiveReader(user);
-                reloadData();
-              }}
-            />
+            <ScreenErrorBoundary screenName="Meter Readers" onRecoverToDashboard={() => navigateTo('dashboard')}>
+              <MeterReadersScreen
+                currentUser={currentUser}
+                onNavigate={navigateTo}
+                onSwitchUser={(user) => {
+                  setCurrentUser(user);
+                  SyncService.setActiveReader(user);
+                  reloadData();
+                }}
+              />
+            </ScreenErrorBoundary>
           )}
 
-          {(activeScreen === 'flutter_config' || activeScreen === 'token_setup') && (
-            <FlutterConfigScreen
-              user={currentUser}
-              onNavigate={navigateTo}
-              onOpenApkModal={() => setIsApkModalOpen(true)}
-            />
+          {(activeScreen === 'system_connection' || activeScreen === 'flutter_config' || activeScreen === 'token_setup') && (
+            <ScreenErrorBoundary screenName="System Connection" onRecoverToDashboard={() => navigateTo('dashboard')}>
+              <SystemConnectionScreen
+                user={currentUser}
+                onNavigate={navigateTo}
+                onOpenApkModal={() => setIsApkModalOpen(true)}
+                onSyncTrigger={handleTriggerSync}
+              />
+            </ScreenErrorBoundary>
           )}
         </ScreenTransition>
       </main>
 
-      {/* Real-time WebSocket Live Activity Toast & Telemetry Drawer */}
-      <WebSocketActivityFeed />
 
       {/* Elegant Dark Persistent Navigation Bar (Pinned and Locked) */}
       {activeScreen !== 'scan_meter' && (

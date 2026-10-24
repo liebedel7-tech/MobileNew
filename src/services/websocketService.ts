@@ -2,6 +2,7 @@
 // Features exponential backoff reconnection, offline message buffering, and telemetry diagnostics
 
 import { getApiBaseUrl } from './apiConfig';
+import { wsRateLimiter } from './rateLimiter';
 
 export type WSConnectionStatus = 'CONNECTING' | 'CONNECTED' | 'DISCONNECTED' | 'RECONNECTING';
 
@@ -27,6 +28,8 @@ export interface WSTelemetryStats {
   bufferedMessagesCount: number;
   connectionUrl: string;
   isReconnecting: boolean;
+  rateLimitThrottledCount: number;
+  clientRateTokens: number;
 }
 
 class WebSocketServiceClass {
@@ -61,6 +64,8 @@ class WebSocketServiceClass {
     bufferedMessagesCount: 0,
     connectionUrl: '',
     isReconnecting: false,
+    rateLimitThrottledCount: 0,
+    clientRateTokens: wsRateLimiter.getStats().currentTokens,
   };
 
   private recentEvents: WSEventPacket[] = [];
@@ -371,6 +376,31 @@ class WebSocketServiceClass {
       timestamp: new Date().toISOString(),
       payload,
     };
+
+    // Client-side Rate Limiting Check to prevent UI freeze and socket flooding
+    const isPriorityEvent = type === 'FIELD_READING_RECORDED' || 
+                            type === 'LIVE_READING_UPDATE' || 
+                            type === 'BATCH_SYNC_PROCESSED' || 
+                            type === 'FIELD_STAFF_ACTIVITY';
+
+    const tokenAllowed = wsRateLimiter.tryConsume(1);
+    const rlStats = wsRateLimiter.getStats();
+    this.stats.rateLimitThrottledCount = rlStats.totalThrottled;
+    this.stats.clientRateTokens = rlStats.currentTokens;
+
+    if (!tokenAllowed) {
+      if (isPriorityEvent) {
+        // High priority data must never be lost: enqueue and schedule smoothed transmission
+        this.log(`Rate limit throttled outgoing ${type}. Enqueuing to prevent UI thread/socket buffer freeze.`, 'warn');
+        this.enqueueMessage(packet);
+        setTimeout(() => this.flushOutboundQueue(), 250);
+        return false;
+      } else {
+        // Drop non-critical telemetry spam (rapid hover/clicks) to preserve connection health
+        this.log(`Rate limit dropped non-critical event ${type} (${rlStats.totalThrottled} dropped).`, 'warn');
+        return false;
+      }
+    }
 
     // Track in recent events
     this.recentEvents = [packet, ...this.recentEvents.slice(0, 49)];

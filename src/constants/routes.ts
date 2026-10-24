@@ -196,3 +196,32 @@ export function isConsumerInAssignedAreas(
     return false;
   });
 }
+
+/**
+ * Consumer Route Sync & Admin ID Issuance Validation:
+ * Consumers are strictly withheld from mobile sync until an Administrator has officially approved the account
+ * and issued both an Account Number (e.g. 011-102-056) and a Meter Serial Number (e.g. 150307143).
+ * Pending applicants without issued IDs are hidden from mobile meter reader route lists.
+ */
+export function isValidatedForFieldReading(c: any): boolean {
+  if (!c) return false;
+  const acct = (c.accountNumber || '').toString().trim();
+  const meter = (c.meterNumber || c.meterSerial || '').toString().trim();
+  const status = (c.status || '').toString().trim().toLowerCase();
+
+  const hasValidAccount = Boolean(
+    acct !== '' && 
+    !acct.toUpperCase().startsWith('PENDING') && 
+    acct.toUpperCase() !== 'UNISSUED'
+  );
+
+  const hasValidMeter = Boolean(
+    meter !== '' && 
+    !meter.toUpperCase().startsWith('PENDING') && 
+    meter.toUpperCase() !== 'UNISSUED'
+  );
+
+  const isActionableStatus = status !== 'pending_approval' && status !== 'pending';
+
+  return hasValidAccount && hasValidMeter && isActionableStatus;
+}

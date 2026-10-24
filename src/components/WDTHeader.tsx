@@ -7,7 +7,9 @@ import {
   Sliders, 
   Send,
   Home,
-  Smartphone
+  Smartphone,
+  Shield,
+  Server
 } from 'lucide-react';
 import { StaffUser, SyncState, ActiveScreen } from '../types';
 import { OfficialLogo } from './OfficialLogo';
@@ -124,6 +126,32 @@ export const WDTHeader: React.FC<WDTHeaderProps> = ({
             <Smartphone className="w-3.5 h-3.5" />
           </button>
         )}
+
+        {/* Security, Scale & Survival Architecture */}
+        <button
+          onClick={() => onNavigate('architecture_security')}
+          className={`p-2 rounded-lg border transition ${
+            currentScreen === 'architecture_security'
+              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+              : 'bg-slate-800 hover:bg-slate-750 border-slate-700 text-slate-300 hover:text-white'
+          }`}
+          title="Security, Scale & Resilience Operations"
+        >
+          <Shield className="w-3.5 h-3.5" />
+        </button>
+
+        {/* System Connection Gateway */}
+        <button
+          onClick={() => onNavigate('system_connection')}
+          className={`p-2 rounded-lg border transition ${
+            currentScreen === 'system_connection' || currentScreen === 'flutter_config'
+              ? 'bg-sky-500/10 border-sky-500/30 text-sky-400'
+              : 'bg-slate-800 hover:bg-slate-750 border-slate-700 text-slate-300 hover:text-white'
+          }`}
+          title="System Connection Gateway"
+        >
+          <Server className="w-3.5 h-3.5" />
+        </button>
 
         {/* Diagnostics / Settings */}
         <button
