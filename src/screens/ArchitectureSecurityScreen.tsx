@@ -308,7 +308,7 @@ export const ArchitectureSecurityScreen: React.FC<ArchitectureSecurityScreenProp
                   </div>
                   <div className="flex items-start gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-slate-600 shrink-0 mt-1.5" />
-                    <span>Consumers receive their bills immediately via on-the-spot thermal printed receipts from the reader&apos;s Bluetooth printer or official district SMS notices.</span>
+                    <span>Meter readers <strong>cannot issue or print bills</strong>. All tariff breakdowns, billing charges, and statement issuance are strictly performed by Central Administration. Mobile is dedicated exclusively to camera OCR tag/dial reading and sending to Admin.</span>
                   </div>
                 </div>
               </div>

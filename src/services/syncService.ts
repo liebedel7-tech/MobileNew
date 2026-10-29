@@ -354,12 +354,18 @@ export class SyncService {
               ? validatedConsumers.filter((c: Consumer) => isConsumerInAssignedAreas(c, this.activeRoutes))
               : validatedConsumers;
 
-            // Merge with local reading flags
+            // Merge with local reading flags so consumers never lose track of present readings
             const localReadings = await DatabaseHelper.getAllReadings();
-            const readingsMap = new Map(localReadings.map((r) => [r.consumerId, r]));
+            const sortedLocal = [...localReadings].sort((a, b) => {
+              const timeA = new Date(`${a.readingDate}T${a.readingTime || '00:00:00'}`).getTime();
+              const timeB = new Date(`${b.readingDate}T${b.readingTime || '00:00:00'}`).getTime();
+              return timeB - timeA;
+            });
 
             const enrichedConsumers: Consumer[] = allowedConsumers.map((c: Consumer) => {
-              const existingReading = readingsMap.get(c.id);
+              const existingReading = sortedLocal.find(
+                (r) => r.consumerId === c.id || r.accountNumber === c.accountNumber
+              );
               return {
                 ...c,
                 isReadThisMonth: !!existingReading,

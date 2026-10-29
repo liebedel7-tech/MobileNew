@@ -77,12 +77,44 @@ export class DatabaseHelper {
 
   static async getAllConsumers(): Promise<Consumer[]> {
     const db = await this.getDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction('consumers', 'readonly');
-      const store = tx.objectStore('consumers');
-      const request = store.getAll();
-      request.onsuccess = () => resolve(request.result || []);
-      request.onerror = () => reject(request.error);
+    const [rawConsumers, allReadings] = await Promise.all([
+      new Promise<Consumer[]>((resolve, reject) => {
+        const tx = db.transaction('consumers', 'readonly');
+        const store = tx.objectStore('consumers');
+        const request = store.getAll();
+        request.onsuccess = () => resolve(request.result || []);
+        request.onerror = () => reject(request.error);
+      }),
+      new Promise<MeterReading[]>((resolve, reject) => {
+        const tx = db.transaction('readings', 'readonly');
+        const store = tx.objectStore('readings');
+        const request = store.getAll();
+        request.onsuccess = () => resolve(request.result || []);
+        request.onerror = () => reject(request.error);
+      }),
+    ]);
+
+    // Sort readings newest first to ensure the latest reading is always attached
+    const sortedReadings = [...allReadings].sort((a, b) => {
+      const timeA = new Date(`${a.readingDate}T${a.readingTime || '00:00:00'}`).getTime();
+      const timeB = new Date(`${b.readingDate}T${b.readingTime || '00:00:00'}`).getTime();
+      return timeB - timeA;
+    });
+
+    return rawConsumers.map((consumer) => {
+      const latestReading = sortedReadings.find(
+        (r) => r.consumerId === consumer.id || r.accountNumber === consumer.accountNumber
+      );
+
+      if (latestReading) {
+        return {
+          ...consumer,
+          isReadThisMonth: true,
+          currentMonthReading: latestReading,
+        };
+      }
+
+      return consumer;
     });
   }
 
@@ -102,53 +134,30 @@ export class DatabaseHelper {
   }
 
   static async getConsumerById(id: string, routes?: string[] | string | null): Promise<Consumer | null> {
-    const db = await this.getDB();
-    const consumer = await new Promise<Consumer | null>((resolve, reject) => {
-      const tx = db.transaction('consumers', 'readonly');
-      const store = tx.objectStore('consumers');
-      const request = store.get(id);
-      request.onsuccess = () => resolve(request.result || null);
-      request.onerror = () => reject(request.error);
-    });
-
+    const all = await this.getAllConsumers();
+    const consumer = all.find((c) => c.id === id);
     if (consumer && routes && !isConsumerInAssignedAreas(consumer, routes)) {
       return null;
     }
-    return consumer;
+    return consumer || null;
   }
 
   static async getConsumerByAccountNumber(accNo: string, routes?: string[] | string | null): Promise<Consumer | null> {
-    const db = await this.getDB();
-    const consumer = await new Promise<Consumer | null>((resolve, reject) => {
-      const tx = db.transaction('consumers', 'readonly');
-      const store = tx.objectStore('consumers');
-      const index = store.index('accountNumber');
-      const request = index.get(accNo);
-      request.onsuccess = () => resolve(request.result || null);
-      request.onerror = () => reject(request.error);
-    });
-
+    const all = await this.getAllConsumers();
+    const consumer = all.find((c) => c.accountNumber === accNo);
     if (consumer && routes && !isConsumerInAssignedAreas(consumer, routes)) {
       return null;
     }
-    return consumer;
+    return consumer || null;
   }
 
   static async getConsumerByMeterSerial(serial: string, routes?: string[] | string | null): Promise<Consumer | null> {
-    const db = await this.getDB();
-    const consumer = await new Promise<Consumer | null>((resolve, reject) => {
-      const tx = db.transaction('consumers', 'readonly');
-      const store = tx.objectStore('consumers');
-      const index = store.index('meterSerial');
-      const request = index.get(serial);
-      request.onsuccess = () => resolve(request.result || null);
-      request.onerror = () => reject(request.error);
-    });
-
+    const all = await this.getAllConsumers();
+    const consumer = all.find((c) => c.meterSerial === serial || c.meterNumber === serial);
     if (consumer && routes && !isConsumerInAssignedAreas(consumer, routes)) {
       return null;
     }
-    return consumer;
+    return consumer || null;
   }
 
   static async getConsumerByTagOrMeterNumber(tag: string, routes?: string[] | string | null): Promise<Consumer | null> {
@@ -235,6 +244,24 @@ export class DatabaseHelper {
             currentMonthReading: reading,
           };
           consumerStore.put(updatedConsumer);
+        } else {
+          // If not found by ID, search by accountNumber index
+          try {
+            const accIndex = consumerStore.index('accountNumber');
+            const accReq = accIndex.get(reading.accountNumber);
+            accReq.onsuccess = () => {
+              if (accReq.result) {
+                const updatedConsumer: Consumer = {
+                  ...accReq.result,
+                  isReadThisMonth: true,
+                  currentMonthReading: reading,
+                };
+                consumerStore.put(updatedConsumer);
+              }
+            };
+          } catch (e) {
+            console.debug('Account lookup note:', e);
+          }
         }
       };
 
@@ -455,18 +482,26 @@ export class DatabaseHelper {
       if (!existing || existing.length === 0) {
         // Seed default consumers immediately to ensure instant offline capability
         await this.saveConsumers(this.DEFAULT_SEED_CONSUMERS);
-        
-        try {
-          const res = await universalApiFetch('/api/consumers');
-          if (res.ok) {
-            const data = await res.json();
-            if (data && (data.consumers || data.data) && Array.isArray(data.consumers || data.data)) {
-              await this.saveConsumers(data.consumers || data.data);
-            }
-          }
-        } catch {
-          // Offline fallback is already loaded
+      } else {
+        // Automatically merge any newly added seed consumers (e.g. from Rosario) into existing local storage
+        const missing = this.DEFAULT_SEED_CONSUMERS.filter(
+          (sc) => !existing.some((ec) => ec.id === sc.id || ec.accountNumber === sc.accountNumber)
+        );
+        if (missing.length > 0) {
+          await this.saveConsumers(missing);
         }
+      }
+
+      try {
+        const res = await universalApiFetch('/api/consumers');
+        if (res.ok) {
+          const data = await res.json();
+          if (data && (data.consumers || data.data) && Array.isArray(data.consumers || data.data)) {
+            await this.saveConsumers(data.consumers || data.data);
+          }
+        }
+      } catch {
+        // Offline fallback is already loaded
       }
     } catch (err) {
       console.warn('DatabaseHelper init error:', err);

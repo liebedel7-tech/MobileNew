@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   ArrowLeft, 
   MapPin, 
@@ -14,11 +14,12 @@ import {
   History,
   Tag
 } from 'lucide-react';
-import { Consumer, MeterReading, ActiveScreen } from '../types';
+import { Consumer, MeterReading, StaffUser, ActiveScreen } from '../types';
 
 interface ConsumerDetailsScreenProps {
   consumer: Consumer;
   readings: MeterReading[];
+  user?: StaffUser | null;
   onStartReading: (consumer: Consumer) => void;
   onScanMeter: (consumer: Consumer) => void;
   onNavigate: (screen: ActiveScreen) => void;
@@ -27,6 +28,7 @@ interface ConsumerDetailsScreenProps {
 export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
   consumer,
   readings,
+  user,
   onStartReading,
   onScanMeter,
   onNavigate,
@@ -140,48 +142,66 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
         </div>
       </div>
 
-      {/* Current Month Status */}
+      {/* Current Month Reading Status */}
       {consumer.currentMonthReading ? (
-        <div className="bg-emerald-950/30 border border-emerald-800/60 rounded-2xl p-4 space-y-2">
+        <div className="bg-emerald-950/40 border border-emerald-600/60 rounded-2xl p-4 sm:p-5 space-y-3 shadow-lg">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-              <h3 className="font-bold text-sm text-emerald-300">
-                Reading Logged & Dispatched for {new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}
-              </h3>
+              <div>
+                <h3 className="font-extrabold text-sm text-emerald-300">
+                  Present Reading Logged for {new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}
+                </h3>
+                <span className="text-[11px] text-slate-400 font-mono">
+                  Recorded on {consumer.currentMonthReading.readingDate} at {consumer.currentMonthReading.readingTime}
+                </span>
+              </div>
             </div>
-            <span className="text-[11px] font-mono text-emerald-400 bg-emerald-950 px-2.5 py-0.5 rounded border border-emerald-800 font-bold">
-              Cycle Active
+            <span className="text-[11px] font-mono text-emerald-300 bg-emerald-900/80 px-2.5 py-1 rounded-lg border border-emerald-700 font-bold">
+              Pending Admin Approval
             </span>
           </div>
 
-          <div className="bg-slate-900/90 rounded-xl p-3 border border-slate-800 space-y-2 font-mono text-xs">
+          {/* Reading Continuity Grid */}
+          <div className="bg-slate-950/90 rounded-xl p-3 sm:p-4 border border-slate-800 space-y-2.5 font-mono text-xs">
             <div className="flex items-center justify-between text-slate-300">
               <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                PREVIOUS READING
+                PREVIOUS READING (BASELINE INDEX)
               </span>
               <span className="font-bold text-slate-200 text-sm">
-                {consumer.previousReading}
+                {consumer.previousReading} cu.m.
               </span>
             </div>
 
             <div className="flex items-center justify-between text-slate-300">
-              <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                PRESENT READING
+              <span className="text-[10px] uppercase font-bold text-sky-400 tracking-wider">
+                PRESENT READING (CURRENT METER INDEX)
               </span>
-              <span className="font-bold text-sky-300 text-sm">
-                {consumer.currentMonthReading.currentReading}
+              <span className="font-black text-sky-300 text-base">
+                {consumer.currentMonthReading.currentReading} cu.m.
               </span>
             </div>
 
-            <div className="flex items-center justify-between pt-1.5 border-t border-slate-800">
+            <div className="flex items-center justify-between pt-2 border-t border-slate-800">
               <span className="text-[10px] uppercase font-bold text-emerald-400 tracking-wider">
-                CONSUMPTION
+                TOTAL CONSUMPTION
               </span>
-              <span className="font-black text-emerald-400 text-sm">
-                {consumer.currentMonthReading.consumption}
+              <span className="font-black text-emerald-400 text-base">
+                +{consumer.currentMonthReading.consumption} cu.m.
               </span>
             </div>
+          </div>
+
+          <div className="flex items-center justify-between pt-1">
+            <span className="text-[11px] text-slate-400 font-mono">
+              Reader: <strong className="text-slate-200">{consumer.currentMonthReading.readerName || 'Field Reader'}</strong>
+            </span>
+            <button
+              onClick={() => onStartReading(consumer)}
+              className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-sky-300 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+            >
+              <span>Update / Adjust Present Reading</span>
+            </button>
           </div>
         </div>
       ) : (
@@ -190,64 +210,92 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
             <Clock className="w-5 h-5 text-amber-400 shrink-0" />
             <div>
               <div className="font-bold text-xs text-amber-300">
-                Awaiting Reading for {new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}
+                Awaiting Present Reading for {new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}
               </div>
               <div className="text-[11px] text-slate-400 font-mono">
-                Previous: <strong className="text-slate-200">{consumer.previousReading} cu.m.</strong> • 3-Mo Avg Usage: <strong className="text-sky-300">{consumer.averageConsumption} cu.m.</strong>
+                Previous Index: <strong className="text-slate-200">{consumer.previousReading} cu.m.</strong> • 3-Mo Avg: <strong className="text-sky-300">{consumer.averageConsumption} cu.m.</strong>
               </div>
             </div>
           </div>
 
           <button
             onClick={() => onStartReading(consumer)}
-            className="px-3.5 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 shrink-0"
+            className="px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 shrink-0 shadow cursor-pointer"
           >
-            <span>Enter Reading</span>
+            <span>Enter Present Reading</span>
           </button>
         </div>
       )}
 
-      {/* Historical Readings Log */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
-        <div className="flex items-center gap-2 text-xs font-bold text-slate-300 uppercase tracking-wider">
-          <History className="w-4 h-4 text-sky-400" />
-          <span>Historical Meter Readings Log</span>
+      {/* Historical Readings Log & Progression Chain */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs font-bold text-slate-300 uppercase tracking-wider">
+            <History className="w-4 h-4 text-sky-400" />
+            <span>Meter Readings Progression & History Chain</span>
+          </div>
+          <span className="text-[11px] font-mono text-slate-500">
+            {consumerReadings.length} Logged Record(s)
+          </span>
         </div>
 
         {consumerReadings.length === 0 ? (
-          <div className="text-center py-6 text-slate-500 text-xs">
-            No past readings archived in local cache for this consumer.
+          <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-6 text-center text-slate-400 text-xs space-y-1">
+            <div className="font-bold text-slate-300">Initial Cycle On Track</div>
+            <p className="text-[11px] text-slate-500">
+              Previous baseline index: <strong className="text-slate-300 font-mono">{consumer.previousReading} cu.m.</strong> (Recorded on {consumer.previousReadingDate}).
+              Historical readings chain will accumulate chronologically as present readings are logged.
+            </p>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             {consumerReadings.map((reading) => (
               <div
                 key={reading.id}
-                className="bg-slate-950 border border-slate-800/80 rounded-xl p-3 flex items-center justify-between hover:border-slate-700 transition"
+                className="bg-slate-950 border border-slate-800/80 rounded-xl p-3.5 space-y-2 hover:border-slate-700 transition"
               >
-                <div>
-                  <div className="text-xs font-bold text-white flex items-center gap-2">
-                    <span>{reading.readingDate} {reading.readingTime}</span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-white font-mono">
+                      {reading.readingDate} {reading.readingTime}
+                    </span>
                     <span
-                      className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${
-                        reading.status === 'SYNCED'
+                      className={`text-[9px] font-bold px-2 py-0.5 rounded ${
+                        reading.approvalStatus === 'approved'
                           ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
                           : 'bg-amber-950 text-amber-400 border border-amber-800'
                       }`}
                     >
-                      {reading.status}
+                      {reading.approvalStatus === 'approved' ? 'Approved & Billed' : 'Pending Admin Approval'}
                     </span>
                   </div>
-                  <div className="text-[11px] text-slate-400 font-mono mt-0.5">
-                    Reading: {reading.currentReading} cu.m. • Used: {reading.consumption} cu.m.
+
+                  <span className="text-xs font-mono font-bold text-slate-400">
+                    By: {reading.readerName || reading.readerId}
+                  </span>
+                </div>
+
+                {/* Progression Bar: Previous -> Present = Consumption */}
+                <div className="bg-slate-900/90 rounded-lg p-2.5 border border-slate-800/80 grid grid-cols-3 gap-2 text-center font-mono">
+                  <div>
+                    <span className="text-[9px] uppercase font-bold text-slate-500 block">PREVIOUS INDEX</span>
+                    <span className="text-xs font-bold text-slate-300 block">{reading.previousReading} cu.m.</span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] uppercase font-bold text-sky-400 block">PRESENT INDEX</span>
+                    <span className="text-xs font-black text-sky-300 block">{reading.currentReading} cu.m.</span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] uppercase font-bold text-emerald-400 block">CONSUMPTION</span>
+                    <span className="text-xs font-black text-emerald-400 block">+{reading.consumption} cu.m.</span>
                   </div>
                 </div>
 
-                <div className="text-right">
-                  <div className="text-xs font-bold text-sky-400 font-mono">
-                    +{reading.consumption} cu.m.
+                {reading.remarks && (
+                  <div className="text-[10.5px] text-slate-400 italic font-sans">
+                    Note: {reading.remarks}
                   </div>
-                </div>
+                )}
               </div>
             ))}
           </div>

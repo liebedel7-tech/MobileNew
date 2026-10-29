@@ -25,6 +25,7 @@ import {
 import { StaffUser, ActiveScreen, SyncState } from '../types';
 import { 
   TAGOLOAN_SYSTEM_BASE_URL, 
+  DEFAULT_TAGOLOAN_CLOUD_URL,
   getSystemConnectionConfig, 
   saveSystemConnectionConfig, 
   probeSystemEndpoint, 
@@ -653,8 +654,34 @@ export const SystemConnectionScreen: React.FC<SystemConnectionScreenProps> = ({
               className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono focus:outline-none focus:border-sky-500"
             />
             <span className="text-[10px] text-slate-500 mt-1 block">
-              Default: <code className="text-sky-400">{TAGOLOAN_SYSTEM_BASE_URL}</code>
+              Current Default: <code className="text-sky-400">{TAGOLOAN_SYSTEM_BASE_URL}</code>
             </span>
+
+            {/* Quick URL Presets */}
+            <div className="mt-2.5 flex flex-wrap gap-1.5 items-center">
+              <span className="text-[10px] text-slate-400 mr-1">Quick Presets:</span>
+              <button
+                type="button"
+                onClick={() => handleSelectPreset(typeof window !== 'undefined' && window.location?.origin ? window.location.origin : 'http://localhost:3000')}
+                className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[10.5px] font-mono text-emerald-300 transition cursor-pointer"
+              >
+                ● Active Host (Auto)
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSelectPreset(DEFAULT_TAGOLOAN_CLOUD_URL)}
+                className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[10.5px] font-mono text-sky-300 transition cursor-pointer"
+              >
+                ● Cloud Platform
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSelectPreset('http://localhost:3000')}
+                className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[10.5px] font-mono text-amber-300 transition cursor-pointer"
+              >
+                ● Localhost:3000
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

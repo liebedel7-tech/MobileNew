@@ -5,7 +5,7 @@ import { ActiveScreen, StaffUser } from '../types';
 import { OfficialLogo } from './OfficialLogo';
 
 export interface LoadingProcessInfo {
-  type: 'module_transition' | 'batch_sync' | 'save_reading' | 'ocr_scan' | 'print_receipt' | 'reset_database' | 'login' | 'logout';
+  type: 'module_transition' | 'batch_sync' | 'save_reading' | 'ocr_scan' | 'reset_database' | 'login' | 'logout';
   targetModule?: ActiveScreen;
   title: string;
   subtitle: string;

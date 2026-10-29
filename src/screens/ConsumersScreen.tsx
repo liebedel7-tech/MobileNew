@@ -13,6 +13,7 @@ import {
   Smartphone
 } from 'lucide-react';
 import { Consumer, ActiveScreen, StaffUser } from '../types';
+import { TAGOLOAN_BARANGAYS } from '../constants/routes';
 
 interface ConsumersScreenProps {
   consumers: Consumer[];
@@ -34,9 +35,9 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'READ' | 'UNREAD'>('ALL');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
 
-  // Extract unique barangays in Tagoloan
+  // Extract unique barangays in Tagoloan, ensuring all official barangays (including Rosario) are available
   const barangays = useMemo(() => {
-    const list = Array.from(new Set(consumers.map((c) => c.barangay))).filter(Boolean);
+    const list = Array.from(new Set([...TAGOLOAN_BARANGAYS, ...consumers.map((c) => c.barangay)])).filter(Boolean);
     return ['ALL', ...list.sort()];
   }, [consumers]);
 
@@ -212,7 +213,7 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
                         PREVIOUS READING
                       </span>
                       <span className="font-bold text-slate-200 text-sm">
-                        {consumer.previousReading}
+                        {consumer.previousReading} cu.m.
                       </span>
                     </div>
 
@@ -224,7 +225,7 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
                         consumer.isReadThisMonth ? 'text-sky-300' : 'text-slate-500 italic text-xs'
                       }`}>
                         {consumer.isReadThisMonth && consumer.currentMonthReading
-                          ? consumer.currentMonthReading.currentReading
+                          ? `${consumer.currentMonthReading.currentReading} cu.m.`
                           : 'Pending'}
                       </span>
                     </div>
@@ -237,8 +238,8 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
                         consumer.isReadThisMonth ? 'text-emerald-400' : 'text-slate-400'
                       }`}>
                         {consumer.isReadThisMonth && consumer.currentMonthReading
-                          ? consumer.currentMonthReading.consumption
-                          : (consumer.previousConsumption ? `${consumer.previousConsumption} (Prev)` : '—')}
+                          ? `+${consumer.currentMonthReading.consumption} cu.m.`
+                          : (consumer.previousConsumption ? `${consumer.previousConsumption} cu.m. (Prev)` : '—')}
                       </span>
                     </div>
                   </div>

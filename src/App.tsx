@@ -359,9 +359,20 @@ export function App() {
       'RECORD_READING',
       currentUser?.id || 'SYSTEM',
       currentUser?.name || 'Reader',
-      `Logged reading ${reading.currentReading} cu.m for Acc: ${reading.accountNumber} (${reading.consumerName}). Due: ₱${reading.billCalculation.totalAmountDue.toFixed(2)}. Stored locally.`
+      `Logged reading ${reading.currentReading} cu.m for Acc: ${reading.accountNumber} (${reading.consumerName}). Consumption: ${reading.consumption} cu.m. Stored locally.`
     );
     await reloadData();
+    setSelectedConsumer((prev) => {
+      if (!prev) return null;
+      if (prev.id === reading.consumerId || prev.accountNumber === reading.accountNumber) {
+        return {
+          ...prev,
+          isReadThisMonth: true,
+          currentMonthReading: reading,
+        };
+      }
+      return prev;
+    });
   };
 
   const handleTriggerSync = async () => {

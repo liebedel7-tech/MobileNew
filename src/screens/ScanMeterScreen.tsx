@@ -65,6 +65,7 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const [torchOn, setTorchOn] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [cameraError, setCameraError] = useState<string | null>(null);
 
   // Two-Stage Workflow: Stage 1 = IDENTIFY_TAG -> Stage 2 = SCAN_METER -> Stage 3 = SUBMITTED
@@ -363,6 +364,23 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
       }
     } else {
       setTorchOn(!torchOn);
+    }
+  };
+
+  const handleSetZoom = async (newZoom: number) => {
+    setZoomLevel(newZoom);
+    if (streamRef.current) {
+      const track = streamRef.current.getVideoTracks()[0];
+      const capabilities = (track && track.getCapabilities && (track as any).getCapabilities()) as any;
+      if (capabilities && capabilities.zoom) {
+        try {
+          await (track as any).applyConstraints({
+            advanced: [{ zoom: newZoom }],
+          });
+        } catch (e) {
+          console.debug('Hardware zoom constraint note:', e);
+        }
+      }
     }
   };
 
@@ -785,6 +803,11 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
             autoPlay
             muted
             onLoadedMetadata={() => videoRef.current?.play()}
+            style={{
+              transform: `scale(${zoomLevel})`,
+              transformOrigin: 'center center',
+              transition: 'transform 0.2s ease-out',
+            }}
             className={`w-full h-full object-cover transition-opacity duration-300 ${
               cameraActive && !capturedPhoto ? 'opacity-100 block' : 'hidden opacity-0'
             }`}
@@ -845,6 +868,9 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
               liveReadingDigits={liveReadingDigits}
               liveReadingValue={liveReadingValue}
               liveConfidence={liveConfidence}
+              zoom={zoomLevel}
+              onSetZoom={handleSetZoom}
+              previousReading={selectedConsumer?.previousReading}
             />
           )}
         </div>

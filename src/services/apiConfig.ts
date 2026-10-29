@@ -93,7 +93,14 @@ export const LIVE_BACKEND_URL = typeof window !== 'undefined' && window.location
   ? window.location.origin 
   : '';
 
-export const TAGOLOAN_SYSTEM_BASE_URL = 'https://ais-dev-ui6fsepfskrowqsfycbac7-946013608969.asia-southeast1.run.app';
+export const DEFAULT_TAGOLOAN_CLOUD_URL = 'https://ais-dev-ui6fsepfskrowqsfycbac7-946013608969.asia-southeast1.run.app';
+
+// Dynamic Resolution: Default to the active server origin hosting this application
+// to guarantee 100% instant connectivity out of the box, with full support for external targets
+export const TAGOLOAN_SYSTEM_BASE_URL = typeof window !== 'undefined' && window.location?.origin
+  ? window.location.origin
+  : DEFAULT_TAGOLOAN_CLOUD_URL;
+
 export const DEFAULT_SERVER_URL = TAGOLOAN_SYSTEM_BASE_URL;
 
 export interface SystemConnectionConfig {
@@ -161,7 +168,12 @@ export function getApiBaseUrl(): string {
     }
   }
 
-  // 2. Vite environment variable
+  // 2. Current origin (relative / active host)
+  if (typeof window !== 'undefined' && window.location && window.location.origin) {
+    return window.location.origin;
+  }
+
+  // 3. Vite environment variable
   try {
     const meta = import.meta as any;
     if (meta && meta.env) {
@@ -174,7 +186,7 @@ export function getApiBaseUrl(): string {
     // Ignore in non-vite environments
   }
 
-  // 3. Official Tagoloan Water District Real-Time Cloud Service
+  // 4. Default Central Cloud Service
   return TAGOLOAN_SYSTEM_BASE_URL;
 }
 
@@ -195,17 +207,17 @@ export function getCandidateBackendUrls(): string[] {
     }
   }
 
-  // Candidate 2: Official Tagoloan Cloud Service
-  if (!candidates.includes(TAGOLOAN_SYSTEM_BASE_URL)) {
-    candidates.push(TAGOLOAN_SYSTEM_BASE_URL);
-  }
-
-  // Candidate 3: Current origin (relative / same domain)
+  // Candidate 2: Current origin (relative / active host)
   if (typeof window !== 'undefined' && window.location && window.location.origin) {
     const origin = window.location.origin;
     if (origin.startsWith('http') && !candidates.includes(origin)) {
       candidates.push(origin);
     }
+  }
+
+  // Candidate 3: Official Tagoloan Cloud Service
+  if (!candidates.includes(DEFAULT_TAGOLOAN_CLOUD_URL)) {
+    candidates.push(DEFAULT_TAGOLOAN_CLOUD_URL);
   }
 
   return candidates.length > 0 ? candidates : [''];
@@ -269,7 +281,9 @@ export async function universalApiFetch(path: string, init?: RequestInit): Promi
         (typeof performance !== 'undefined' ? performance.now() : Date.now()) - startTime
       );
 
-      if (response.status < 400) {
+      const contentType = response.headers.get('content-type') || '';
+      // Ensure response is valid JSON, not an HTML redirect or cookie check
+      if (response.status < 400 && !contentType.includes('text/html')) {
         cachedWorkingBaseUrl = base;
         lastHealthCheckTime = Date.now();
 

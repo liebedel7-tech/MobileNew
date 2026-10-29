@@ -58,7 +58,9 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
   onSelectNextConsumer,
 }) => {
   const [currentReading, setCurrentReading] = useState<string>(
-    initialReadingValue !== undefined ? String(initialReadingValue) : ''
+    initialReadingValue !== undefined && initialReadingValue !== null
+      ? String(initialReadingValue)
+      : (consumer.currentMonthReading?.currentReading !== undefined ? String(consumer.currentMonthReading.currentReading) : '')
   );
   const [meterCondition, setMeterCondition] = useState<MeterCondition>('NORMAL');
   const [remarks, setRemarks] = useState('');
@@ -94,10 +96,13 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
 
   // Reset form and post-save states whenever the consumer changes (e.g. moving to Next Consumer)
   useEffect(() => {
-    setCurrentReading(initialReadingValue !== undefined && initialReadingValue !== null ? String(initialReadingValue) : '');
-    setPhotoUrl(initialPhotoUrl);
-    setMeterCondition('NORMAL');
-    setRemarks('');
+    const defaultVal = initialReadingValue !== undefined && initialReadingValue !== null
+      ? String(initialReadingValue)
+      : (consumer.currentMonthReading?.currentReading !== undefined ? String(consumer.currentMonthReading.currentReading) : '');
+    setCurrentReading(defaultVal);
+    setPhotoUrl(initialPhotoUrl || consumer.currentMonthReading?.photoUrl);
+    setMeterCondition(consumer.currentMonthReading?.meterCondition || 'NORMAL');
+    setRemarks(consumer.currentMonthReading?.remarks || '');
     setSavedReading(null);
     setSendSuccess(false);
     setSendFeedback(null);
@@ -108,7 +113,7 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
         accuracy: 4,
       });
     }
-  }, [consumer.id, initialReadingValue, initialPhotoUrl]);
+  }, [consumer.id, consumer.currentMonthReading, initialReadingValue, initialPhotoUrl]);
 
   // Capture GPS on mount
   useEffect(() => {
@@ -195,7 +200,7 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
 
     await LoggerService.log(
       'READING_CONFIRMED_SENT',
-      `Meter reading ${numReading} cu.m. (${consumption} used, ₱${billCalc.totalAmountDue}) confirmed & dispatched for Acc #${consumer.accountNumber}. Status: Pending Admin Approval.`,
+      `Meter reading ${numReading} cu.m. (${consumption} cu.m. consumed) confirmed & dispatched for Acc #${consumer.accountNumber}. Status: Pending Admin Approval.`,
       user.id,
       user.name
     );
@@ -310,7 +315,7 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
                   PREVIOUS READING
                 </span>
                 <span className="font-bold text-slate-200 text-sm">
-                  {savedReading.previousReading}
+                  {savedReading.previousReading} cu.m.
                 </span>
               </div>
 
@@ -319,7 +324,7 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
                   PRESENT READING
                 </span>
                 <span className="font-bold text-sky-300 text-sm">
-                  {savedReading.currentReading}
+                  {savedReading.currentReading} cu.m.
                 </span>
               </div>
 
@@ -328,7 +333,7 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
                   CONSUMPTION
                 </span>
                 <span className="font-black text-emerald-400 text-sm">
-                  {savedReading.consumption}
+                  +{savedReading.consumption} cu.m.
                 </span>
               </div>
             </div>
@@ -535,7 +540,7 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
                 PREVIOUS READING
               </span>
               <span className="font-bold text-slate-200 text-sm">
-                {prevReading}
+                {prevReading} cu.m.
               </span>
             </div>
 
@@ -546,7 +551,7 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
               <span className={`font-bold text-sm ${
                 isReadingInvalid ? 'text-red-400' : 'text-sky-300'
               }`}>
-                {currentReading !== '' ? numReading : '—'}
+                {currentReading !== '' ? `${numReading} cu.m.` : '—'}
               </span>
             </div>
 
@@ -560,7 +565,7 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
                 </span>
               ) : (
                 <span className="font-black text-emerald-400 text-sm">
-                  {currentReading !== '' && numReading >= prevReading ? consumption : '0'}
+                  {currentReading !== '' && numReading >= prevReading ? `+${consumption} cu.m.` : '0 cu.m.'}
                 </span>
               )}
             </div>

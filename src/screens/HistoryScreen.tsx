@@ -199,11 +199,11 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                   <h4 className="font-bold text-xs text-white truncate">{reading.consumerName}</h4>
 
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-slate-400 font-mono">
-                    <span>PREVIOUS: <strong className="text-slate-300">{reading.previousReading}</strong></span>
+                    <span>PREVIOUS: <strong className="text-slate-300">{reading.previousReading} cu.m.</strong></span>
                     <span>•</span>
-                    <span>PRESENT: <strong className="text-sky-300">{reading.currentReading}</strong></span>
+                    <span>PRESENT: <strong className="text-sky-300">{reading.currentReading} cu.m.</strong></span>
                     <span>•</span>
-                    <span>CONSUMPTION: <strong className="text-emerald-400">{reading.consumption}</strong></span>
+                    <span>CONSUMPTION: <strong className="text-emerald-400">+{reading.consumption} cu.m.</strong></span>
                   </div>
 
                   <div className="text-[10px] text-slate-500 flex flex-wrap items-center gap-1 font-mono">

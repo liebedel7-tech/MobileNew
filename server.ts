@@ -8,7 +8,7 @@ import { WebSocketServer, WebSocket as WsClient } from 'ws';
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
@@ -17,7 +17,7 @@ app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, x-client-version, x-app-id, Cache-Control, Pragma, X-CSRF-Token');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, x-client-version, x-app-id, x-reader-id, Cache-Control, Pragma, X-CSRF-Token');
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
   }
@@ -49,8 +49,17 @@ app.use((req, res, next) => {
     return next();
   }
 
-  // Exempt internal health checks or simulation testing endpoints from being hard locked
-  if (req.path === '/api/health' || req.path === '/api/security/simulate-bot-flood' || req.path === '/api/security/stats' || req.path === '/api/security/matrix') {
+  // Exempt internal health checks, system probes, or simulation testing endpoints from being hard locked
+  if (
+    req.path === '/api/health' || 
+    req.path === '/api/system/probe' || 
+    req.path === '/api/probe' || 
+    req.path === '/api/tests/mobile-process' || 
+    req.path === '/api/test/mobile' || 
+    req.path === '/api/security/simulate-bot-flood' || 
+    req.path === '/api/security/stats' || 
+    req.path === '/api/security/matrix'
+  ) {
     return next();
   }
 
@@ -564,6 +573,91 @@ app.post('/api/security/simulate-bot-flood', (req, res) => {
   });
 });
 
+// ==========================================
+// Automated Mobile Process Test Suite Endpoint
+// ==========================================
+app.get(['/api/tests/mobile-process', '/api/test/mobile'], async (req, res) => {
+  try {
+    const { runAllMobileProcessTests } = await import('./tests/runMobileTests');
+    const testOutput = await runAllMobileProcessTests();
+    res.json({
+      success: testOutput.summary.failed === 0,
+      timestamp: new Date().toISOString(),
+      ...testOutput,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Failed to execute test suite' });
+  }
+});
+
+// ==========================================
+// System Gateway Probe Proxy
+// Allows mobile/browser clients to probe any base URL without CORS roadblocks
+// ==========================================
+app.all(['/api/system/probe', '/api/probe'], async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const baseUrl = (req.query.baseUrl as string) || req.body?.baseUrl || '';
+    const endpoint = (req.query.endpoint as string) || req.body?.endpoint || '/api/health';
+    const method = req.method === 'POST' && req.body?.payload ? 'POST' : 'GET';
+    const payload = req.body?.payload;
+
+    const cleanBase = (baseUrl || `http://localhost:${PORT}`).trim().replace(/\/+$/, '');
+    const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    const targetUrl = `${cleanBase}${cleanEndpoint}`;
+
+    let fetchRes: any;
+    try {
+      fetchRes = await fetch(targetUrl, {
+        method,
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          ...(req.headers['authorization'] ? { 'Authorization': req.headers['authorization'] as string } : {}),
+          ...(req.headers['x-reader-id'] ? { 'x-reader-id': req.headers['x-reader-id'] as string } : {}),
+        },
+        body: payload ? JSON.stringify(payload) : undefined,
+      });
+    } catch (netErr: any) {
+      return res.json({
+        success: false,
+        status: 0,
+        statusText: netErr?.message || 'Host Unreachable',
+        latencyMs: Date.now() - startTime,
+        targetUrl,
+        data: { error: netErr?.message || 'Failed to connect to host' }
+      });
+    }
+
+    const latencyMs = Date.now() - startTime;
+    const contentType = fetchRes.headers.get('content-type') || '';
+    let data: any = null;
+    if (contentType.includes('application/json')) {
+      data = await fetchRes.json().catch(() => null);
+    } else {
+      const text = await fetchRes.text().catch(() => '');
+      data = { text: text.slice(0, 500) };
+    }
+
+    return res.json({
+      success: fetchRes.ok,
+      status: fetchRes.status,
+      statusText: fetchRes.statusText,
+      latencyMs,
+      targetUrl,
+      data,
+    });
+  } catch (err: any) {
+    return res.json({
+      success: false,
+      status: 500,
+      statusText: 'Internal Probe Error',
+      latencyMs: Date.now() - startTime,
+      data: { error: err?.message || 'Server probe failed' }
+    });
+  }
+});
+
 // Meter Reader Registration & Sync (Mobile App -> Central / Firestore readers collection)
 app.all(['/api/readers/register', '/api/readers/sync', '/api/readers/batch-sync', '/api/staff/sync', '/api/auth/register', '/api/readers', '/api/auth/register-reader', '/api/staff/register', '/api/staff', '/readers/register', '/auth/register'], (req, res, next) => {
   if (req.method === 'GET') {
@@ -699,7 +793,7 @@ app.all(['/api/readers/register', '/api/readers/sync', '/api/readers/batch-sync'
       }
     }
 
-    if (occupiedConflicts.length > 0) {
+    if (occupiedConflicts.length > 0 && !body.allowOverride && !body.overrideOccupancy) {
       const conflictMsg = occupiedConflicts.map(c => `'${c.route}' (assigned to ${c.occupiedBy})`).join(', ');
       return res.status(400).json({
         success: false,
@@ -952,7 +1046,7 @@ app.all('/api/readers/:id/approve', (req, res) => {
 });
 
 // Admin terminates / revokes reader account
-app.all(['/api/readers/:id/terminate', '/api/staff/:id/terminate', '/api/readers/:id/reject', '/api/staff/:id/reject'], (req, res) => {
+app.all(['/api/readers/:id/terminate', '/api/readers/terminate/:id', '/api/staff/:id/terminate', '/api/staff/terminate/:id', '/api/readers/:id/reject', '/api/staff/:id/reject'], (req, res) => {
   const { id } = req.params;
   const { reason, terminatedBy } = req.body || {};
   const reader = REGISTERED_READERS.find(
@@ -1399,6 +1493,18 @@ app.post(['/api/readings/submit', '/api/sync/push', '/readings/submit', '/sync/p
       serverReadings.push(readingEntry);
       saved.push(readingEntry);
 
+      // Keep consumer in track with previous, present and current readings
+      const cIndex = INITIAL_CONSUMERS.findIndex(
+        (c) => c.id === readingEntry.consumerId || c.accountNumber === readingEntry.accountNumber
+      );
+      if (cIndex !== -1) {
+        INITIAL_CONSUMERS[cIndex] = {
+          ...INITIAL_CONSUMERS[cIndex],
+          isReadThisMonth: true,
+          currentMonthReading: readingEntry,
+        };
+      }
+
       // Broadcast WebSocket update
       broadcastWebSocketEvent('READING_SUBMITTED_FOR_APPROVAL', {
         reading: readingEntry,
@@ -1439,6 +1545,18 @@ app.post(['/api/readings/batch', '/readings/batch'], (req, res) => {
         };
         serverReadings.push(readingRecord);
         processed.push(reading.id || reading.accountNumber);
+
+        // Keep consumer on track
+        const cIdx = INITIAL_CONSUMERS.findIndex(
+          (c) => c.id === reading.consumerId || c.accountNumber === reading.accountNumber
+        );
+        if (cIdx !== -1) {
+          INITIAL_CONSUMERS[cIdx] = {
+            ...INITIAL_CONSUMERS[cIdx],
+            isReadThisMonth: true,
+            currentMonthReading: readingRecord,
+          };
+        }
       } catch (err: any) {
         errors.push({ id: reading.id, error: err.message });
       }

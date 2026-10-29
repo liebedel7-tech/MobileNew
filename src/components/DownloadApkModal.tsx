@@ -77,8 +77,6 @@ export const DownloadApkModal: React.FC<DownloadApkModalProps> = ({
         'android.permission.ACCESS_COARSE_LOCATION',
         'android.permission.INTERNET',
         'android.permission.ACCESS_NETWORK_STATE',
-        'android.permission.BLUETOOTH',
-        'android.permission.BLUETOOTH_CONNECT',
         'android.permission.VIBRATE',
       ],
       twa_url: window.location.origin,
@@ -181,7 +179,7 @@ export const DownloadApkModal: React.FC<DownloadApkModalProps> = ({
                 </div>
 
                 <p className="text-slate-300 leading-relaxed text-[11.5px]">
-                  Installs as a native full-screen Android application on any smartphone or field terminal. Operates 100% offline for OCR dial scans, GPS geotagging, graduated tariff calculation, and Bluetooth receipt printing.
+                  Installs as a native full-screen Android application on any smartphone or field terminal. Operates 100% offline for OCR dial scans, GPS geotagging, route sequencing, and direct reading transmission to Admin.
                 </p>
               </div>
 
@@ -237,7 +235,7 @@ export const DownloadApkModal: React.FC<DownloadApkModalProps> = ({
                   </div>
                   <div className="flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    <span>Bluetooth ESC/POS Print</span>
+                    <span>Admin Approval Queue</span>
                   </div>
                 </div>
               </div>
