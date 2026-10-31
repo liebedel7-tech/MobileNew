@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: mobile-meter-reader
+    runtime: node
+    buildCommand: bun install && bun run build
+    startCommand: node dist/server.cjs
+    envVars:
+      - key: NODE_ENV
+        value: production

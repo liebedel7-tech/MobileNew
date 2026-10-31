@@ -1,56 +1,61 @@
-# Reading Tracking & Mobile Terminal Continuity Plan
+# Central Admin Approvals & Meter Readers Synchronization Plan
 
-## Objective
-Ensure that every consumer across all meter readings maintains continuous and uninterrupted tracking of **Previous Reading (Baseline Index)**, **Present Reading (Current Meter Index)**, and **Net Consumption (cu.m.)**, while strictly complying with the mobile operational constraints:
-- **No Bill Printing / Bill Issuance on Mobile**: Field readers log meter dials and transmit data; billing calculation and tariff breakdown remain strictly on the Central Admin portal.
-- **No Barcode Scanning**: Optical focus is exclusively on meter Tag # and 5-dial odometer numbers via camera OCR.
-- **Precision Visual Targeting**: High-contrast camera HUD with directional pointers (`▼ 10k ▼ 1k ▼ 100 ▼ 10 ▼ 1`), 5 odometer roller boxes, Tag reticle, and zoom controls.
-- **Unbroken Reading Continuity**: Reading data is synchronized across IndexedDB stores, cached in-memory on the server, and tracked across Consumers, Consumer Details, Reading Entry, and History screens.
-
----
-
-## Changes Implemented
-
-### 1. Database & Persistence Layer Continuity (`src/services/databaseHelper.ts`)
-- **Dual-Store Enrichment**: `getAllConsumers()`, `getConsumerById()`, `getConsumerByAccountNumber()`, and `getConsumerByMeterSerial()` now query both `consumers` and `readings` stores.
-- **Timestamp Ordering**: Readings are sorted newest-first and joined by `consumerId` OR `accountNumber`, attaching `currentMonthReading` and setting `isReadThisMonth: true`.
-- **Atomic Two-Way Updates**: `saveReading()` writes to the `readings` store and simultaneously updates the `consumers` store by ID and account number index.
-
-### 2. Background Sync Continuity (`src/services/syncService.ts`)
-- Enriched consumer sync payload merges existing local readings by `consumerId` and `accountNumber`, ensuring background sync polls never overwrite or detach present readings.
-
-### 3. Server-Side Cache Consistency (`server.ts`)
-- `/api/readings/submit` and `/api/readings/batch` update in-memory `INITIAL_CONSUMERS` records so server pulls retain `currentMonthReading` and `isReadThisMonth`.
-
-### 4. Application State Synchronization (`src/App.tsx`)
-- On reading save, `selectedConsumer` is immediately mutated with `isReadThisMonth: true` and the new `currentMonthReading`, keeping `ConsumerDetailsScreen` instantly synchronized without re-navigation lag.
-
-### 5. UI Reading Continuity Across All Screens
-- **Consumers Screen (`src/screens/ConsumersScreen.tsx`)**:
-  - `PREVIOUS READING`: `{consumer.previousReading} cu.m.`
-  - `PRESENT READING`: `{consumer.currentMonthReading.currentReading} cu.m.` (bold sky-300) or `Pending`.
-  - `CONSUMPTION`: `+{consumer.currentMonthReading.consumption} cu.m.` (bold emerald-400) or historical previous consumption.
-- **Consumer Details Screen (`src/screens/ConsumerDetailsScreen.tsx`)**:
-  - Prominent reading continuity card displaying:
-    - `PREVIOUS READING (BASELINE INDEX)`: `{consumer.previousReading} cu.m.`
-    - `PRESENT READING (CURRENT METER INDEX)`: `{consumer.currentMonthReading.currentReading} cu.m.`
-    - `TOTAL CONSUMPTION`: `+{consumer.currentMonthReading.consumption} cu.m.`
-  - Historical reading progression chain showing `Previous Index ➔ Present Index = Net Volume` with Admin approval status badges (`Pending Admin Approval`, `Approved & Billed`, `Flagged / Rejected`).
-- **Reading Entry Screen (`src/screens/ReadingEntryScreen.tsx`)**:
-  - Prefills present reading from `consumer.currentMonthReading.currentReading` if already logged, preventing blanking on revisits.
-  - Live 3-step reading progression box with `cu.m.` units.
-  - Direct "Send to Admin Dashboard" button dispatching readings via WebSocket and REST.
-- **History Screen (`src/screens/HistoryScreen.tsx`)**:
-  - Each archive card displays `PREVIOUS: X cu.m. • PRESENT: Y cu.m. • CONSUMPTION: +Z cu.m.`.
-
-### 6. Strict Mobile Boundary & Camera Targeting
-- Deleted `ThermalReceiptModal.tsx` and removed all mobile printer and Bluetooth permissions.
-- Removed barcode scanner components from mobile workflows.
-- Retained precision OCR camera HUD (`src/components/ScanOverlay.tsx`) with digit pointers, odometer roller boxes, Tag # reticle, and zoom presets (`1x`, `1.5x`, `2x`, `3x`).
+## Overview
+Comprehensive synchronization between the Central Admin Web Portal modules and the Mobile Meter Reader terminal for:
+1. **Reading Approvals Module**: Direct routing of mobile field readings into the supervisor approval ledger (`approvalStatus: 'pending_approval'`), with one-click approval (issuing bills and advancing the baseline index) or flagging for re-inspection.
+2. **Meter Readers Module**: Automatic enrollment of mobile-registered meter readers into the Admin roster, with live route occupancy and real-time termination/lockout enforcement.
+3. **Termination Reflection**: When an Admin terminates a meter reader account, mobile terminals immediately intercept the event via WebSocket, wipe session tokens, and lock the user out with a full-screen termination notice.
 
 ---
 
-## Verification
-- `tsc --noEmit` passed with 0 errors.
-- `npm run build` compiled successfully.
-- Dev server healthy on port 3000.
+## Architectural Implementation
+
+### 1. Readings Submission & Approvals Pipeline
+- **Submission (`POST /api/readings/submit` & `POST /api/readings/batch`)**:
+  - Readings submitted from the mobile terminal (via camera OCR or manual entry) are saved with `approvalStatus: 'pending_approval'`.
+  - Dispatches `READING_SUBMITTED_FOR_APPROVAL` via WebSocket to Central Admin.
+- **Approvals Ledger (`GET /api/readings` & `GET /api/readings/pending`)**:
+  - Lists all submitted readings with previous baseline, present reading, consumption volume (cu.m.), bill computation, GPS coordinates, photo attachment, and reader ID.
+- **Admin Approval Execution (`POST /api/readings/:id/approve`)**:
+  - Marks reading status as `approved` and `SYNCED`.
+  - Automatically advances the consumer's baseline reading: `consumer.previousReading = reading.currentReading`, updates `previousConsumption`, and sets `isReadThisMonth: true`.
+  - Dispatches `READING_APPROVED_BILL_ISSUED` and `CONSUMER_UPDATED` WebSocket events.
+- **Admin Rejection / Flagging (`POST /api/readings/:id/reject`)**:
+  - Marks reading as `rejected` with rejection reason (e.g. "Unclear dial photo", "Index mismatch").
+  - Dispatches `READING_REJECTED_REINSPECT` to notify the reader terminal.
+
+### 2. Meter Readers Roster & Mobile Auto-Registration
+- **Mobile Registration (`POST /api/readers/register`)**:
+  - When a meter reader signs up or registers in the mobile app, their profile is automatically synced to the Central Admin Meter Readers module (`REGISTERED_READERS`).
+  - Verifies location/route exclusivity (prevents multiple readers taking the same route unless explicitly authorized).
+  - Broadcasts `READER_REGISTERED_ACTIVE` to Central Admin in real time.
+- **Roster Management (`GET /api/readers`)**:
+  - Displays all registered readers, employee IDs, contact details, assigned routes, and operational statuses (`ACTIVE` vs `TERMINATED`).
+
+### 3. Immediate Account Termination & Mobile Lockout
+- **Admin Termination Endpoint (`POST /api/readers/:id/terminate`)**:
+  - Sets reader status to `'terminated'` with reason, timestamp, and administrator audit entry.
+  - Broadcasts `READER_ACCOUNT_TERMINATED`, `READER_TERMINATED`, and `staff:terminated` WebSocket packets.
+- **Mobile Real-Time Session Termination (`src/App.tsx`)**:
+  - If the terminated reader is currently active in the field:
+    1. Intercepts the WebSocket termination signal.
+    2. Immediately wipes authentication credentials from `localStorage`.
+    3. Clears `currentUser` state.
+    4. Triggers `TerminatedReaderLockoutModal`: a full-screen, un-dismissable lockout displaying the administrator's reason and blocking all route and reading features.
+- **Login Defense (`src/screens/LoginScreen.tsx` & `POST /api/auth/login`)**:
+  - If a terminated reader attempts to log in, the backend and client reject the attempt with HTTP 403 Forbidden: *"This meter reader account has been terminated or revoked by administration."*
+
+### 4. Admin Modules Hub Console (`src/components/AdminMeterStatusModal.tsx`)
+Accessible via the header button ("Admin Modules"), offering complete supervisory control across 5 tabs:
+1. **Reading Approvals**: Pending approval queue with dial progression chains and one-click "Approve & Issue Bill" and "Flag / Reject".
+2. **Meter Readers**: Live meter reader roster showing mobile enrollments, route coverage, and "Terminate Reader" / "Reactivate Account" controls.
+3. **Water Meters**: Hardware status toggles (Active, Inactive, Damaged, Maintenance).
+4. **Consumers**: Consumer connection states (Active, Inactive, Disconnected).
+5. **Issue IDs Hub**: ID issuance for pending applicants before mobile route synchronization.
+
+---
+
+## Verification Summary
+- Verified `compile_applet` and `lint_applet` (`tsc --noEmit`) with 0 errors.
+- Verified reading submission, approval, and consumer baseline advance via REST endpoints.
+- Verified reader auto-registration, route conflict checks, and admin termination lockout.

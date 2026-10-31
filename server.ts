@@ -319,6 +319,26 @@ const INITIAL_CONSUMERS: any[] = [
   }
 ];
 
+// Water Meters Master Hardware Inventory
+// Directly synchronized with the Water Meters module in the Administrator Portal
+const INITIAL_METERS: any[] = INITIAL_CONSUMERS
+  .filter(c => c.meterNumber && !c.meterNumber.startsWith('PENDING'))
+  .map(c => ({
+    meterNumber: c.meterNumber || c.meterSerial,
+    serialNumber: c.meterSerial || c.meterNumber,
+    brand: 'EVER',
+    size: c.meterSize || '1/2"',
+    type: 'mechanical',
+    installationDate: c.previousReadingDate || '2026-01-15',
+    status: (c.status && c.status.toLowerCase() === 'disconnected') ? 'inactive' : 'active',
+    linkedAccountNumber: c.accountNumber,
+    consumerName: c.name,
+    barangay: c.barangay,
+    remarks: (c.status && c.status.toLowerCase() === 'disconnected') ? 'Service disconnected' : 'Regular operational meter',
+    statusUpdatedAt: new Date().toISOString(),
+    statusUpdatedBy: 'Admin Billing Supervisor',
+  }));
+
 let serverReadings: any[] = [];
 let serverAuditLogs: any[] = [
   {
@@ -501,10 +521,10 @@ app.get('/api/security/matrix', (req, res) => {
     security: {
       mobileAppPolicy: 'Exclusively for Field Meter Readers. There are NO other users in this mobile app: no consumers, no admin, no office staff—just meter readers.',
       whosAllowedIn: [
-        { role: 'Field Meter Reader (Sole User of this Mobile App)', access: 'Assigned barangay consumer routes, offline reading entry, OCR camera scan, instant thermal bill calculation' },
+        { role: 'Field Meter Reader (Sole User of this Mobile App)', access: 'Assigned barangay consumer routes, offline reading entry, OCR camera scan, instant volume consumption calculation' },
       ],
       otherEntitiesNotInApp: [
-        { role: 'Consumers / Residents', status: 'NOT in mobile app. Receive physical thermal bills printed by meter reader on-site or district SMS notices.' },
+        { role: 'Consumers / Residents', status: 'NOT in mobile app. Official bills are generated and issued by Central Admin via the Consumer Portal or municipal office.' },
         { role: 'Super Admin', status: 'NOT in mobile app. Operates strictly on Central Office Desktop Server / Web Dashboard.' },
         { role: 'Office Staff & Cashiers', status: 'NOT in mobile app. Work at municipal district office payment windows.' },
       ],
@@ -1061,14 +1081,28 @@ app.all(['/api/readers/:id/terminate', '/api/readers/terminate/:id', '/api/staff
 
   reader.status = 'terminated';
   (reader as any).employmentStatus = 'terminated';
+  (reader as any).terminationReason = reason || 'Account revoked by administrator';
+  (reader as any).terminatedAt = new Date().toISOString();
+  (reader as any).terminatedBy = terminatedBy || 'Administrator';
 
-  broadcastWebSocketEvent('READER_ACCOUNT_TERMINATED', {
+  // Broadcast WebSocket events across all platform protocols
+  const termPayload = {
     readerId: reader.id,
+    id: reader.id,
+    employeeId: reader.employeeId,
+    username: reader.username,
     name: reader.name,
     status: 'terminated',
-    reason: reason || 'Account revoked by administrator',
+    employmentStatus: 'terminated',
+    reason: reader.terminationReason,
+    terminatedBy: reader.terminatedBy,
     timestamp: new Date().toISOString(),
-  });
+  };
+
+  broadcastWebSocketEvent('READER_ACCOUNT_TERMINATED', termPayload);
+  broadcastWebSocketEvent('READER_TERMINATED', termPayload);
+  broadcastWebSocketEvent('staff:terminated', termPayload);
+  broadcastWebSocketEvent('READER_STATUS_CHANGED', termPayload);
 
   serverAuditLogs.push({
     id: `LOG-TERM-${Date.now()}`,
@@ -1083,6 +1117,59 @@ app.all(['/api/readers/:id/terminate', '/api/readers/terminate/:id', '/api/staff
   res.json({
     success: true,
     message: `Reader account for ${reader.name} has been terminated.`,
+    reader,
+  });
+});
+
+// Admin Reactivates / Reopens Terminated Reader Account
+app.all(['/api/readers/:id/reactivate', '/api/readers/:id/activate', '/api/readers/activate/:id', '/api/staff/:id/activate'], (req, res) => {
+  const { id } = req.params;
+  const { activatedBy } = req.body || {};
+  const reader = REGISTERED_READERS.find(
+    r => r.id.toLowerCase() === id.toLowerCase() || 
+         r.username.toLowerCase() === id.toLowerCase() ||
+         (r.employeeId && r.employeeId.toLowerCase() === id.toLowerCase())
+  );
+
+  if (!reader) {
+    return res.status(404).json({ success: false, message: 'Reader not found' });
+  }
+
+  reader.status = 'active';
+  (reader as any).employmentStatus = 'active';
+  (reader as any).reactivatedAt = new Date().toISOString();
+  (reader as any).reactivatedBy = activatedBy || 'Administrator';
+  delete (reader as any).terminationReason;
+
+  const actPayload = {
+    readerId: reader.id,
+    id: reader.id,
+    employeeId: reader.employeeId,
+    username: reader.username,
+    name: reader.name,
+    status: 'active',
+    employmentStatus: 'active',
+    assignedRoutes: reader.assignedRoutes,
+    timestamp: new Date().toISOString(),
+  };
+
+  broadcastWebSocketEvent('READER_APPROVED_ACTIVE', actPayload);
+  broadcastWebSocketEvent('READER_STATUS_CHANGED', actPayload);
+  broadcastWebSocketEvent('staff:status_updated', actPayload);
+
+  serverAuditLogs.push({
+    id: `LOG-ACT-${Date.now()}`,
+    timestamp: new Date().toISOString(),
+    action: 'READER_ACCOUNT_REACTIVATED',
+    userId: reader.id,
+    userName: reader.name,
+    details: `Admin reactivated meter reader ${reader.name} (${reader.employeeId}). Restored to ACTIVE.`,
+    deviceInfo: 'Admin Web Portal',
+  });
+
+  res.json({
+    success: true,
+    message: `Reader ${reader.name} reactivated successfully. Status is ACTIVE.`,
     reader,
   });
 });
@@ -1199,26 +1286,53 @@ app.get(['/api/consumers', '/api/sync/pull', '/consumers', '/sync/pull'], (req, 
       filtered = filtered.filter(c => c.status && c.status.toLowerCase() === status.toLowerCase());
     }
 
+    // Enrich consumers with live physical meter status from the Water Meters inventory
+    const enriched = filtered.map(c => {
+      const cleanMeter = (c.meterNumber || c.meterSerial || '').toUpperCase();
+      const cleanAcc = (c.accountNumber || '').trim();
+      const matchedMeter = INITIAL_METERS.find(m =>
+        (m.meterNumber && m.meterNumber.toUpperCase() === cleanMeter) ||
+        (m.serialNumber && m.serialNumber.toUpperCase() === cleanMeter) ||
+        (m.linkedAccountNumber && m.linkedAccountNumber === cleanAcc)
+      );
+
+      const meterStatus = matchedMeter ? matchedMeter.status : (c.meterStatus || 'active');
+      return {
+        ...c,
+        meterStatus,
+        meterStatusRemarks: matchedMeter?.remarks || c.meterStatusRemarks,
+      };
+    });
+
     // Consumer Route Sync & Admin ID Issuance Validation Gate:
     // Withhold consumers from mobile reader sync until an Administrator has officially approved
-    // the account and issued both an Account Number and a Meter Serial Number.
+    // the account and issued both an Account Number and a Meter Serial Number,
+    // AND neither the consumer account nor the water meter has been deactivated/disabled by Admin.
     const isAdministrativeRequest = req.query.includePending === 'true' || 
+                                    req.query.includeInactive === 'true' || 
                                     req.headers['x-admin-portal'] === 'true' || 
                                     req.headers['x-user-role'] === 'admin';
-    if (!isAdministrativeRequest) {
-      filtered = filtered.filter(isValidatedForFieldReading);
-    }
+    const outputConsumers = isAdministrativeRequest 
+      ? enriched 
+      : enriched.filter(isValidatedForFieldReading);
 
     res.json({
       success: true,
       coverageZones: zonesParam || 'ALL',
-      count: filtered.length,
+      count: outputConsumers.length,
       timestamp: new Date().toISOString(),
-      consumers: filtered,
-      data: filtered, // Support both 'consumers' and 'data' envelope keys
+      consumers: outputConsumers,
+      data: outputConsumers, // Support both 'consumers' and 'data' envelope keys
     });
   } catch (err: any) {
-    const defaultValidated = INITIAL_CONSUMERS.filter(isValidatedForFieldReading);
+    const defaultValidated = INITIAL_CONSUMERS
+      .map(c => {
+        const cleanMeter = (c.meterNumber || c.meterSerial || '').toUpperCase();
+        const matched = INITIAL_METERS.find(m => m.meterNumber.toUpperCase() === cleanMeter);
+        return { ...c, meterStatus: matched ? matched.status : (c.meterStatus || 'active') };
+      })
+      .filter(isValidatedForFieldReading);
+
     res.json({
       success: true,
       coverageZones: 'ALL',
@@ -1421,6 +1535,237 @@ app.post(['/api/consumers', '/consumers'], (req, res) => {
     });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message || 'Failed to save consumer' });
+  }
+});
+
+// =========================================================================
+// Water Meters Module (Hardware Inventory & Operational Status Management)
+// =========================================================================
+
+// List all water meters in master hardware inventory
+app.get(['/api/meters', '/meters'], (req, res) => {
+  try {
+    const { status, search } = req.query;
+    let list = [...INITIAL_METERS];
+
+    if (status && typeof status === 'string' && status.toLowerCase() !== 'all') {
+      list = list.filter(m => (m.status || '').toLowerCase() === status.toLowerCase());
+    }
+
+    if (search && typeof search === 'string' && search.trim()) {
+      const q = search.trim().toLowerCase();
+      list = list.filter(m =>
+        m.meterNumber.toLowerCase().includes(q) ||
+        (m.serialNumber && m.serialNumber.toLowerCase().includes(q)) ||
+        (m.linkedAccountNumber && m.linkedAccountNumber.toLowerCase().includes(q)) ||
+        (m.consumerName && m.consumerName.toLowerCase().includes(q)) ||
+        (m.barangay && m.barangay.toLowerCase().includes(q))
+      );
+    }
+
+    res.json({
+      success: true,
+      count: list.length,
+      meters: list,
+      data: list,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Error fetching water meters' });
+  }
+});
+
+// Single Water Meter Details
+app.get(['/api/meters/:meterNumber', '/meters/:meterNumber'], (req, res) => {
+  try {
+    const tag = (req.params.meterNumber || '').toUpperCase().trim();
+    const meter = INITIAL_METERS.find(m => 
+      m.meterNumber.toUpperCase() === tag || 
+      (m.serialNumber && m.serialNumber.toUpperCase() === tag)
+    );
+
+    if (meter) {
+      res.json({ success: true, meter, data: meter });
+    } else {
+      res.status(404).json({ success: false, message: `Water Meter '${tag}' not found in hardware inventory.` });
+    }
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Error fetching meter' });
+  }
+});
+
+// Update Water Meter Operational Status (Active, Inactive, Damaged, Under Maintenance, Unassigned)
+// Triggers real-time WebSocket broadcast to all connected mobile meter readers
+app.post(['/api/meters/:meterNumber/status', '/api/meters/update-status', '/meters/update-status'], (req, res) => {
+  try {
+    const meterNumber = (req.params.meterNumber || req.body.meterNumber || '').trim().toUpperCase();
+    const { status, remarks, updatedBy } = req.body;
+    if (!meterNumber || !status) {
+      return res.status(400).json({ success: false, message: 'Meter Tag Number and operational status are required' });
+    }
+
+    const cleanStatus = status.toLowerCase().trim();
+    let meter = INITIAL_METERS.find(m => 
+      m.meterNumber.toUpperCase() === meterNumber || 
+      (m.serialNumber && m.serialNumber.toUpperCase() === meterNumber)
+    );
+    const previousStatus = meter ? meter.status : 'active';
+    const nowIso = new Date().toISOString();
+    const adminName = updatedBy || 'Admin Billing Supervisor';
+
+    if (meter) {
+      meter.previousStatus = previousStatus;
+      meter.status = cleanStatus as any;
+      if (remarks !== undefined) meter.remarks = remarks;
+      meter.statusUpdatedAt = nowIso;
+      meter.statusUpdatedBy = adminName;
+    } else {
+      meter = {
+        meterNumber,
+        serialNumber: meterNumber,
+        brand: 'EVER',
+        status: cleanStatus as any,
+        remarks: remarks || '',
+        statusUpdatedAt: nowIso,
+        statusUpdatedBy: adminName,
+      };
+      INITIAL_METERS.push(meter);
+    }
+
+    // Update linked consumer in INITIAL_CONSUMERS
+    const linkedConsumerIndex = INITIAL_CONSUMERS.findIndex(c => 
+      (c.meterNumber && c.meterNumber.toUpperCase() === meterNumber) ||
+      (c.meterSerial && c.meterSerial.toUpperCase() === meterNumber) ||
+      (meter.linkedAccountNumber && c.accountNumber === meter.linkedAccountNumber)
+    );
+
+    let updatedConsumer: any = null;
+    if (linkedConsumerIndex >= 0) {
+      updatedConsumer = {
+        ...INITIAL_CONSUMERS[linkedConsumerIndex],
+        meterStatus: cleanStatus,
+        meterStatusRemarks: remarks || undefined,
+        lastSyncDate: nowIso,
+      };
+      INITIAL_CONSUMERS[linkedConsumerIndex] = updatedConsumer;
+    }
+
+    // 1. Broadcast METER_STATUS_UPDATED Real-Time Event
+    broadcastWebSocketEvent('METER_STATUS_UPDATED', {
+      meterNumber,
+      serialNumber: meter.serialNumber,
+      previousStatus,
+      newStatus: cleanStatus,
+      consumerId: updatedConsumer?.id,
+      accountNumber: updatedConsumer?.accountNumber,
+      consumerName: updatedConsumer?.name,
+      consumer: updatedConsumer,
+      remarks: remarks || meter.remarks,
+      updatedBy: adminName,
+      timestamp: nowIso,
+    });
+
+    // 2. Broadcast CONSUMER_UPDATED to immediately sync mobile state
+    if (updatedConsumer) {
+      broadcastWebSocketEvent('CONSUMER_UPDATED', {
+        consumer: updatedConsumer,
+        action: 'METER_STATUS_CHANGE',
+        meterStatus: cleanStatus,
+        timestamp: nowIso,
+      });
+    }
+
+    serverAuditLogs.push({
+      id: `LOG-MTR-${Date.now()}`,
+      timestamp: nowIso,
+      action: 'UPDATE_WATER_METER_STATUS',
+      userId: 'ADMIN',
+      userName: adminName,
+      details: `Administrator ${adminName} updated Water Meter Tag #${meterNumber} status from ${previousStatus.toUpperCase()} to ${cleanStatus.toUpperCase()}.${remarks ? ` Remarks: ${remarks}` : ''}`,
+      deviceInfo: req.headers['user-agent'] || 'Admin Central Console',
+    });
+
+    res.json({
+      success: true,
+      message: `Water Meter Tag #${meterNumber} status updated to ${cleanStatus.toUpperCase()}. Real-time event dispatched to mobile readers.`,
+      meter,
+      consumer: updatedConsumer,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Failed to update meter status' });
+  }
+});
+
+// Update Consumer Account Status (Active, Inactive, Disconnected, Blocked, Archived)
+// Directly reflects in the mobile app and immediately excludes deactivated consumers from readings
+app.post(['/api/consumers/:id/status', '/api/consumers/update-status', '/consumers/update-status'], (req, res) => {
+  try {
+    const consumerId = (req.params.id || req.body.id || req.body.consumerId || req.body.accountNumber || '').trim();
+    const { status, statusReason, remarks, updatedBy } = req.body;
+    if (!consumerId || !status) {
+      return res.status(400).json({ success: false, message: 'Consumer ID/Account Number and status are required' });
+    }
+
+    const cleanId = consumerId.toLowerCase();
+    const index = INITIAL_CONSUMERS.findIndex(c =>
+      (c.id && c.id.toLowerCase() === cleanId) ||
+      (c.accountNumber && c.accountNumber.toLowerCase() === cleanId)
+    );
+
+    if (index === -1) {
+      return res.status(404).json({ success: false, message: `Consumer '${consumerId}' not found in Tagoloan registry.` });
+    }
+
+    const previousConsumer = INITIAL_CONSUMERS[index];
+    const previousStatus = previousConsumer.status;
+    const nowIso = new Date().toISOString();
+    const adminName = updatedBy || 'Admin Billing Supervisor';
+
+    const updatedConsumer = {
+      ...previousConsumer,
+      status,
+      statusReason: statusReason || remarks || undefined,
+      lastSyncDate: nowIso,
+    };
+    INITIAL_CONSUMERS[index] = updatedConsumer;
+
+    // 1. Broadcast CONSUMER_STATUS_CHANGED Real-Time Event
+    broadcastWebSocketEvent('CONSUMER_STATUS_CHANGED', {
+      consumerId: updatedConsumer.id,
+      accountNumber: updatedConsumer.accountNumber,
+      consumerName: updatedConsumer.name,
+      previousStatus,
+      newStatus: status,
+      statusReason: statusReason || remarks,
+      consumer: updatedConsumer,
+      updatedBy: adminName,
+      timestamp: nowIso,
+    });
+
+    // 2. Broadcast CONSUMER_UPDATED
+    broadcastWebSocketEvent('CONSUMER_UPDATED', {
+      consumer: updatedConsumer,
+      action: 'STATUS_CHANGE',
+      timestamp: nowIso,
+    });
+
+    serverAuditLogs.push({
+      id: `LOG-CONS-${Date.now()}`,
+      timestamp: nowIso,
+      action: 'UPDATE_CONSUMER_STATUS',
+      userId: 'ADMIN',
+      userName: adminName,
+      details: `Administrator ${adminName} updated Consumer #${updatedConsumer.accountNumber} (${updatedConsumer.name}) status from ${previousStatus} to ${status}.${statusReason ? ` Reason: ${statusReason}` : ''}`,
+      deviceInfo: req.headers['user-agent'] || 'Admin Central Console',
+    });
+
+    res.json({
+      success: true,
+      message: `Consumer #${updatedConsumer.accountNumber} status updated to ${status}. Real-time event dispatched to mobile readers.`,
+      consumer: updatedConsumer,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Failed to update consumer status' });
   }
 });
 
@@ -1629,7 +1974,34 @@ app.post(['/api/audit-logs', '/audit-logs'], (req, res) => {
   res.json({ success: true, log: newLog });
 });
 
-// Readings Pending Admin Approval Queue
+// All Readings & Pending Admin Approval Queue
+app.get(['/api/readings', '/readings'], (req, res) => {
+  const { approvalStatus, status, readerId, accountNumber } = req.query;
+  let list = [...serverReadings];
+
+  if (approvalStatus && typeof approvalStatus === 'string' && approvalStatus !== 'all') {
+    list = list.filter((r: any) => (r.approvalStatus || 'pending_approval') === approvalStatus);
+  }
+
+  if (status && typeof status === 'string' && status !== 'all') {
+    list = list.filter((r: any) => (r.status || '').toLowerCase() === status.toLowerCase());
+  }
+
+  if (readerId && typeof readerId === 'string') {
+    list = list.filter((r: any) => r.readerId === readerId);
+  }
+
+  if (accountNumber && typeof accountNumber === 'string') {
+    list = list.filter((r: any) => r.accountNumber === accountNumber);
+  }
+
+  res.json({
+    success: true,
+    count: list.length,
+    readings: list,
+  });
+});
+
 app.get(['/api/readings/pending', '/readings/pending'], (req, res) => {
   const pendingReadings = serverReadings.filter(
     (r: any) => r.approvalStatus === 'pending_approval' || (!r.approvalStatus && r.status !== 'SYNCED')
@@ -1645,7 +2017,7 @@ app.get(['/api/readings/pending', '/readings/pending'], (req, res) => {
 // Admin Approves Meter Reading & Issues Billing Statement
 const handleApproveReading = (req: any, res: any) => {
   const { id } = req.params;
-  const { approvedBy } = req.body;
+  const { approvedBy } = req.body || {};
 
   const reading = serverReadings.find((r: any) => r.id === id || r.accountNumber === id);
   if (!reading) {
@@ -1657,17 +2029,41 @@ const handleApproveReading = (req: any, res: any) => {
   reading.approvedBy = approvedBy || 'Admin Supervisor';
   reading.status = 'SYNCED';
 
+  // Keep consumer baseline in track: update previousReading to currentReading for next cycle
+  let updatedConsumer: any = null;
+  const cIndex = INITIAL_CONSUMERS.findIndex(
+    (c) => c.id === reading.consumerId || c.accountNumber === reading.accountNumber
+  );
+  if (cIndex !== -1) {
+    INITIAL_CONSUMERS[cIndex].previousReading = reading.currentReading;
+    INITIAL_CONSUMERS[cIndex].previousConsumption = reading.consumption;
+    INITIAL_CONSUMERS[cIndex].previousReadingDate = reading.readingDate || new Date().toISOString().split('T')[0];
+    INITIAL_CONSUMERS[cIndex].isReadThisMonth = true;
+    INITIAL_CONSUMERS[cIndex].currentMonthReading = reading;
+    updatedConsumer = INITIAL_CONSUMERS[cIndex];
+  }
+
   // Broadcast WebSocket update for live Consumer Portal and Admin Dashboards
   broadcastWebSocketEvent('READING_APPROVED_BILL_ISSUED', {
     readingId: reading.id,
     accountNumber: reading.accountNumber,
     consumerName: reading.consumerName,
     currentReading: reading.currentReading,
+    previousReading: reading.previousReading,
     consumption: reading.consumption,
     totalAmountDue: reading.billCalculation?.totalAmountDue,
     status: 'approved',
+    approvalStatus: 'approved',
+    consumer: updatedConsumer,
     timestamp: new Date().toISOString(),
   });
+
+  if (updatedConsumer) {
+    broadcastWebSocketEvent('CONSUMER_UPDATED', {
+      consumer: updatedConsumer,
+      timestamp: new Date().toISOString(),
+    });
+  }
 
   serverAuditLogs.push({
     id: `LOG-APPRD-${Date.now()}`,
@@ -1675,7 +2071,7 @@ const handleApproveReading = (req: any, res: any) => {
     action: 'METER_READING_APPROVED',
     userId: 'ADMIN_DESK',
     userName: approvedBy || 'Billing Officer',
-    details: `Approved reading ${reading.currentReading} m³ for Account ${reading.accountNumber} (${reading.consumerName}). Billing Statement Published.`,
+    details: `Approved reading ${reading.currentReading} m³ for Account ${reading.accountNumber} (${reading.consumerName}). Billing Statement Published. Consumer baseline updated.`,
     deviceInfo: 'Web Admin Portal',
   });
 
@@ -1683,6 +2079,7 @@ const handleApproveReading = (req: any, res: any) => {
     success: true,
     message: `Reading for Account ${reading.accountNumber} approved and published to Consumer Portal.`,
     reading,
+    consumer: updatedConsumer,
   });
 };
 
@@ -1692,7 +2089,7 @@ app.patch('/api/readings/:id/approve', handleApproveReading);
 // Admin Rejects / Re-routes Meter Reading
 const handleRejectReading = (req: any, res: any) => {
   const { id } = req.params;
-  const { reason, rejectedBy } = req.body;
+  const { reason, rejectedBy } = req.body || {};
 
   const reading = serverReadings.find((r: any) => r.id === id || r.accountNumber === id);
   if (!reading) {

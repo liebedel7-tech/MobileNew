@@ -16,7 +16,10 @@ import {
   UserCheck,
   ChevronRight,
   Home,
-  Check
+  Check,
+  ShieldAlert,
+  PowerOff,
+  Lock
 } from 'lucide-react';
 import { 
   Consumer, 
@@ -26,6 +29,7 @@ import {
   BillCalculation, 
   ActiveScreen 
 } from '../types';
+import { isValidatedForFieldReading, getConsumerDeactivationReason } from '../constants/routes';
 import { CalculationService } from '../services/calculationService';
 import { LocationService } from '../services/locationService';
 import { LoggerService } from '../services/loggerService';
@@ -148,9 +152,18 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
     return CalculationService.checkConsumptionAnomaly(consumption, consumer.averageConsumption);
   }, [consumption, consumer.averageConsumption, currentReading]);
 
+  const isReadyForReading = isValidatedForFieldReading(consumer);
+  const deactivationReason = getConsumerDeactivationReason(consumer);
+
   // Handle Save Locally & Dispatch to Admin
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!isReadyForReading) {
+      alert(`Cannot Submit: This account or water meter is deactivated by Admin.\n\nReason: ${deactivationReason}`);
+      return;
+    }
+
     if (!currentReading || isNaN(Number(currentReading))) {
       alert('Please enter a valid present reading value.');
       return;
@@ -268,7 +281,7 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
   };
 
   // -------------------------------------------------------------
-  // POST-SAVE CONFIRMATION VIEW (NO THERMAL RECEIPT POPUP)
+  // POST-SAVE CONFIRMATION VIEW (Digital Transmission to Central Admin)
   // -------------------------------------------------------------
   if (savedReading) {
     return (
@@ -474,6 +487,24 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
             <strong className="text-sky-400 font-bold block">{consumer.previousConsumption ?? consumer.averageConsumption} cu.m.</strong>
           </div>
         </div>
+
+        {/* 🚫 Deactivation Alert Banner */}
+        {!isReadyForReading && (
+          <div className="mt-3 p-3 bg-rose-950/40 border border-rose-900/80 rounded-xl flex items-start gap-2.5 text-xs text-rose-200">
+            <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <span className="font-bold text-rose-300 block text-sm">
+                🚫 Deactivated by Admin — Not Available for Field Reading
+              </span>
+              <p className="text-xs text-rose-200">
+                {deactivationReason || 'This water meter or account is deactivated in Central Admin.'}
+              </p>
+              <p className="text-[11px] text-slate-400">
+                New readings cannot be recorded or submitted until Admin reactivates this meter or consumer in the Web Portal.
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       <form onSubmit={handleSave} className="space-y-4">
@@ -638,29 +669,36 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
         </div>
 
         {/* Action Confirm & Send Button */}
-        <button
-          type="submit"
-          disabled={isSaving || isReadingInvalid || !currentReading}
-          className={`w-full font-black py-4 rounded-2xl shadow-xl flex items-center justify-center gap-2 text-sm uppercase tracking-wider transition active:scale-[0.98] ${
-            isReadingInvalid
-              ? 'bg-red-900/60 text-red-300 border border-red-700 cursor-not-allowed opacity-80'
-              : !currentReading
-              ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
-              : 'bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-slate-950 shadow-sky-500/20 cursor-pointer'
-          }`}
-        >
-          {isReadingInvalid ? (
-            <>
-              <AlertTriangle className="w-4 h-4 text-red-400" />
-              <span>Cannot Send: Present Reading &lt; Previous</span>
-            </>
-          ) : (
-            <>
-              <Send className="w-4 h-4 text-slate-950" />
-              <span>{isSaving ? 'Recording & Sending to Admin...' : 'Confirm & Send to Admin'}</span>
-            </>
-          )}
-        </button>
+        {!isReadyForReading ? (
+          <div className="w-full font-black py-4 rounded-2xl bg-rose-950/70 border border-rose-800 text-rose-300 flex items-center justify-center gap-2 text-sm uppercase tracking-wider cursor-not-allowed">
+            <Lock className="w-4 h-4 text-rose-400" />
+            <span>Reading Prohibited (Deactivated by Admin)</span>
+          </div>
+        ) : (
+          <button
+            type="submit"
+            disabled={isSaving || isReadingInvalid || !currentReading}
+            className={`w-full font-black py-4 rounded-2xl shadow-xl flex items-center justify-center gap-2 text-sm uppercase tracking-wider transition active:scale-[0.98] ${
+              isReadingInvalid
+                ? 'bg-red-900/60 text-red-300 border border-red-700 cursor-not-allowed opacity-80'
+                : !currentReading
+                ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                : 'bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-slate-950 shadow-sky-500/20 cursor-pointer'
+            }`}
+          >
+            {isReadingInvalid ? (
+              <>
+                <AlertTriangle className="w-4 h-4 text-red-400" />
+                <span>Cannot Send: Present Reading &lt; Previous</span>
+              </>
+            ) : (
+              <>
+                <Send className="w-4 h-4 text-slate-950" />
+                <span>{isSaving ? 'Recording & Sending to Admin...' : 'Confirm & Send to Admin'}</span>
+              </>
+            )}
+          </button>
+        )}
       </form>
     </div>
   );

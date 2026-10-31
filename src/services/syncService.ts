@@ -2,7 +2,7 @@ import { Consumer, MeterReading, SyncState } from '../types';
 import { DatabaseHelper } from './databaseHelper';
 import { LoggerService } from './loggerService';
 import { universalApiFetch, getApiEndpoint } from './apiConfig';
-import { isConsumerInAssignedAreas, isValidatedForFieldReading } from '../constants/routes';
+import { isConsumerInAssignedAreas, isValidatedForFieldReading, isConsumerAccountIssued } from '../constants/routes';
 
 export class SyncService {
   private static timerId: any = null;
@@ -340,6 +340,9 @@ export class SyncService {
         if (this.activeReaderUsername) {
           params.append('username', this.activeReaderUsername);
         }
+        // Pull complete operational statuses (active + deactivated) for assigned route so local offline cache reflects admin deactivations
+        params.append('includeInactive', 'true');
+
         const consumerQuery = params.toString() ? `?${params.toString()}` : '';
         const consumerRes = await universalApiFetch(`/api/consumers${consumerQuery}`, {
           headers: { 'Accept': 'application/json' },
@@ -348,11 +351,11 @@ export class SyncService {
           const consumerData = await safeParseJson(consumerRes);
           const rawConsumers = consumerData?.consumers || consumerData?.data;
           if (rawConsumers && Array.isArray(rawConsumers)) {
-            // Strictly filter by ID Issuance Gate and active reader's assigned routes
-            const validatedConsumers = rawConsumers.filter(isValidatedForFieldReading);
-            const allowedConsumers = this.activeRoutes && this.activeRoutes.length > 0
-              ? validatedConsumers.filter((c: Consumer) => isConsumerInAssignedAreas(c, this.activeRoutes))
-              : validatedConsumers;
+            // Strictly enforce Admin ID Issuance Gate: Consumers only sync when Admin issues Account # and Meter Tag #
+            const issuedConsumers = rawConsumers.filter(isConsumerAccountIssued);
+            const routeIssuedConsumers = this.activeRoutes && this.activeRoutes.length > 0
+              ? issuedConsumers.filter((c: Consumer) => isConsumerInAssignedAreas(c, this.activeRoutes))
+              : issuedConsumers;
 
             // Merge with local reading flags so consumers never lose track of present readings
             const localReadings = await DatabaseHelper.getAllReadings();
@@ -362,7 +365,7 @@ export class SyncService {
               return timeB - timeA;
             });
 
-            const enrichedConsumers: Consumer[] = allowedConsumers.map((c: Consumer) => {
+            const enrichedConsumers: Consumer[] = routeIssuedConsumers.map((c: Consumer) => {
               const existingReading = sortedLocal.find(
                 (r) => r.consumerId === c.id || r.accountNumber === c.accountNumber
               );
@@ -374,7 +377,7 @@ export class SyncService {
             });
 
             await DatabaseHelper.saveConsumers(enrichedConsumers);
-            pulledCount = enrichedConsumers.length;
+            pulledCount = enrichedConsumers.filter(isValidatedForFieldReading).length;
           }
         }
       } catch (pullErr) {

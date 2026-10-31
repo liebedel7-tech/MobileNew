@@ -23,9 +23,12 @@ import {
   Search,
   Scan,
   Sliders,
-  CheckSquare
+  CheckSquare,
+  ShieldAlert,
+  PowerOff
 } from 'lucide-react';
 import { Consumer, ActiveScreen, MeterReading, StaffUser } from '../types';
+import { isValidatedForFieldReading, getConsumerDeactivationReason } from '../constants/routes';
 import { OCRService, OCRResult } from '../services/ocrService';
 import { RealTimeScanner } from '../services/realTimeScanner';
 import { ScanOverlay } from '../components/ScanOverlay';
@@ -77,6 +80,11 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
   );
   const [identifiedEntities, setIdentifiedEntities] = useState<string[]>([]);
   const [tagStatusMessage, setTagStatusMessage] = useState<string | null>(null);
+  const [deactivationBlock, setDeactivationBlock] = useState<{
+    consumer: Consumer;
+    reason: string;
+    tag: string;
+  } | null>(null);
   
   // Real-Time Optical Identification States
   const [liveAutoScanActive, setLiveAutoScanActive] = useState(true);
@@ -225,6 +233,23 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
 
   // Handle Tag identification and shift into Stage 2 (Meter Dial Reading)
   const handleTagIdentified = useCallback((matchedConsumer: Consumer, tagStr: string) => {
+    // ENFORCE DEACTIVATION & WATER METER STATUS GATE:
+    // When admin deactivates consumer or changes meter status (damaged/maintenance/inactive),
+    // it must not be available for reading.
+    if (!isValidatedForFieldReading(matchedConsumer)) {
+      const reason = getConsumerDeactivationReason(matchedConsumer) || 'Account or Water Meter deactivated by Admin.';
+      setDeactivationBlock({
+        consumer: matchedConsumer,
+        reason,
+        tag: tagStr,
+      });
+      setTagStatusMessage(`🚫 DEACTIVATED BY ADMIN: ${reason}`);
+      setLiveTagDetected(null);
+      setLiveDetectedConsumer(null);
+      return;
+    }
+
+    setDeactivationBlock(null);
     setSelectedConsumer(matchedConsumer);
     setIdentifiedTagNumber(tagStr);
     setScanStep('SCAN_METER');
@@ -614,6 +639,7 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
     setLiveReadingValue(null);
     setLastSubmittedReading(null);
     setTagStatusMessage(null);
+    setDeactivationBlock(null);
     setManualTagQuery('');
     setShowManualTagInput(false);
     setIsProcessing(false);
@@ -872,6 +898,59 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
               onSetZoom={handleSetZoom}
               previousReading={selectedConsumer?.previousReading}
             />
+          )}
+
+          {/* 🚫 DEACTIVATION BLOCK OVERLAY */}
+          {deactivationBlock && (
+            <div className="absolute inset-2 z-40 bg-slate-950/95 border-2 border-rose-500 rounded-xl p-3 shadow-2xl backdrop-blur-md text-white flex flex-col justify-between animate-in zoom-in-95">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-rose-900/80 border border-rose-400 flex items-center justify-center text-rose-300 shrink-0">
+                    <ShieldAlert className="w-5 h-5 text-rose-300" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[9px] font-black uppercase tracking-wider bg-rose-900 text-rose-200 px-2 py-0.5 rounded border border-rose-700">
+                      Water Meter Deactivated
+                    </span>
+                    <h4 className="font-extrabold text-xs text-white truncate mt-0.5">
+                      {deactivationBlock.consumer.name}
+                    </h4>
+                  </div>
+                </div>
+
+                <div className="bg-rose-950/60 p-2 rounded-lg border border-rose-900/80 space-y-1">
+                  <div className="flex items-center justify-between text-[10px] text-rose-300 font-mono">
+                    <span>Acc: <strong>{deactivationBlock.consumer.accountNumber}</strong></span>
+                    <span>Tag: <strong>{deactivationBlock.tag}</strong></span>
+                  </div>
+                  <p className="text-[11px] text-rose-200 font-semibold leading-snug">
+                    {deactivationBlock.reason}
+                  </p>
+                </div>
+
+                <p className="text-[10px] text-slate-400 leading-tight">
+                  Status changed by Central Admin. Field reading input is prohibited until reactivated.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setDeactivationBlock(null)}
+                  className="flex-1 py-1.5 bg-rose-900 hover:bg-rose-800 border border-rose-700 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 active:scale-95"
+                >
+                  <RotateCw className="w-3.5 h-3.5" />
+                  <span>Scan Next Meter</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onNavigate('consumers')}
+                  className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 rounded-lg text-xs font-semibold transition active:scale-95"
+                >
+                  Directory
+                </button>
+              </div>
+            </div>
           )}
         </div>
 

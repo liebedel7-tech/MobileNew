@@ -201,13 +201,15 @@ export function isConsumerInAssignedAreas(
  * Consumer Route Sync & Admin ID Issuance Validation:
  * Consumers are strictly withheld from mobile sync until an Administrator has officially approved the account
  * and issued both an Account Number (e.g. 011-102-056) and a Meter Serial Number (e.g. 150307143).
- * Pending applicants without issued IDs are hidden from mobile meter reader route lists.
+ *
+ * In addition, when an Admin deactivates an account or changes its status to not active (e.g., Inactive,
+ * Disconnected, Blocked, Archived) OR when the associated water meter in the Water Meters module is marked
+ * as Inactive, Damaged, Under Maintenance, or Unassigned, that consumer is strictly NOT available for field readings.
  */
-export function isValidatedForFieldReading(c: any): boolean {
+export function isConsumerAccountIssued(c: any): boolean {
   if (!c) return false;
   const acct = (c.accountNumber || '').toString().trim();
   const meter = (c.meterNumber || c.meterSerial || '').toString().trim();
-  const status = (c.status || '').toString().trim().toLowerCase();
 
   const hasValidAccount = Boolean(
     acct !== '' && 
@@ -221,7 +223,107 @@ export function isValidatedForFieldReading(c: any): boolean {
     meter.toUpperCase() !== 'UNISSUED'
   );
 
-  const isActionableStatus = status !== 'pending_approval' && status !== 'pending';
-
-  return hasValidAccount && hasValidMeter && isActionableStatus;
+  return hasValidAccount && hasValidMeter;
 }
+
+export function isValidatedForFieldReading(c: any): boolean {
+  if (!c) return false;
+  
+  // 1. Must satisfy Admin ID Issuance Gate (Issued Account # and Meter Tag #)
+  if (!isConsumerAccountIssued(c)) {
+    return false;
+  }
+
+  // 2. Check Consumer Account Status
+  // Only 'active' and 'reconnected' accounts are eligible for field meter readings.
+  const status = (c.status || '').toString().trim().toLowerCase();
+  const INACTIVE_CONSUMER_STATUSES = new Set([
+    'inactive',
+    'deactivated',
+    'disconnected',
+    'blocked',
+    'archived',
+    'disconnection notice',
+    'disconnection_notice',
+    'for inspection',
+    'pending_approval',
+    'pending',
+    'pending_installation',
+    'installation_not_scheduled',
+  ]);
+
+  if (INACTIVE_CONSUMER_STATUSES.has(status)) {
+    return false;
+  }
+
+  // 3. Check Water Meter Operational Status from the Water Meters Module
+  // If the physical water meter is marked inactive, damaged, under maintenance, or unassigned,
+  // it is strictly NOT available for readings.
+  const meterStatus = (c.meterStatus || c.waterMeterStatus || '').toString().trim().toLowerCase();
+  const INACTIVE_METER_STATUSES = new Set([
+    'inactive',
+    'deactivated',
+    'damaged',
+    'maintenance',
+    'under_maintenance',
+    'under maintenance',
+    'unassigned',
+  ]);
+
+  if (meterStatus && INACTIVE_METER_STATUSES.has(meterStatus)) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Returns a human-friendly explanation of why a consumer is not available for field reading.
+ */
+export function getConsumerDeactivationReason(c: any): string | null {
+  if (!c) return 'Consumer record not found';
+  
+  if (!isConsumerAccountIssued(c)) {
+    return 'Awaiting Admin ID Issuance: Account Number and Tag Number not yet issued.';
+  }
+
+  const meterStatus = (c.meterStatus || c.waterMeterStatus || '').toString().trim().toLowerCase();
+  if (meterStatus === 'damaged' || meterStatus === 'faulty') {
+    return 'Water Meter marked as DAMAGED by Central Admin in Water Meters module.';
+  }
+  if (meterStatus === 'maintenance' || meterStatus === 'under_maintenance' || meterStatus === 'under maintenance') {
+    return 'Water Meter marked UNDER MAINTENANCE by Central Admin in Water Meters module.';
+  }
+  if (meterStatus === 'inactive' || meterStatus === 'deactivated') {
+    return 'Water Meter deactivated (INACTIVE) by Central Admin in Water Meters module.';
+  }
+  if (meterStatus === 'unassigned') {
+    return 'Water Meter is UNASSIGNED in Water Meters hardware inventory.';
+  }
+
+  const status = (c.status || '').toString().trim().toLowerCase();
+  if (status === 'inactive' || status === 'deactivated') {
+    return 'Consumer Account marked INACTIVE / DEACTIVATED by Central Admin.';
+  }
+  if (status === 'disconnected') {
+    return 'Water Service DISCONNECTED by Central Admin (Delinquency / Request).';
+  }
+  if (status === 'disconnection notice' || status === 'disconnection_notice') {
+    return 'DISCONNECTION NOTICE issued by Central Admin. Pending settlement.';
+  }
+  if (status === 'blocked') {
+    return 'Consumer Account BLOCKED by Central Admin.';
+  }
+  if (status === 'archived') {
+    return 'Consumer Account ARCHIVED by Central Admin.';
+  }
+  if (status === 'for inspection') {
+    return 'Account marked FOR INSPECTION by Central Admin.';
+  }
+  if (status === 'pending_approval' || status === 'pending' || status === 'pending_installation') {
+    return 'Pending administrative approval / installation verification.';
+  }
+
+  return null;
+}
+

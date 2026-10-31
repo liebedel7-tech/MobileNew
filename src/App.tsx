@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Ban, ShieldAlert } from 'lucide-react';
 import { 
   Consumer, 
   MeterReading, 
@@ -19,6 +19,7 @@ import { DownloadApkModal } from './components/DownloadApkModal';
 import { ScreenTransition } from './components/ScreenTransition';
 import { ModuleLoadingScreen, LoadingProcessInfo } from './components/ModuleLoadingScreen';
 import { AppSplashScreen } from './components/AppSplashScreen';
+import { AdminMeterStatusModal } from './components/AdminMeterStatusModal';
 
 // Screens
 import { LandingScreen } from './screens/LandingScreen';
@@ -51,6 +52,18 @@ export function App() {
   const [selectedConsumer, setSelectedConsumer] = useState<Consumer | null>(null);
   const [isMobileChassis, setIsMobileChassis] = useState<boolean>(true);
   const [isApkModalOpen, setIsApkModalOpen] = useState<boolean>(false);
+  const [isAdminMeterModalOpen, setIsAdminMeterModalOpen] = useState<boolean>(false);
+  const [liveAdminAlert, setLiveAdminAlert] = useState<{
+    type: 'status_deactivated' | 'status_activated' | 'meter_deactivated' | 'meter_activated' | 'id_issued' | 'reading_approved';
+    title: string;
+    message: string;
+    timestamp: string;
+  } | null>(null);
+  const [terminatedLockout, setTerminatedLockout] = useState<{
+    name: string;
+    employeeId?: string;
+    reason?: string;
+  } | null>(null);
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<any>(null);
   const [wsStatus, setWsStatus] = useState<WSConnectionStatus>('CONNECTING');
   const [loadingProcess, setLoadingProcess] = useState<LoadingProcessInfo | null>(null);
@@ -142,6 +155,170 @@ export function App() {
       if (event.type === 'BATCH_SYNC_PROCESSED') {
         DatabaseHelper.getAllReadings().then(setReadings);
         DatabaseHelper.getAllAuditLogs().then(setAuditLogs);
+      } else if (event.type === 'METER_STATUS_UPDATED') {
+        const payload = event.payload;
+        const newStatus = (payload.newStatus || '').toLowerCase();
+        const isDeactivated = newStatus === 'inactive' || newStatus === 'damaged' || newStatus === 'maintenance' || newStatus === 'unassigned';
+
+        // 1. Immediately update local IndexedDB record
+        DatabaseHelper.updateMeterStatus(payload.meterNumber, payload.newStatus, payload.remarks)
+          .then(() => {
+            const user = currentUserRef.current;
+            const routes = user?.assignedRoutes || (user?.zone ? [user.zone] : undefined);
+            return DatabaseHelper.getConsumersForReader(routes);
+          })
+          .then(setConsumers);
+
+        // 2. Synchronize selectedConsumer if currently open in terminal or camera
+        setSelectedConsumer((prev) => {
+          if (!prev) return null;
+          const cleanTag = (payload.meterNumber || '').toUpperCase();
+          if (
+            (prev.meterNumber && prev.meterNumber.toUpperCase() === cleanTag) ||
+            (prev.meterSerial && prev.meterSerial.toUpperCase() === cleanTag) ||
+            (payload.accountNumber && prev.accountNumber === payload.accountNumber)
+          ) {
+            return {
+              ...prev,
+              meterStatus: payload.newStatus,
+              meterStatusRemarks: payload.remarks,
+            };
+          }
+          return prev;
+        });
+
+        // 3. Trigger Real-time Alert Banner
+        setLiveAdminAlert({
+          type: isDeactivated ? 'meter_deactivated' : 'meter_activated',
+          title: isDeactivated
+            ? `⚠️ Water Meter Deactivated: Tag #${payload.meterNumber}`
+            : `✅ Water Meter Restored to Active: Tag #${payload.meterNumber}`,
+          message: isDeactivated
+            ? `Admin changed meter status to ${payload.newStatus?.toUpperCase()} (${payload.remarks || 'No remarks provided'}). This consumer is now unavailable for field readings.`
+            : `Admin restored meter to Active. The consumer is once again available for field readings.`,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        });
+      } else if (event.type === 'CONSUMER_STATUS_CHANGED') {
+        const payload = event.payload;
+        const newStatus = (payload.newStatus || '').toLowerCase();
+        const isDeactivated = newStatus !== 'active' && newStatus !== 'reconnected';
+
+        // 1. Update local IndexedDB
+        DatabaseHelper.updateConsumerStatus(payload.consumerId || payload.accountNumber, payload.newStatus, undefined, payload.statusReason)
+          .then(() => {
+            const user = currentUserRef.current;
+            const routes = user?.assignedRoutes || (user?.zone ? [user.zone] : undefined);
+            return DatabaseHelper.getConsumersForReader(routes);
+          })
+          .then(setConsumers);
+
+        // 2. Update selectedConsumer if currently open
+        setSelectedConsumer((prev) => {
+          if (!prev) return null;
+          if (prev.id === payload.consumerId || prev.accountNumber === payload.accountNumber) {
+            return {
+              ...prev,
+              status: payload.newStatus,
+              statusReason: payload.statusReason,
+            };
+          }
+          return prev;
+        });
+
+        // 3. Trigger Real-time Alert Banner
+        setLiveAdminAlert({
+          type: isDeactivated ? 'status_deactivated' : 'status_activated',
+          title: isDeactivated
+            ? `🚫 Consumer Account Deactivated: #${payload.accountNumber}`
+            : `✅ Consumer Account Activated: #${payload.accountNumber}`,
+          message: isDeactivated
+            ? `Admin marked account as ${payload.newStatus}. This consumer is now unavailable for field readings.`
+            : `Admin restored account to Active. Consumer is now available for field readings.`,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        });
+      } else if (event.type === 'CONSUMER_ACTIVATED_FOR_READER' || event.type === 'CONSUMER_UPDATED' || event.type === 'CONSUMER_REGISTRY_UPDATED') {
+        const user = currentUserRef.current;
+        const routes = user?.assignedRoutes || (user?.zone ? [user.zone] : undefined);
+        if (event.payload?.consumer) {
+          DatabaseHelper.saveConsumers([event.payload.consumer])
+            .then(() => DatabaseHelper.getConsumersForReader(routes))
+            .then(setConsumers);
+        } else {
+          DatabaseHelper.getConsumersForReader(routes).then(setConsumers);
+        }
+
+        if (event.type === 'CONSUMER_ACTIVATED_FOR_READER' && event.payload?.consumer) {
+          setLiveAdminAlert({
+            type: 'id_issued',
+            title: `✅ New Consumer Activated: #${event.payload.consumer.accountNumber}`,
+            message: `Admin issued Account Number and Meter Tag #${event.payload.consumer.meterNumber || event.payload.consumer.meterSerial} for ${event.payload.consumer.name}. Synchronized to route.`,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          });
+        }
+      } else if (
+        event.type === 'READER_ACCOUNT_TERMINATED' || 
+        event.type === 'READER_TERMINATED' || 
+        event.type === 'staff:terminated'
+      ) {
+        const user = currentUserRef.current;
+        const p = event.payload || {};
+        const isTarget = user && (
+          (p.readerId && p.readerId.toLowerCase() === user.id.toLowerCase()) ||
+          (p.id && p.id.toLowerCase() === user.id.toLowerCase()) ||
+          (p.employeeId && user.employeeId && p.employeeId.toLowerCase() === user.employeeId.toLowerCase()) ||
+          (p.username && user.username && p.username.toLowerCase() === user.username.toLowerCase())
+        );
+
+        // Update local database record
+        const termId = p.readerId || p.id || p.employeeId || p.username;
+        if (termId) {
+          DatabaseHelper.updateLocalReaderStatus(termId, 'terminated').catch(() => {});
+        }
+
+        if (isTarget) {
+          // Current user was terminated by Admin in Central Admin!
+          setTerminatedLockout({
+            name: user.name,
+            employeeId: user.employeeId,
+            reason: p.reason || 'Account revoked or terminated by Administrator in Central Admin.',
+          });
+          try {
+            localStorage.removeItem('wdt_reader_user');
+            localStorage.removeItem('twd_active_user');
+            localStorage.removeItem('wdt_auth_token');
+          } catch {}
+          setCurrentUser(null);
+          setActiveScreen('login');
+        } else {
+          // Another reader account was updated
+          reloadData();
+        }
+      } else if (event.type === 'READING_APPROVED_BILL_ISSUED') {
+        const p = event.payload || {};
+        reloadData();
+        setLiveAdminAlert({
+          type: 'reading_approved',
+          title: `✅ Reading Approved by Admin: #${p.accountNumber}`,
+          message: `Admin verified present reading (${p.currentReading} cu.m.) for ${p.consumerName || 'Account'}. Billing statement issued & baseline advanced.`,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        });
+      } else if (event.type === 'READING_REJECTED_REINSPECT') {
+        const p = event.payload || {};
+        reloadData();
+        setLiveAdminAlert({
+          type: 'status_deactivated',
+          title: `⚠️ Reading Flagged: #${p.accountNumber}`,
+          message: `Admin requested re-inspection: ${p.reason || 'Reading index or photo verification needed'}.`,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        });
+      } else if (event.type === 'READER_REGISTERED_ACTIVE') {
+        const p = event.payload || {};
+        setLiveAdminAlert({
+          type: 'status_activated',
+          title: `⚡ Reader Enrolled: ${p.reader?.name || 'Field Staff'}`,
+          message: `Auto-synced into Central Admin Meter Readers module (${p.reader?.employeeId || ''}). Status ACTIVE.`,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        });
       }
     });
 
@@ -536,8 +713,36 @@ export function App() {
           isMobileChassis={isMobileChassis}
           onToggleChassis={() => setIsMobileChassis(!isMobileChassis)}
           onOpenApkModal={() => setIsApkModalOpen(true)}
+          onOpenAdminMeterModal={() => setIsAdminMeterModalOpen(true)}
           wsStatus={wsStatus}
         />
+      )}
+
+      {/* Real-time Administrator Event Alert Banner */}
+      {liveAdminAlert && (
+        <div className={`px-4 py-2.5 text-xs flex items-center justify-between border-b shrink-0 animate-in slide-in-from-top-2 z-30 ${
+          liveAdminAlert.type.includes('deactivated')
+            ? 'bg-rose-950/90 border-rose-800 text-rose-200'
+            : liveAdminAlert.type === 'id_issued'
+            ? 'bg-sky-950/90 border-sky-800 text-sky-200'
+            : 'bg-emerald-950/90 border-emerald-800 text-emerald-200'
+        }`}>
+          <div className="flex items-center gap-2 min-w-0 pr-2">
+            <span className={`w-2 h-2 rounded-full shrink-0 ${
+              liveAdminAlert.type.includes('deactivated') ? 'bg-rose-400 animate-pulse' : 'bg-emerald-400'
+            }`} />
+            <div className="truncate">
+              <strong className="block text-white text-xs">{liveAdminAlert.title}</strong>
+              <span className="text-[11px] opacity-90 truncate block">{liveAdminAlert.message}</span>
+            </div>
+          </div>
+          <button
+            onClick={() => setLiveAdminAlert(null)}
+            className="p-1 hover:bg-white/10 rounded-lg text-white font-bold text-xs shrink-0 cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
       )}
 
       {/* Main Dynamic View with Flutter Material 3 Screen Transitions */}
@@ -758,6 +963,60 @@ export function App() {
           onClose={() => setIsApkModalOpen(false)}
           deferredPrompt={deferredInstallPrompt}
         />
+      )}
+
+      {/* Admin Central Modules Console (Water Meters, Reading Approvals, Meter Readers, Consumers, Issue IDs) */}
+      <AdminMeterStatusModal
+        isOpen={isAdminMeterModalOpen}
+        onClose={() => setIsAdminMeterModalOpen(false)}
+        onRefreshData={reloadData}
+        currentReaderRoutes={currentUser?.assignedRoutes || (currentUser?.zone ? [currentUser.zone] : ['Poblacion'])}
+      />
+
+      {/* 🚫 FULL-SCREEN LOCKOUT MODAL WHEN READER TERMINATED BY CENTRAL ADMIN */}
+      {terminatedLockout && (
+        <div className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-xl flex items-center justify-center p-4">
+          <div className="bg-slate-900 border-2 border-rose-500 w-full max-w-sm rounded-2xl p-5 shadow-2xl text-center space-y-4 animate-in zoom-in-95">
+            <div className="w-16 h-16 rounded-2xl bg-rose-950/80 border-2 border-rose-500 flex items-center justify-center mx-auto text-rose-400 shadow-lg shadow-rose-950/50">
+              <Ban className="w-8 h-8 text-rose-400" />
+            </div>
+
+            <div className="space-y-1">
+              <span className="text-[10px] font-mono uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-rose-950 border border-rose-700 text-rose-300 font-bold">
+                ACCESS REVOKED BY ADMIN
+              </span>
+              <h3 className="text-lg font-black text-white pt-1">
+                Account Terminated
+              </h3>
+              <p className="text-xs font-semibold text-rose-300">
+                {terminatedLockout.name} {terminatedLockout.employeeId ? `(${terminatedLockout.employeeId})` : ''}
+              </p>
+            </div>
+
+            <div className="p-3 bg-rose-950/40 border border-rose-900/80 rounded-xl text-left text-xs text-rose-200 space-y-1.5">
+              <div className="font-bold flex items-center gap-1.5 text-rose-300">
+                <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
+                <span>Termination Notice:</span>
+              </div>
+              <p className="text-[11.5px] leading-relaxed text-rose-200/90">
+                {terminatedLockout.reason || 'This account has been deactivated or terminated by the Central Administrator.'}
+              </p>
+              <p className="text-[10.5px] text-slate-400 pt-1 leading-normal border-t border-rose-900/50">
+                Field operations, route access, and reading submissions have been blocked for this device. Please report to the Tagoloan Water District office.
+              </p>
+            </div>
+
+            <button
+              onClick={() => {
+                setTerminatedLockout(null);
+                setActiveScreen('login');
+              }}
+              className="w-full py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs uppercase tracking-wider shadow-lg transition active:scale-95 cursor-pointer"
+            >
+              Exit to Login Screen
+            </button>
+          </div>
+        </div>
       )}
     </MobileFrameWrapper>
   );

@@ -1,4 +1,4 @@
-import { Consumer, MeterReading, AuditLog, AppConfig, StaffUser, ReaderAccount, ReaderStatus } from '../types';
+import { Consumer, MeterReading, AuditLog, AppConfig, StaffUser, ReaderAccount, ReaderStatus, ConnectionStatus, WaterMeterStatus } from '../types';
 import { universalApiFetch, getApiEndpoint } from './apiConfig';
 import { INITIAL_CONSUMERS as FULL_SEED_CONSUMERS, INITIAL_READERS } from '../data/seedData';
 import { isConsumerInAssignedAreas, isValidatedForFieldReading } from '../constants/routes';
@@ -119,18 +119,125 @@ export class DatabaseHelper {
   }
 
   /**
-   * Returns only the consumers that fall under the meter reader's assigned coverage areas / barangays
+   * Returns only active, officially validated consumers available for field meter readings.
+   * Consumers that have been deactivated or whose water meter status is not active (e.g. damaged, maintenance)
+   * are strictly excluded.
    */
   static async getConsumersForReader(routes?: string[] | string | null): Promise<Consumer[]> {
     const all = await this.getAllConsumers();
-    if (!routes) return all;
+    if (!routes) return all.filter(isValidatedForFieldReading);
 
     if (Array.isArray(routes) && routes.length === 0) {
       return [];
     }
 
-    // ID Issuance Gate: Consumers are strictly withheld from mobile readers until validated and assigned
     return all.filter((c) => isValidatedForFieldReading(c) && isConsumerInAssignedAreas(c, routes));
+  }
+
+  /**
+   * Returns all consumer records on the assigned route (both active and deactivated/excluded).
+   * Useful for viewing status breakdowns or understanding why certain meters are locked.
+   */
+  static async getAllConsumersForRoute(routes?: string[] | string | null): Promise<Consumer[]> {
+    const all = await this.getAllConsumers();
+    if (!routes) return all;
+    if (Array.isArray(routes) && routes.length === 0) return [];
+    return all.filter((c) => isConsumerInAssignedAreas(c, routes));
+  }
+
+  /**
+   * Returns deactivated or disabled consumers on the assigned route.
+   */
+  static async getDeactivatedConsumersForReader(routes?: string[] | string | null): Promise<Consumer[]> {
+    const all = await this.getAllConsumers();
+    if (!routes) return all.filter((c) => !isValidatedForFieldReading(c));
+    return all.filter((c) => !isValidatedForFieldReading(c) && isConsumerInAssignedAreas(c, routes));
+  }
+
+  /**
+   * Updates an individual consumer's account and/or meter status in local IndexedDB.
+   */
+  static async updateConsumerStatus(
+    identifier: string, 
+    status: ConnectionStatus, 
+    meterStatus?: WaterMeterStatus,
+    remarks?: string
+  ): Promise<Consumer | null> {
+    const db = await this.getDB();
+    const cleanId = (identifier || '').toLowerCase().trim();
+
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('consumers', 'readwrite');
+      const store = tx.objectStore('consumers');
+      const req = store.getAll();
+
+      req.onsuccess = () => {
+        const all: Consumer[] = req.result || [];
+        const consumer = all.find(
+          c => (c.id && c.id.toLowerCase() === cleanId) || 
+               (c.accountNumber && c.accountNumber.toLowerCase() === cleanId)
+        );
+
+        if (consumer) {
+          const updated: Consumer = {
+            ...consumer,
+            status,
+            meterStatus: meterStatus || consumer.meterStatus,
+            meterStatusRemarks: remarks !== undefined ? remarks : consumer.meterStatusRemarks,
+            lastSyncDate: new Date().toISOString(),
+          };
+          store.put(updated);
+          resolve(updated);
+        } else {
+          resolve(null);
+        }
+      };
+
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  /**
+   * Updates a water meter's operational status across all matching consumer records in local IndexedDB.
+   */
+  static async updateMeterStatus(
+    meterNumber: string, 
+    status: WaterMeterStatus, 
+    remarks?: string
+  ): Promise<Consumer | null> {
+    const db = await this.getDB();
+    const cleanTag = (meterNumber || '').toUpperCase().trim();
+
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('consumers', 'readwrite');
+      const store = tx.objectStore('consumers');
+      const req = store.getAll();
+
+      req.onsuccess = () => {
+        const all: Consumer[] = req.result || [];
+        let matchedConsumer: Consumer | null = null;
+
+        all.forEach((consumer) => {
+          const cTag = (consumer.meterNumber || '').toUpperCase().trim();
+          const cSerial = (consumer.meterSerial || '').toUpperCase().trim();
+
+          if (cTag === cleanTag || cSerial === cleanTag) {
+            const updated: Consumer = {
+              ...consumer,
+              meterStatus: status,
+              meterStatusRemarks: remarks !== undefined ? remarks : consumer.meterStatusRemarks,
+              lastSyncDate: new Date().toISOString(),
+            };
+            store.put(updated);
+            matchedConsumer = updated;
+          }
+        });
+
+        resolve(matchedConsumer);
+      };
+
+      req.onerror = () => reject(req.error);
+    });
   }
 
   static async getConsumerById(id: string, routes?: string[] | string | null): Promise<Consumer | null> {

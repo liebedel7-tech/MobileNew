@@ -12,9 +12,14 @@ import {
   Calendar,
   AlertTriangle,
   History,
-  Tag
+  Tag,
+  ShieldAlert,
+  PowerOff,
+  Lock,
+  Wrench
 } from 'lucide-react';
 import { Consumer, MeterReading, StaffUser, ActiveScreen } from '../types';
+import { isValidatedForFieldReading, getConsumerDeactivationReason } from '../constants/routes';
 
 interface ConsumerDetailsScreenProps {
   consumer: Consumer;
@@ -38,6 +43,9 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
     (r) => r.consumerId === consumer.id || r.accountNumber === consumer.accountNumber
   );
 
+  const isReadyForReading = isValidatedForFieldReading(consumer);
+  const deactivationReason = getConsumerDeactivationReason(consumer);
+
   return (
     <div className="p-3 sm:p-4 max-w-4xl mx-auto w-full space-y-4 pb-16">
       {/* Top Bar */}
@@ -50,15 +58,22 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
           <span>Back to Consumers</span>
         </button>
 
-        <span
-          className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${
-            consumer.status === 'Active'
-              ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
-              : 'bg-rose-950 text-rose-400 border border-rose-800'
-          }`}
-        >
-          Status: {consumer.status}
-        </span>
+        <div className="flex items-center gap-2">
+          {consumer.meterStatus && consumer.meterStatus !== 'active' && (
+            <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-rose-950 text-rose-300 border border-rose-800 uppercase">
+              Meter: {consumer.meterStatus}
+            </span>
+          )}
+          <span
+            className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${
+              consumer.status === 'Active'
+                ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                : 'bg-rose-950 text-rose-400 border border-rose-800'
+            }`}
+          >
+            Account: {consumer.status}
+          </span>
+        </div>
       </div>
 
       {/* Main Profile Header Card */}
@@ -82,22 +97,49 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
 
           {/* Quick Action Buttons */}
           <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => onScanMeter(consumer)}
-              className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-sky-400 rounded-xl text-xs font-bold flex items-center gap-1.5 border border-slate-700 transition"
-            >
-              <Camera className="w-4 h-4" />
-              <span>Scan OCR</span>
-            </button>
-            <button
-              onClick={() => onStartReading(consumer)}
-              className="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-sky-600/30 transition"
-            >
-              <FileText className="w-4 h-4" />
-              <span>Enter Reading</span>
-            </button>
+            {isReadyForReading ? (
+              <>
+                <button
+                  onClick={() => onScanMeter(consumer)}
+                  className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-sky-400 rounded-xl text-xs font-bold flex items-center gap-1.5 border border-slate-700 transition"
+                >
+                  <Camera className="w-4 h-4" />
+                  <span>Scan OCR</span>
+                </button>
+                <button
+                  onClick={() => onStartReading(consumer)}
+                  className="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-sky-600/30 transition"
+                >
+                  <FileText className="w-4 h-4" />
+                  <span>Enter Reading</span>
+                </button>
+              </>
+            ) : (
+              <div className="px-3.5 py-2 bg-rose-950/60 text-rose-300 border border-rose-800 rounded-xl text-xs font-bold flex items-center gap-2 cursor-not-allowed">
+                <Lock className="w-4 h-4 text-rose-400" />
+                <span>Reading Prohibited (Deactivated)</span>
+              </div>
+            )}
           </div>
         </div>
+
+        {/* 🚫 Deactivation Alert Banner */}
+        {!isReadyForReading && (
+          <div className="p-3 bg-rose-950/40 border border-rose-900/80 rounded-xl flex items-start gap-2.5 text-xs text-rose-200">
+            <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <span className="font-bold text-rose-300 block text-sm">
+                Account or Water Meter Deactivated by Admin
+              </span>
+              <p className="text-xs text-rose-200">
+                {deactivationReason || 'This account or water meter is inactive and not available for field reading.'}
+              </p>
+              <p className="text-[11px] text-slate-400">
+                When Central Admin updates the meter status in the Water Meter Installations module to Active, this account will automatically unlock for field readings.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Meter & Route Metadata Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs pt-1">

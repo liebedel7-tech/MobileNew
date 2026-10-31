@@ -10,7 +10,36 @@ export type ConnectionStatus =
   | 'Disconnected' 
   | 'Reconnected' 
   | 'For Inspection' 
-  | 'Inactive';
+  | 'Inactive'
+  | 'Blocked'
+  | 'Archived'
+  | 'Disconnection Notice'
+  | 'pending_approval'
+  | 'pending_installation'
+  | 'deactivated';
+
+export type WaterMeterStatus = 
+  | 'active' 
+  | 'inactive' 
+  | 'damaged' 
+  | 'maintenance' 
+  | 'unassigned' 
+  | 'deactivated';
+
+export interface WaterMeter {
+  meterNumber: string; // Official Meter Tag Number (e.g. TAG-01042)
+  serialNumber?: string; // Physical Manufacturer Serial Number (e.g. MTR-8849201)
+  brand: string;
+  size?: string;
+  type?: string;
+  installationDate?: string;
+  status: WaterMeterStatus;
+  linkedAccountNumber?: string;
+  remarks?: string;
+  previousStatus?: WaterMeterStatus;
+  statusUpdatedAt?: string;
+  statusUpdatedBy?: string;
+}
 
 export type ReadingStatus = 
   | 'PENDING_SYNC' 
@@ -48,11 +77,14 @@ export interface Consumer {
   address: string;
   barangay: string;
   meterSerial: string;
-  meterNumber?: string; // Meter Tag Number (e.g., MT-4401)
+  meterNumber?: string; // Meter Tag Number (e.g., MT-4401 or TAG-01042)
   meterSize: string;
   category: ConsumerCategory;
   consumerType?: string;
   status: ConnectionStatus;
+  meterStatus?: WaterMeterStatus; // Status of physical water meter from Water Meters module
+  meterStatusRemarks?: string;
+  statusReason?: string;
   previousReading: number;
   previousReadingDate: string;
   previousConsumption?: number; // Previous month consumption volume (cu.m.)
