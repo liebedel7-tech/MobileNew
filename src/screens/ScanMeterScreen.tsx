@@ -28,7 +28,13 @@ import {
   PowerOff
 } from 'lucide-react';
 import { Consumer, ActiveScreen, MeterReading, StaffUser } from '../types';
-import { isValidatedForFieldReading, getConsumerDeactivationReason } from '../constants/routes';
+import { 
+  isValidatedForFieldReading, 
+  getConsumerDeactivationReason,
+  formatOdometerReading,
+  cleanOdometerInput,
+  parseOdometerReading,
+} from '../constants/routes';
 import { OCRService, OCRResult } from '../services/ocrService';
 import { RealTimeScanner } from '../services/realTimeScanner';
 import { ScanOverlay } from '../components/ScanOverlay';
@@ -1004,14 +1010,14 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
                   <div>
                     <span className="text-[9px] text-slate-400 font-mono block">PREVIOUS RECORD</span>
                     <span className="text-xs font-bold text-slate-200 font-mono">
-                      {selectedConsumer.previousReading} m³
+                      {formatOdometerReading(selectedConsumer.previousReading)} cu.m.
                     </span>
                   </div>
 
                   <div className="text-right">
                     <span className="text-[9px] text-sky-400 font-mono block">LIVE IDENTIFIED</span>
                     <span className="text-sm font-black text-sky-300 font-mono">
-                      {liveReadingValue !== null ? `${liveReadingValue} m³` : 'Aim at wheels...'}
+                      {liveReadingValue !== null ? `${formatOdometerReading(liveReadingValue)} cu.m.` : 'Aim at wheels...'}
                     </span>
                   </div>
 
@@ -1019,7 +1025,7 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
                     <div className="text-right border-l border-slate-800 pl-2">
                       <span className="text-[9px] text-emerald-400 font-mono block">CONSUMPTION</span>
                       <span className="text-xs font-black text-emerald-400 font-mono">
-                        +{Math.max(0, liveReadingValue - selectedConsumer.previousReading)} m³
+                        +{Math.max(0, liveReadingValue - selectedConsumer.previousReading)} cu.m.
                       </span>
                     </div>
                   )}
@@ -1033,7 +1039,7 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
                     className="w-full bg-gradient-to-r from-sky-500 to-teal-500 text-slate-950 font-black py-2 rounded-lg text-xs uppercase tracking-wider shadow flex items-center justify-center gap-1.5 active:scale-95 transition cursor-pointer"
                   >
                     <CheckSquare className="w-3.5 h-3.5" />
-                    <span>Confirm Live Reading ({liveReadingValue} m³)</span>
+                    <span>Confirm Live Reading ({formatOdometerReading(liveReadingValue)} cu.m.)</span>
                   </button>
                 )}
               </div>
@@ -1106,15 +1112,15 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
               <div className="bg-slate-900/90 rounded-lg p-2 border border-slate-800 space-y-1 font-mono text-xs">
                 <div className="flex items-center justify-between text-slate-300">
                   <span className="text-[9px] uppercase font-bold text-slate-400">PREVIOUS READING</span>
-                  <span className="font-bold text-slate-200">{lastSubmittedReading.previousReading} m³</span>
+                  <span className="font-bold text-slate-200">{formatOdometerReading(lastSubmittedReading.previousReading)} cu.m.</span>
                 </div>
                 <div className="flex items-center justify-between text-slate-300">
                   <span className="text-[9px] uppercase font-bold text-slate-400">PRESENT READING</span>
-                  <span className="font-bold text-sky-300">{lastSubmittedReading.currentReading} m³</span>
+                  <span className="font-bold text-sky-300">{formatOdometerReading(lastSubmittedReading.currentReading)} cu.m.</span>
                 </div>
                 <div className="flex items-center justify-between pt-1 border-t border-slate-800">
                   <span className="text-[9px] uppercase font-bold text-emerald-400">CONSUMPTION</span>
-                  <span className="font-black text-emerald-400">{lastSubmittedReading.consumption} m³</span>
+                  <span className="font-black text-emerald-400">+{lastSubmittedReading.consumption} cu.m.</span>
                 </div>
               </div>
             </div>
@@ -1245,42 +1251,43 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
                   <div className="flex items-center justify-center gap-2 pt-1 border-t border-slate-800/80">
                     <span className="text-xs font-mono text-slate-400">Total Reading:</span>
                     <input
-                      type="number"
-                      min={selectedConsumer ? selectedConsumer.previousReading : 0}
-                      value={ocrResult.readingValue}
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={5}
+                      value={formatOdometerReading(ocrResult.readingValue)}
                       onChange={(e) => {
-                        const val = parseInt(e.target.value, 10);
-                        if (!isNaN(val) && val >= 0) {
-                          const formatted = String(val).padStart(5, '0');
-                          setOcrResult({
-                            ...ocrResult,
-                            readingValue: val,
-                            odometerFormatted: formatted,
-                            digits: formatted.slice(-5).split(''),
-                          });
-                        }
+                        const clean = cleanOdometerInput(e.target.value);
+                        const val = clean ? Math.min(99999, parseInt(clean, 10)) : 0;
+                        const formatted = String(val).padStart(5, '0');
+                        setOcrResult({
+                          ...ocrResult,
+                          readingValue: val,
+                          odometerFormatted: formatted,
+                          digits: formatted.slice(-5).split(''),
+                        });
                       }}
                       className="w-24 bg-slate-900 border border-sky-500/70 text-sky-300 font-mono font-black text-sm px-2 py-0.5 rounded text-center focus:outline-none focus:ring-1 focus:ring-sky-400"
                     />
-                    <span className="text-xs text-sky-400 font-mono">m³</span>
+                    <span className="text-xs text-sky-400 font-mono">cu.m.</span>
                   </div>
 
                   {selectedConsumer && (
                     <div className="bg-slate-900/90 rounded-lg p-1.5 border border-slate-800 space-y-0.5 font-mono text-xs mt-1 text-left">
                       <div className="flex items-center justify-between text-slate-300">
                         <span className="text-[8.5px] uppercase font-bold text-slate-400">PREVIOUS</span>
-                        <span className="font-bold text-slate-200">{selectedConsumer.previousReading} m³</span>
+                        <span className="font-bold text-slate-200">{formatOdometerReading(selectedConsumer.previousReading)} cu.m.</span>
                       </div>
                       <div className="flex items-center justify-between text-slate-300">
                         <span className="text-[8.5px] uppercase font-bold text-slate-400">PRESENT</span>
-                        <span className="font-bold text-sky-300">{ocrResult.readingValue} m³</span>
+                        <span className="font-bold text-sky-300">{formatOdometerReading(ocrResult.readingValue)} cu.m.</span>
                       </div>
                       <div className="flex items-center justify-between pt-0.5 border-t border-slate-800">
                         <span className="text-[8.5px] uppercase font-bold text-emerald-400">CONSUMPTION</span>
                         <span className={`font-black ${ocrResult.readingValue >= selectedConsumer.previousReading ? 'text-emerald-400' : 'text-red-400'}`}>
                           {ocrResult.readingValue >= selectedConsumer.previousReading
-                            ? `+${ocrResult.readingValue - selectedConsumer.previousReading} m³`
-                            : `Invalid: Less than previous (${ocrResult.readingValue - selectedConsumer.previousReading} m³)`}
+                            ? `+${ocrResult.readingValue - selectedConsumer.previousReading} cu.m.`
+                            : `Invalid: Less than previous (${formatOdometerReading(selectedConsumer.previousReading)} cu.m.)`}
                         </span>
                       </div>
                     </div>

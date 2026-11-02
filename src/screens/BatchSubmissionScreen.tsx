@@ -13,6 +13,7 @@ import {
   Check
 } from 'lucide-react';
 import { MeterReading, SyncState, ActiveScreen } from '../types';
+import { formatOdometerReading } from '../constants/routes';
 
 interface BatchSubmissionScreenProps {
   pendingReadings: MeterReading[];
@@ -183,7 +184,7 @@ export const BatchSubmissionScreen: React.FC<BatchSubmissionScreenProps> = ({
                   </div>
                   <h4 className="font-bold text-xs text-white">{reading.consumerName}</h4>
                   <div className="text-[11px] text-slate-400 font-mono">
-                    PREVIOUS: {reading.previousReading} • PRESENT: {reading.currentReading} • CONSUMPTION: {reading.consumption}
+                    PREVIOUS: {formatOdometerReading(reading.previousReading)} cu.m. • PRESENT: {formatOdometerReading(reading.currentReading)} cu.m. • CONSUMPTION: +{reading.consumption} cu.m.
                   </div>
                 </div>
 

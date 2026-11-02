@@ -122,7 +122,8 @@ export class OCRService {
         const data = await response.json();
         
         if (data && data.success && data.readingValue !== null && data.readingValue !== undefined) {
-          const readingVal = Number(data.readingValue);
+          const rawVal = String(data.readingValue).replace(/\D/g, '').slice(0, 5);
+          const readingVal = Math.min(99999, Math.max(0, parseInt(rawVal, 10) || 0));
           const formatted5 = String(readingVal).padStart(5, '0');
           return {
             success: true,

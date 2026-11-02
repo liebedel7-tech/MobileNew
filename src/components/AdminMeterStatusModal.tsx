@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { universalApiFetch } from '../services/apiConfig';
 import { WebSocketService } from '../services/websocketService';
+import { formatOdometerReading } from '../constants/routes';
 
 export interface AdminMeterStatusModalProps {
   isOpen: boolean;
@@ -600,11 +601,11 @@ export const AdminMeterStatusModal: React.FC<AdminMeterStatusModalProps> = ({
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono bg-slate-900/90 p-2.5 rounded-xl border border-slate-800">
                           <div>
                             <span className="text-[9.5px] uppercase text-slate-500 font-sans block">Previous Baseline</span>
-                            <span className="font-bold text-slate-300 text-sm">{r.previousReading} cu.m.</span>
+                            <span className="font-bold text-slate-300 text-sm">{formatOdometerReading(r.previousReading)} cu.m.</span>
                           </div>
                           <div>
                             <span className="text-[9.5px] uppercase text-slate-500 font-sans block">Present Reading</span>
-                            <span className="font-bold text-sky-300 text-sm">{r.currentReading} cu.m.</span>
+                            <span className="font-bold text-sky-300 text-sm">{formatOdometerReading(r.currentReading)} cu.m.</span>
                           </div>
                           <div>
                             <span className="text-[9.5px] uppercase text-slate-500 font-sans block">Net Consumption</span>
@@ -922,7 +923,7 @@ export const AdminMeterStatusModal: React.FC<AdminMeterStatusModalProps> = ({
                           </span>
                         </div>
                         <div className="text-[11px] text-slate-400 truncate">
-                          Tag #{c.meterNumber || c.meterSerial} • Brgy. {c.barangay} • Prev: {c.previousReading} cu.m.
+                          Tag #{c.meterNumber || c.meterSerial} • Brgy. {c.barangay} • Prev: {formatOdometerReading(c.previousReading)} cu.m.
                         </div>
                       </div>
 

@@ -48,8 +48,12 @@ const TARIFF_SCHEDULE: Record<ConsumerCategory, TariffRate> = {
 
 export class CalculationService {
   /**
-   * Validates that Present Reading is not less than Previous Reading.
-   * Business Rule: Present Reading must be >= Previous Reading.
+   * Validates that Present Reading is a 5-digit whole number (00000 - 99999)
+   * and is not less than Previous Reading.
+   * Business Rules:
+   * 1. Whole numbers only (no decimal points or commas).
+   * 2. Five-digit odometer range: 00000 to 99999.
+   * 3. Present Reading must be >= Previous Reading.
    */
   static validateReading(
     previousReading: number,
@@ -58,10 +62,18 @@ export class CalculationService {
     if (isNaN(currentReading) || currentReading === null || currentReading === undefined) {
       return { valid: false, error: 'Please enter a valid meter reading value.' };
     }
+    if (!Number.isInteger(currentReading)) {
+      return { valid: false, error: 'Water meter readings must be whole numbers only without decimal points or commas.' };
+    }
+    if (currentReading < 0 || currentReading > 99999) {
+      return { valid: false, error: 'Meter readings must be a 5-digit number between 00000 and 99999.' };
+    }
     if (currentReading < previousReading) {
+      const prev5 = String(previousReading).padStart(5, '0');
+      const curr5 = String(currentReading).padStart(5, '0');
       return {
         valid: false,
-        error: `Strict Rule Violation: Present reading (${currentReading} cu.m.) cannot be less than Previous reading (${previousReading} cu.m.). Negative consumption is not permitted.`,
+        error: `Strict Rule Violation: Present reading (${curr5} cu.m.) cannot be less than Previous reading (${prev5} cu.m.). Negative consumption is not permitted.`,
       };
     }
     return { valid: true };

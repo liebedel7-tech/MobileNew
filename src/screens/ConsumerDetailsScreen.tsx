@@ -19,7 +19,11 @@ import {
   Wrench
 } from 'lucide-react';
 import { Consumer, MeterReading, StaffUser, ActiveScreen } from '../types';
-import { isValidatedForFieldReading, getConsumerDeactivationReason } from '../constants/routes';
+import { 
+  isValidatedForFieldReading, 
+  getConsumerDeactivationReason,
+  formatOdometerReading,
+} from '../constants/routes';
 
 interface ConsumerDetailsScreenProps {
   consumer: Consumer;
@@ -157,7 +161,7 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
 
           <div className="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800/80">
             <span className="text-slate-500 block text-[10px] uppercase font-bold">Previous Reading</span>
-            <span className="font-mono font-bold text-slate-200 text-sm block">{consumer.previousReading} cu.m.</span>
+            <span className="font-mono font-bold text-slate-200 text-sm block">{formatOdometerReading(consumer.previousReading)} cu.m.</span>
             <span className="text-[10px] text-slate-400 block">{consumer.previousReadingDate}</span>
           </div>
 
@@ -211,7 +215,7 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
                 PREVIOUS READING (BASELINE INDEX)
               </span>
               <span className="font-bold text-slate-200 text-sm">
-                {consumer.previousReading} cu.m.
+                {formatOdometerReading(consumer.previousReading)} cu.m.
               </span>
             </div>
 
@@ -220,7 +224,7 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
                 PRESENT READING (CURRENT METER INDEX)
               </span>
               <span className="font-black text-sky-300 text-base">
-                {consumer.currentMonthReading.currentReading} cu.m.
+                {formatOdometerReading(consumer.currentMonthReading.currentReading)} cu.m.
               </span>
             </div>
 
@@ -255,7 +259,7 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
                 Awaiting Present Reading for {new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}
               </div>
               <div className="text-[11px] text-slate-400 font-mono">
-                Previous Index: <strong className="text-slate-200">{consumer.previousReading} cu.m.</strong> • 3-Mo Avg: <strong className="text-sky-300">{consumer.averageConsumption} cu.m.</strong>
+                Previous Index: <strong className="text-slate-200">{formatOdometerReading(consumer.previousReading)} cu.m.</strong> • 3-Mo Avg: <strong className="text-sky-300">{consumer.averageConsumption} cu.m.</strong>
               </div>
             </div>
           </div>
@@ -285,7 +289,7 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
           <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-6 text-center text-slate-400 text-xs space-y-1">
             <div className="font-bold text-slate-300">Initial Cycle On Track</div>
             <p className="text-[11px] text-slate-500">
-              Previous baseline index: <strong className="text-slate-300 font-mono">{consumer.previousReading} cu.m.</strong> (Recorded on {consumer.previousReadingDate}).
+              Previous baseline index: <strong className="text-slate-300 font-mono">{formatOdometerReading(consumer.previousReading)} cu.m.</strong> (Recorded on {consumer.previousReadingDate}).
               Historical readings chain will accumulate chronologically as present readings are logged.
             </p>
           </div>
@@ -321,11 +325,11 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
                 <div className="bg-slate-900/90 rounded-lg p-2.5 border border-slate-800/80 grid grid-cols-3 gap-2 text-center font-mono">
                   <div>
                     <span className="text-[9px] uppercase font-bold text-slate-500 block">PREVIOUS INDEX</span>
-                    <span className="text-xs font-bold text-slate-300 block">{reading.previousReading} cu.m.</span>
+                    <span className="text-xs font-bold text-slate-300 block">{formatOdometerReading(reading.previousReading)} cu.m.</span>
                   </div>
                   <div>
                     <span className="text-[9px] uppercase font-bold text-sky-400 block">PRESENT INDEX</span>
-                    <span className="text-xs font-black text-sky-300 block">{reading.currentReading} cu.m.</span>
+                    <span className="text-xs font-black text-sky-300 block">{formatOdometerReading(reading.currentReading)} cu.m.</span>
                   </div>
                   <div>
                     <span className="text-[9px] uppercase font-bold text-emerald-400 block">CONSUMPTION</span>

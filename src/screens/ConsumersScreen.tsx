@@ -18,7 +18,12 @@ import {
   Lock
 } from 'lucide-react';
 import { Consumer, ActiveScreen, StaffUser } from '../types';
-import { TAGOLOAN_BARANGAYS, isValidatedForFieldReading, getConsumerDeactivationReason } from '../constants/routes';
+import { 
+  TAGOLOAN_BARANGAYS, 
+  isValidatedForFieldReading, 
+  getConsumerDeactivationReason,
+  formatOdometerReading,
+} from '../constants/routes';
 import { DatabaseHelper } from '../services/databaseHelper';
 
 interface ConsumersScreenProps {
@@ -321,7 +326,7 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
                           PREVIOUS READING
                         </span>
                         <span className="font-bold text-slate-200 text-sm">
-                          {consumer.previousReading} cu.m.
+                          {formatOdometerReading(consumer.previousReading)} cu.m.
                         </span>
                       </div>
 
@@ -333,7 +338,7 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
                           consumer.isReadThisMonth ? 'text-sky-300' : 'text-slate-500 italic text-xs'
                         }`}>
                           {consumer.isReadThisMonth && consumer.currentMonthReading
-                            ? `${consumer.currentMonthReading.currentReading} cu.m.`
+                            ? `${formatOdometerReading(consumer.currentMonthReading.currentReading)} cu.m.`
                             : 'Pending'}
                         </span>
                       </div>

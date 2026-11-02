@@ -14,6 +14,7 @@ import {
   Send,
   Eye
 } from 'lucide-react';
+import { formatOdometerReading } from '../constants/routes';
 
 interface ScanOverlayProps {
   onCapture: () => void;
@@ -56,7 +57,10 @@ export const ScanOverlay: React.FC<ScanOverlayProps> = ({
   previousReading,
   onQuickSendToAdmin,
 }) => {
-  const isDigitsIdentified = liveReadingDigits && liveReadingDigits.length === 5;
+  const displayDigits = liveReadingValue !== null && liveReadingValue !== undefined
+    ? formatOdometerReading(liveReadingValue).split('')
+    : (liveReadingDigits && liveReadingDigits.length === 5 ? liveReadingDigits : null);
+  const isDigitsIdentified = displayDigits && displayDigits.length === 5;
   const isTagIdentified = Boolean(liveTagDetected);
 
   return (
@@ -175,7 +179,7 @@ export const ScanOverlay: React.FC<ScanOverlayProps> = ({
               {/* 5 Physical Roller Wheels Visualization with Direct Number Pointing */}
               <div className="flex items-center justify-center gap-1.5 sm:gap-2 my-auto z-10">
                 {[0, 1, 2, 3, 4].map((i) => {
-                  const digit = liveReadingDigits && liveReadingDigits[i] ? liveReadingDigits[i] : null;
+                  const digit = displayDigits && displayDigits[i] ? displayDigits[i] : null;
                   return (
                     <div key={i} className="flex flex-col items-center gap-1">
                       {/* Individual pointer arrow per number */}
@@ -216,7 +220,7 @@ export const ScanOverlay: React.FC<ScanOverlayProps> = ({
                   <Eye className="w-3.5 h-3.5 text-sky-400" />
                   <span>
                     {liveReadingValue !== null && liveReadingValue !== undefined
-                      ? `IDENTIFIED: ${liveReadingValue} cu.m. (${((liveConfidence || 0.95) * 100).toFixed(0)}% MATCH)`
+                      ? `IDENTIFIED: ${formatOdometerReading(liveReadingValue)} cu.m. (${((liveConfidence || 0.95) * 100).toFixed(0)}% MATCH)`
                       : 'CENTER THE 5 NUMBERS INSIDE BOXES'}
                   </span>
                 </div>

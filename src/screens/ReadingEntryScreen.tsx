@@ -29,7 +29,13 @@ import {
   BillCalculation, 
   ActiveScreen 
 } from '../types';
-import { isValidatedForFieldReading, getConsumerDeactivationReason } from '../constants/routes';
+import { 
+  isValidatedForFieldReading, 
+  getConsumerDeactivationReason,
+  formatOdometerReading,
+  cleanOdometerInput,
+  parseOdometerReading,
+} from '../constants/routes';
 import { CalculationService } from '../services/calculationService';
 import { LocationService } from '../services/locationService';
 import { LoggerService } from '../services/loggerService';
@@ -63,8 +69,8 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
 }) => {
   const [currentReading, setCurrentReading] = useState<string>(
     initialReadingValue !== undefined && initialReadingValue !== null
-      ? String(initialReadingValue)
-      : (consumer.currentMonthReading?.currentReading !== undefined ? String(consumer.currentMonthReading.currentReading) : '')
+      ? cleanOdometerInput(String(initialReadingValue))
+      : (consumer.currentMonthReading?.currentReading !== undefined ? cleanOdometerInput(String(consumer.currentMonthReading.currentReading)) : '')
   );
   const [meterCondition, setMeterCondition] = useState<MeterCondition>('NORMAL');
   const [remarks, setRemarks] = useState('');
@@ -101,8 +107,8 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
   // Reset form and post-save states whenever the consumer changes (e.g. moving to Next Consumer)
   useEffect(() => {
     const defaultVal = initialReadingValue !== undefined && initialReadingValue !== null
-      ? String(initialReadingValue)
-      : (consumer.currentMonthReading?.currentReading !== undefined ? String(consumer.currentMonthReading.currentReading) : '');
+      ? cleanOdometerInput(String(initialReadingValue))
+      : (consumer.currentMonthReading?.currentReading !== undefined ? cleanOdometerInput(String(consumer.currentMonthReading.currentReading)) : '');
     setCurrentReading(defaultVal);
     setPhotoUrl(initialPhotoUrl || consumer.currentMonthReading?.photoUrl);
     setMeterCondition(consumer.currentMonthReading?.meterCondition || 'NORMAL');
@@ -131,9 +137,9 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
       });
   }, [consumer.id]);
 
-  const numReading = Number(currentReading) || 0;
-  const prevReading = consumer.previousReading || 0;
-  const isReadingInvalid = currentReading !== '' && !isNaN(Number(currentReading)) && numReading < prevReading;
+  const numReading = parseOdometerReading(currentReading);
+  const prevReading = parseOdometerReading(consumer.previousReading || 0);
+  const isReadingInvalid = currentReading !== '' && numReading < prevReading;
   const consumption = isReadingInvalid ? 0 : Math.max(0, numReading - prevReading);
   const currentBillingMonth = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
 
@@ -328,7 +334,7 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
                   PREVIOUS READING
                 </span>
                 <span className="font-bold text-slate-200 text-sm">
-                  {savedReading.previousReading} cu.m.
+                  {formatOdometerReading(savedReading.previousReading)} cu.m.
                 </span>
               </div>
 
@@ -337,7 +343,7 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
                   PRESENT READING
                 </span>
                 <span className="font-bold text-sky-300 text-sm">
-                  {savedReading.currentReading} cu.m.
+                  {formatOdometerReading(savedReading.currentReading)} cu.m.
                 </span>
               </div>
 
@@ -480,7 +486,7 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
           </div>
           <div className="bg-slate-950/60 p-1.5 rounded-lg border border-slate-800/80">
             <span className="text-[10px] text-slate-500 uppercase block font-sans">Prev Reading</span>
-            <strong className="text-slate-200 font-bold block">{prevReading} cu.m.</strong>
+            <strong className="text-slate-200 font-bold block">{formatOdometerReading(prevReading)} cu.m.</strong>
           </div>
           <div className="bg-slate-950/60 p-1.5 rounded-lg border border-slate-800/80">
             <span className="text-[10px] text-slate-500 uppercase block font-sans">Prev Consumed</span>
@@ -519,22 +525,54 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
             <button
               type="button"
               onClick={() => onScanWithCamera(consumer)}
-              className="px-2.5 py-1 bg-sky-950 border border-sky-800 hover:bg-sky-900 text-sky-300 rounded-lg text-xs font-bold flex items-center gap-1 transition"
+              className="px-2.5 py-1 bg-sky-950 border border-sky-800 hover:bg-sky-900 text-sky-300 rounded-lg text-xs font-bold flex items-center gap-1 transition cursor-pointer"
             >
               <Camera className="w-3.5 h-3.5 text-sky-400" />
               <span>Use Camera OCR</span>
             </button>
           </div>
 
-          {/* Large Digit Input */}
+          {/* 5-Wheel Mechanical Odometer Roller HUD (00000 to 99999) */}
+          <div className="bg-slate-950 p-3 sm:p-4 rounded-2xl border border-slate-800 text-center space-y-2">
+            <div className="flex items-center justify-between text-[10.5px] text-slate-400 font-mono">
+              <span className="uppercase font-bold text-sky-400 tracking-wider">5-DIGIT MECHANICAL ODOMETER DIALS</span>
+              <span className="text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
+                Whole numbers only (00000–99999)
+              </span>
+            </div>
+
+            {/* 5 Physical Roller Wheel Dials */}
+            <div className="flex items-center justify-center gap-2 sm:gap-2.5 py-1">
+              {formatOdometerReading(currentReading).split('').map((digit, idx) => {
+                const labels = ['10k', '1k', '100', '10', '1'];
+                return (
+                  <div key={idx} className="flex flex-col items-center gap-1">
+                    <span className="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-wider">
+                      {labels[idx]}
+                    </span>
+                    <div className="w-10 sm:w-12 h-14 sm:h-16 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 border-2 border-sky-500/80 rounded-xl flex items-center justify-center font-mono font-black text-2xl sm:text-3xl text-white shadow-inner select-none relative overflow-hidden ring-1 ring-sky-500/20">
+                      <div className="absolute inset-x-0 top-0 h-2 bg-gradient-to-b from-black/80 to-transparent pointer-events-none" />
+                      <div className="absolute inset-x-0 bottom-0 h-2 bg-gradient-to-t from-black/80 to-transparent pointer-events-none" />
+                      <span className={currentReading !== '' ? 'text-sky-300 drop-shadow-[0_0_8px_rgba(56,189,248,0.5)]' : 'text-slate-500'}>
+                        {digit}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Large Digit Input Field (Strictly whole numbers, no decimals or commas) */}
           <div className="relative">
             <input
-              type="number"
-              step="1"
-              min={prevReading}
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={5}
               value={currentReading}
-              onChange={(e) => setCurrentReading(e.target.value)}
-              placeholder={String(prevReading)}
+              onChange={(e) => setCurrentReading(cleanOdometerInput(e.target.value))}
+              placeholder={formatOdometerReading(prevReading)}
               required
               autoFocus
               className={`w-full bg-slate-950 border-2 rounded-2xl py-3 px-4 text-3xl font-black text-center tracking-widest font-mono focus:outline-none transition shadow-inner ${
@@ -543,8 +581,10 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
                   : 'border-slate-700 text-sky-400 focus:border-sky-500'
               }`}
             />
-            <div className="text-center text-[11px] text-slate-500 mt-1">
-              Minimum allowed reading: <strong className="text-slate-300 font-mono">{prevReading} cu.m.</strong> (Previous Index)
+            <div className="text-center text-[11px] text-slate-400 mt-1.5 flex flex-wrap items-center justify-center gap-1.5">
+              <span>Whole numbers only (no decimal points or commas)</span>
+              <span>•</span>
+              <span>Min: <strong className="text-slate-300 font-mono">{formatOdometerReading(prevReading)} cu.m.</strong></span>
             </div>
           </div>
 
@@ -557,7 +597,7 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
                   ⚠️ Invalid Reading: Below Previous Reading
                 </strong>
                 <p className="text-[11px] text-red-200/90 leading-relaxed">
-                  Present reading (<strong className="text-white font-mono">{numReading} cu.m.</strong>) cannot be less than previous reading (<strong className="text-white font-mono">{prevReading} cu.m.</strong>).
+                  Present reading (<strong className="text-white font-mono">{formatOdometerReading(numReading)} cu.m.</strong>) cannot be less than previous reading (<strong className="text-white font-mono">{formatOdometerReading(prevReading)} cu.m.</strong>).
                   Negative consumption is strictly not allowed in meter reading.
                 </p>
               </div>
@@ -571,7 +611,7 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
                 PREVIOUS READING
               </span>
               <span className="font-bold text-slate-200 text-sm">
-                {prevReading} cu.m.
+                {formatOdometerReading(prevReading)} cu.m.
               </span>
             </div>
 
@@ -582,7 +622,7 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
               <span className={`font-bold text-sm ${
                 isReadingInvalid ? 'text-red-400' : 'text-sky-300'
               }`}>
-                {currentReading !== '' ? `${numReading} cu.m.` : '—'}
+                {currentReading !== '' ? `${formatOdometerReading(numReading)} cu.m.` : '—'}
               </span>
             </div>
 

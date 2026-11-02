@@ -2151,25 +2151,27 @@ Return strict JSON ONLY:
 }`;
     } else {
       prompt = `You are a precise optical character recognition (OCR) engine for mechanical water meters.
-TASK: Read the exact numbers on the mechanical rolling odometer counter wheels (index register in cubic meters m³).
-INSTRUCTIONS:
-1. Locate the horizontal row of rolling digit wheels (usually 4 to 6 wheels, black on white or white on black).
-2. Read each digit strictly from LEFT to RIGHT.
-3. If red decimal sub-dials or red decimal wheels exist on the right, focus on the whole cubic meter (m³) integer digits.
-4. If a digit wheel is halfway between numbers (e.g. 3 transitioning to 4), read the lower digit unless the right wheel has passed zero.
-${previousReading !== undefined && previousReading !== null ? `5. The previous logged reading for this meter is ${previousReading} m³. The present reading should normally be >= ${previousReading} m³.` : ''}
-6. If the mechanical odometer digits are not clearly legible or not in frame, DO NOT GUESS OR FABRICATE. Return status "REJECTED_NO_5_DIGITS" and readingValue null.
+TASK: Read the exact numbers on the 5 mechanical rolling odometer counter wheels (index register in cubic meters cu.m.).
+STRICT REQUIREMENTS:
+1. Water meter readings are WHOLE NUMBERS ONLY. They do NOT contain decimal points or commas.
+2. The readings MUST be treated as five-digit odometer-style numbers, from 00000 to 99999.
+3. Locate the horizontal row of 5 rolling digit wheels (representing whole cubic meters: 10k, 1k, 100, 10, 1).
+4. Read each digit strictly from LEFT to RIGHT.
+5. Ignore any red decimal sub-dials, pointers, or liters indicators. Read ONLY the 5 whole number cubic meter digits (00000 to 99999).
+6. NEVER include decimal points or commas in the output.
+${previousReading !== undefined && previousReading !== null ? `7. The previous logged reading for this meter is ${previousReading} cu.m. The present reading must normally be >= ${previousReading} cu.m.` : ''}
+8. If the mechanical odometer digits are not clearly legible or not in frame, DO NOT GUESS. Return status "REJECTED_NO_5_DIGITS" and readingValue null.
 
 Return strict JSON ONLY:
 {
   "status": "SUCCESS" | "REJECTED_NO_5_DIGITS",
-  "readingValue": number | null,
-  "odometerFormatted": "5-digit string like 00368" | null,
+  "readingValue": integer between 0 and 99999 | null,
+  "odometerFormatted": "5-digit string from 00000 to 99999 (e.g. 00368)" | null,
   "digits": ["0", "0", "3", "6", "8"] | [],
   "confidence": number between 0.0 and 1.0,
   "meterCondition": "Normal" | "Moisture inside dial" | "Damaged glass" | "Unclear",
   "potentialLeak": boolean,
-  "notes": "exact digits visible on the mechanical dial"
+  "notes": "explanation of 5-digit mechanical dial reading"
 }`;
     }
 
@@ -2250,29 +2252,26 @@ Return strict JSON ONLY:
       });
     }
 
-    // mode === 'reading'
+    // mode === 'reading': strictly whole numbers (00000 - 99999), no decimal points or commas
     if (parsedData && parsedData.status === 'SUCCESS' && parsedData.readingValue !== null && parsedData.readingValue !== undefined) {
-      const numVal = parseInt(String(parsedData.readingValue).replace(/[^0-9]/g, ''), 10);
-      if (!isNaN(numVal) && numVal >= 0 && numVal <= 999999) {
-        const formatted = String(numVal).padStart(5, '0');
-        const digitsArray = parsedData.digits && Array.isArray(parsedData.digits) && parsedData.digits.length === 5 
-          ? parsedData.digits 
-          : formatted.split('');
+      const cleanDigits = String(parsedData.readingValue).replace(/\D/g, '').slice(0, 5);
+      const numVal = Math.min(99999, Math.max(0, parseInt(cleanDigits, 10) || 0));
+      const formatted = String(numVal).padStart(5, '0');
+      const digitsArray = formatted.split('');
 
-        return res.json({
-          success: true,
-          status: 'SUCCESS',
-          readingValue: numVal,
-          odometerFormatted: formatted,
-          digits: digitsArray,
-          confidence: parsedData.confidence || 0.94,
-          meterSerialDetected: meterSerial || null,
-          meterCondition: parsedData.meterCondition || 'Normal',
-          potentialLeak: !!parsedData.potentialLeak,
-          notes: parsedData.notes || 'Mechanical dial digits identified from meter photo.',
-          source: 'camera_vision_ocr_gemini',
-        });
-      }
+      return res.json({
+        success: true,
+        status: 'SUCCESS',
+        readingValue: numVal,
+        odometerFormatted: formatted,
+        digits: digitsArray,
+        confidence: parsedData.confidence || 0.94,
+        meterSerialDetected: meterSerial || null,
+        meterCondition: parsedData.meterCondition || 'Normal',
+        potentialLeak: !!parsedData.potentialLeak,
+        notes: parsedData.notes || '5-digit mechanical dial numbers identified (00000 to 99999, whole numbers only).',
+        source: 'camera_vision_ocr_gemini',
+      });
     }
 
     return res.json({

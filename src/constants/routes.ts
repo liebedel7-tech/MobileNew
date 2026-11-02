@@ -327,3 +327,37 @@ export function getConsumerDeactivationReason(c: any): string | null {
   return null;
 }
 
+/**
+ * Formats a water meter reading into a strictly 5-digit whole-number odometer string from 00000 to 99999.
+ * Water meter readings are whole numbers only and never contain decimal points or commas.
+ */
+export function formatOdometerReading(value: number | string | undefined | null): string {
+  if (value === undefined || value === null || value === '') return '00000';
+  const clean = String(value).replace(/\D/g, '');
+  if (!clean) return '00000';
+  const num = Math.min(99999, Math.max(0, parseInt(clean, 10) || 0));
+  return String(num).padStart(5, '0');
+}
+
+/**
+ * Cleans user input to strictly allow 5-digit whole numbers (00000 to 99999).
+ * Strips decimal points (.), commas (,), negative signs (-), and all non-numeric characters.
+ */
+export function cleanOdometerInput(input: string): string {
+  if (!input) return '';
+  return input.replace(/\D/g, '').slice(0, 5);
+}
+
+/**
+ * Parses an odometer reading into an integer between 0 and 99999.
+ */
+export function parseOdometerReading(input: number | string | undefined | null): number {
+  if (typeof input === 'number') {
+    if (isNaN(input)) return 0;
+    return Math.min(99999, Math.max(0, Math.floor(input)));
+  }
+  const clean = cleanOdometerInput(String(input || ''));
+  if (!clean) return 0;
+  return Math.min(99999, Math.max(0, parseInt(clean, 10)));
+}
+

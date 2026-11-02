@@ -1,5 +1,6 @@
 import { Consumer } from '../types';
 import { createWorker } from 'tesseract.js';
+import { formatOdometerReading, cleanOdometerInput } from '../constants/routes';
 
 export interface RealTimeTagResult {
   matchedConsumer: Consumer | null;
@@ -270,19 +271,17 @@ export class RealTimeScanner {
         const detectedTexts = await detector.detect(canvas);
         if (detectedTexts && detectedTexts.length > 0) {
           for (const item of detectedTexts) {
-            const rawDigits = (item.rawValue || '').replace(/[^0-9]/g, '');
-            if (rawDigits.length >= 4 && rawDigits.length <= 6) {
-              const numVal = parseInt(rawDigits.slice(0, 5), 10);
-              if (!isNaN(numVal) && numVal >= 0) {
-                const formatted = String(numVal).padStart(5, '0');
-                return {
-                  readingValue: numVal,
-                  formatted5Digits: formatted,
-                  digits: formatted.split(''),
-                  confidence: 0.96,
-                  source: 'native_dial_detector',
-                };
-              }
+            const rawDigits = cleanOdometerInput(item.rawValue || '');
+            if (rawDigits.length >= 3 && rawDigits.length <= 5) {
+              const numVal = Math.min(99999, Math.max(0, parseInt(rawDigits, 10)));
+              const formatted = formatOdometerReading(numVal);
+              return {
+                readingValue: numVal,
+                formatted5Digits: formatted,
+                digits: formatted.split(''),
+                confidence: 0.96,
+                source: 'native_dial_detector',
+              };
             }
           }
         }
@@ -301,19 +300,17 @@ export class RealTimeScanner {
           const result = await worker.recognize(canvas);
           this.isWorkerBusy = false;
           const text = result?.data?.text || '';
-          const rawDigits = text.replace(/[^0-9]/g, '');
-          if (rawDigits.length >= 4 && rawDigits.length <= 6) {
-            const numVal = parseInt(rawDigits.slice(0, 5), 10);
-            if (!isNaN(numVal) && numVal >= 0) {
-              const formatted = String(numVal).padStart(5, '0');
-              return {
-                readingValue: numVal,
-                formatted5Digits: formatted,
-                digits: formatted.split(''),
-                confidence: 0.93,
-                source: 'tesseract_dial_ocr',
-              };
-            }
+          const rawDigits = cleanOdometerInput(text);
+          if (rawDigits.length >= 3 && rawDigits.length <= 5) {
+            const numVal = Math.min(99999, Math.max(0, parseInt(rawDigits, 10)));
+            const formatted = formatOdometerReading(numVal);
+            return {
+              readingValue: numVal,
+              formatted5Digits: formatted,
+              digits: formatted.split(''),
+              confidence: 0.93,
+              source: 'tesseract_dial_ocr',
+            };
           }
         }
       } catch {
@@ -341,18 +338,17 @@ export class RealTimeScanner {
         if (response.ok) {
           const data = await response.json();
           if (data && data.success && data.readingValue !== null && data.readingValue !== undefined) {
-            const numVal = parseInt(String(data.readingValue).replace(/[^0-9]/g, ''), 10);
-            if (!isNaN(numVal) && numVal >= 0) {
-              const formatted = String(numVal).padStart(5, '0');
-              this.isServerScanBusy = false;
-              return {
-                readingValue: numVal,
-                formatted5Digits: formatted,
-                digits: formatted.split(''),
-                confidence: data.confidence || 0.94,
-                source: 'live_stream_dial_ocr',
-              };
-            }
+            const cleanDigits = cleanOdometerInput(String(data.readingValue));
+            const numVal = Math.min(99999, Math.max(0, parseInt(cleanDigits, 10)));
+            const formatted = formatOdometerReading(numVal);
+            this.isServerScanBusy = false;
+            return {
+              readingValue: numVal,
+              formatted5Digits: formatted,
+              digits: formatted.split(''),
+              confidence: data.confidence || 0.94,
+              source: 'live_stream_dial_ocr',
+            };
           }
         }
       } catch {
