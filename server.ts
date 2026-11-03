@@ -1278,10 +1278,11 @@ app.get(['/api/consumers', '/api/sync/pull', '/consumers', '/sync/pull'], (req, 
     }
 
     // Filter strictly by the meter reader's assigned coverage areas / barangays
-    const zonesParam = (zones || zone || barangay || routes || route || '') as string;
+    const headerRoutes = (req.headers['x-assigned-routes'] || req.headers['x-routes'] || '') as string;
+    const zonesParam = (zones || zone || barangay || routes || route || headerRoutes || '') as string;
     let allowedRoutes: string[] | null = null;
 
-    if (zonesParam && typeof zonesParam === 'string' && zonesParam.toLowerCase() !== 'all' && zonesParam.toLowerCase() !== 'all tagoloan districts') {
+    if (zonesParam && typeof zonesParam === 'string' && zonesParam.toLowerCase() !== 'all' && zonesParam.toLowerCase() !== 'all tagoloan districts' && zonesParam !== '*') {
       allowedRoutes = zonesParam
         .split(',')
         .map(s => s.trim())
@@ -1356,6 +1357,43 @@ app.get(['/api/consumers', '/api/sync/pull', '/consumers', '/sync/pull'], (req, 
       consumers: defaultValidated,
       data: defaultValidated,
     });
+  }
+});
+
+// Meter Reader Assigned Consumers Endpoint: Returns validated consumers for reader's assigned areas
+app.get([
+  '/api/readers/:id/consumers',
+  '/api/staff/:id/consumers',
+  '/api/consumers/by-reader/:readerId',
+  '/api/consumers/assigned/:readerId',
+  '/readers/:id/consumers',
+], (req, res) => {
+  try {
+    const readerId = req.params.id || req.params.readerId;
+    const targetReaderKey = (readerId || '').toLowerCase().trim();
+    const matchedReader = REGISTERED_READERS.find(
+      r =>
+        (r.id && r.id.toLowerCase() === targetReaderKey) ||
+        (r.username && r.username.toLowerCase() === targetReaderKey) ||
+        (r.employeeId && r.employeeId.toLowerCase() === targetReaderKey)
+    );
+
+    const assignedRoutes = matchedReader?.assignedRoutes || ['Poblacion'];
+    const validated = INITIAL_CONSUMERS
+      .filter(isValidatedForFieldReading)
+      .filter(c => isConsumerInAssignedAreas(c, assignedRoutes));
+
+    res.json({
+      success: true,
+      readerId,
+      assignedRoutes,
+      count: validated.length,
+      consumers: validated,
+      data: validated,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Error fetching assigned consumers' });
   }
 });
 
@@ -2042,7 +2080,7 @@ const handleApproveReading = (req: any, res: any) => {
   reading.approvalStatus = 'approved';
   reading.approvedAt = new Date().toISOString();
   reading.approvedBy = approvedBy || 'Admin Supervisor';
-  reading.status = 'SYNCED';
+  reading.status = 'APPROVED';
 
   // Keep consumer baseline in track: update previousReading to currentReading for next cycle
   let updatedConsumer: any = null;
@@ -2056,9 +2094,49 @@ const handleApproveReading = (req: any, res: any) => {
     INITIAL_CONSUMERS[cIndex].isReadThisMonth = true;
     INITIAL_CONSUMERS[cIndex].currentMonthReading = reading;
     updatedConsumer = INITIAL_CONSUMERS[cIndex];
+  } else {
+    // If consumer was not in initial seed, create/register consumer with the approved reading baseline
+    const newConsumer = {
+      id: reading.consumerId || `WDT-ACC-${String(reading.accountNumber).replace(/[^a-zA-Z0-9]/g, '')}`,
+      accountNumber: reading.accountNumber,
+      name: reading.consumerName || 'Account Holder',
+      address: reading.route || 'Tagoloan, Misamis Oriental',
+      barangay: reading.route || 'Poblacion',
+      meterSerial: reading.meterSerial || 'MTR-STD',
+      meterNumber: reading.meterNumber || reading.meterSerial,
+      meterSize: '1/2"',
+      category: 'Residential',
+      status: 'Active',
+      previousReading: reading.currentReading,
+      previousReadingDate: reading.readingDate || new Date().toISOString().split('T')[0],
+      previousConsumption: reading.consumption,
+      averageConsumption: reading.consumption,
+      rateCode: 'RES-01',
+      gpsCoordinates: reading.coordinates || { lat: 8.5398, lng: 124.7523 },
+      routeCode: reading.route || 'RT-POB-01',
+      sequenceNo: INITIAL_CONSUMERS.length + 1,
+      isReadThisMonth: true,
+      currentMonthReading: reading,
+    };
+    INITIAL_CONSUMERS.push(newConsumer);
+    updatedConsumer = newConsumer;
   }
 
   // Broadcast WebSocket update for live Consumer Portal and Admin Dashboards
+  broadcastWebSocketEvent('READING_APPROVED', {
+    readingId: reading.id,
+    accountNumber: reading.accountNumber,
+    consumerName: reading.consumerName,
+    currentReading: reading.currentReading,
+    previousReading: reading.previousReading,
+    consumption: reading.consumption,
+    totalAmountDue: reading.billCalculation?.totalAmountDue,
+    status: 'APPROVED',
+    approvalStatus: 'approved',
+    consumer: updatedConsumer,
+    timestamp: new Date().toISOString(),
+  });
+
   broadcastWebSocketEvent('READING_APPROVED_BILL_ISSUED', {
     readingId: reading.id,
     accountNumber: reading.accountNumber,
@@ -2067,7 +2145,7 @@ const handleApproveReading = (req: any, res: any) => {
     previousReading: reading.previousReading,
     consumption: reading.consumption,
     totalAmountDue: reading.billCalculation?.totalAmountDue,
-    status: 'approved',
+    status: 'APPROVED',
     approvalStatus: 'approved',
     consumer: updatedConsumer,
     timestamp: new Date().toISOString(),
@@ -2112,7 +2190,15 @@ const handleRejectReading = (req: any, res: any) => {
   }
 
   reading.approvalStatus = 'rejected';
+  reading.status = 'REJECTED';
   reading.rejectionReason = reason || 'Requires re-inspection';
+
+  broadcastWebSocketEvent('READING_REJECTED', {
+    readingId: reading.id,
+    accountNumber: reading.accountNumber,
+    reason: reading.rejectionReason,
+    timestamp: new Date().toISOString(),
+  });
 
   broadcastWebSocketEvent('READING_REJECTED_REINSPECT', {
     readingId: reading.id,

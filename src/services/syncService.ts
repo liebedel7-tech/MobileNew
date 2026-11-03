@@ -360,7 +360,11 @@ export class SyncService {
 
         const consumerQuery = params.toString() ? `?${params.toString()}` : '';
         const consumerRes = await universalApiFetch(`/api/consumers${consumerQuery}`, {
-          headers: { 'Accept': 'application/json' },
+          headers: { 
+            'Accept': 'application/json',
+            'x-reader-id': this.activeReaderId,
+            'x-assigned-routes': (this.activeRoutes || []).join(','),
+          },
         });
         if (consumerRes.ok) {
           const consumerData = await safeParseJson(consumerRes);
@@ -368,9 +372,6 @@ export class SyncService {
           if (rawConsumers && Array.isArray(rawConsumers)) {
             // Strictly enforce Admin ID Issuance Gate: Consumers only sync when Admin issues Account # and Meter Tag #
             const issuedConsumers = rawConsumers.filter(isConsumerAccountIssued);
-            const routeIssuedConsumers = this.activeRoutes && this.activeRoutes.length > 0
-              ? issuedConsumers.filter((c: Consumer) => isConsumerInAssignedAreas(c, this.activeRoutes))
-              : issuedConsumers;
 
             // Merge with local reading flags so consumers never lose track of present readings
             const localReadings = await DatabaseHelper.getAllReadings();
@@ -380,7 +381,7 @@ export class SyncService {
               return timeB - timeA;
             });
 
-            const enrichedConsumers: Consumer[] = routeIssuedConsumers.map((c: Consumer) => {
+            const enrichedConsumers: Consumer[] = issuedConsumers.map((c: Consumer) => {
               const existingReading = sortedLocal.find(
                 (r) => r.consumerId === c.id || r.accountNumber === c.accountNumber
               );
@@ -392,7 +393,10 @@ export class SyncService {
             });
 
             await DatabaseHelper.saveConsumers(enrichedConsumers);
-            pulledCount = enrichedConsumers.filter(isValidatedForFieldReading).length;
+            const routeConsumers = this.activeRoutes && this.activeRoutes.length > 0
+              ? enrichedConsumers.filter((c: Consumer) => isConsumerInAssignedAreas(c, this.activeRoutes) && isValidatedForFieldReading(c))
+              : enrichedConsumers.filter(isValidatedForFieldReading);
+            pulledCount = routeConsumers.length;
           }
         }
       } catch (pullErr) {
@@ -419,6 +423,36 @@ export class SyncService {
         }
       } catch (readerSyncErr) {
         // Local reader accounts remain safe
+      }
+
+      // 4. Synchronize Admin Reading Approvals from Central Server
+      try {
+        const readingsRes = await universalApiFetch('/api/readings', {
+          headers: { 'Accept': 'application/json' },
+        });
+        if (readingsRes.ok) {
+          const readingsData = await safeParseJson(readingsRes);
+          const sReadings: any[] = readingsData?.readings || readingsData?.data || [];
+          if (Array.isArray(sReadings) && sReadings.length > 0) {
+            for (const sr of sReadings) {
+              if (sr.approvalStatus === 'approved' || sr.status === 'APPROVED' || sr.status === 'approved') {
+                await DatabaseHelper.updateReadingApprovalStatus(sr.id || sr.accountNumber, 'approved', {
+                  approvedBy: sr.approvedBy || 'Admin Supervisor',
+                  approvedAt: sr.approvedAt || sr.receivedAt || new Date().toISOString(),
+                  currentReading: sr.currentReading,
+                  previousReading: sr.previousReading,
+                  consumption: sr.consumption,
+                });
+              } else if (sr.approvalStatus === 'rejected') {
+                await DatabaseHelper.updateReadingApprovalStatus(sr.id || sr.accountNumber, 'rejected', {
+                  rejectionReason: sr.rejectionReason,
+                });
+              }
+            }
+          }
+        }
+      } catch {
+        // Reading approvals sync safe
       }
 
       const pendingAfter = await DatabaseHelper.getPendingReadings();

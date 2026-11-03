@@ -299,18 +299,65 @@ export function App() {
           });
           reloadData();
         }
-      } else if (event.type === 'READING_APPROVED_BILL_ISSUED') {
+      } else if (event.type === 'READING_APPROVED_BILL_ISSUED' || event.type === 'READING_APPROVED') {
         const p = event.payload || {};
+        const readingKey = p.readingId || p.accountNumber || (p.reading && (p.reading.id || p.reading.accountNumber));
+        
+        // 1. Immediately update IndexedDB reading status to approved & advance consumer baseline
+        if (readingKey) {
+          DatabaseHelper.updateReadingApprovalStatus(readingKey, 'approved', {
+            approvedBy: p.approvedBy || 'Admin Supervisor',
+            approvedAt: p.timestamp || new Date().toISOString(),
+            currentReading: p.currentReading,
+            previousReading: p.previousReading,
+            consumption: p.consumption,
+          }).then(({ consumer: updatedC }) => {
+            if (updatedC) {
+              setSelectedConsumer((prev) => {
+                if (!prev) return null;
+                if (prev.id === updatedC.id || prev.accountNumber === updatedC.accountNumber) {
+                  return {
+                    ...prev,
+                    previousReading: updatedC.previousReading,
+                    previousConsumption: updatedC.previousConsumption,
+                    isReadThisMonth: true,
+                    currentMonthReading: updatedC.currentMonthReading,
+                  };
+                }
+                return prev;
+              });
+            }
+          }).catch(() => {});
+        }
+
         reloadData();
+
+        try {
+          window.dispatchEvent(new CustomEvent('twd:reading_approved', { detail: p }));
+        } catch {}
+
         setLiveAdminAlert({
           type: 'reading_approved',
-          title: `✅ Reading Approved by Admin: #${p.accountNumber}`,
-          message: `Admin verified present reading (${p.currentReading} cu.m.) for ${p.consumerName || 'Account'}. Billing statement issued & baseline advanced.`,
+          title: `✅ Reading Approved by Admin: #${p.accountNumber || 'Verified'}`,
+          message: `Admin verified present reading (${p.currentReading ?? '✓'} cu.m.) for ${p.consumerName || 'Account'}. Status updated to APPROVED, billing statement issued & baseline saved.`,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         });
-      } else if (event.type === 'READING_REJECTED_REINSPECT') {
+      } else if (event.type === 'READING_REJECTED_REINSPECT' || event.type === 'READING_REJECTED') {
         const p = event.payload || {};
+        const readingKey = p.readingId || p.accountNumber || (p.reading && (p.reading.id || p.reading.accountNumber));
+
+        if (readingKey) {
+          DatabaseHelper.updateReadingApprovalStatus(readingKey, 'rejected', {
+            rejectionReason: p.reason,
+          }).catch(() => {});
+        }
+
         reloadData();
+
+        try {
+          window.dispatchEvent(new CustomEvent('twd:reading_rejected', { detail: p }));
+        } catch {}
+
         setLiveAdminAlert({
           type: 'status_deactivated',
           title: `⚠️ Reading Flagged: #${p.accountNumber}`,

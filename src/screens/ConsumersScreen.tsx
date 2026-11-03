@@ -372,12 +372,24 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
                         DEACTIVATED
                       </span>
                     ) : consumer.isReadThisMonth ? (
-                      <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/80 border border-emerald-800 px-2 py-0.5 rounded-full flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3" />
-                        READ
-                      </span>
+                      consumer.currentMonthReading?.approvalStatus === 'approved' || consumer.currentMonthReading?.status === 'APPROVED' ? (
+                        <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/80 border border-emerald-800 px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                          APPROVED
+                        </span>
+                      ) : consumer.currentMonthReading?.approvalStatus === 'rejected' || consumer.currentMonthReading?.status === 'REJECTED' ? (
+                        <span className="text-[10px] font-bold text-rose-400 bg-rose-950/80 border border-rose-800 px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3 text-rose-400" />
+                          FLAGGED
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold text-amber-400 bg-amber-950/80 border border-amber-800 px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-amber-400" />
+                          READ (PENDING)
+                        </span>
+                      )
                     ) : (
-                      <span className="text-[10px] font-bold text-amber-400 bg-amber-950/80 border border-amber-800 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <span className="text-[10px] font-bold text-slate-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded-full flex items-center gap-1">
                         <Clock className="w-3 h-3" />
                         PENDING
                       </span>

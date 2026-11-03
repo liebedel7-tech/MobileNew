@@ -43,12 +43,15 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
         r.accountNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
         r.meterSerial.toLowerCase().includes(searchTerm.toLowerCase());
 
-      const status = r.approvalStatus || (r.status === 'SYNCED' ? 'approved' : 'pending_approval');
+      const isApproved = r.approvalStatus === 'approved' || r.status === 'APPROVED';
+      const isRejected = r.approvalStatus === 'rejected' || r.status === 'REJECTED';
+      const isPending = !isApproved && !isRejected;
+
       const matchApproval =
         filterApproval === 'ALL' ||
-        (filterApproval === 'pending' && (status === 'pending_approval' || (r.status === 'PENDING_SYNC' && status !== 'approved' && status !== 'rejected'))) ||
-        (filterApproval === 'approved' && status === 'approved') ||
-        (filterApproval === 'rejected' && status === 'rejected');
+        (filterApproval === 'pending' && isPending) ||
+        (filterApproval === 'approved' && isApproved) ||
+        (filterApproval === 'rejected' && isRejected);
 
       return matchSearch && matchApproval;
     });
@@ -160,9 +163,9 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
           </div>
         ) : (
           filteredReadings.map((reading) => {
-            const isPending = reading.approvalStatus === 'pending_approval' || (reading.status === 'PENDING_SYNC' && reading.approvalStatus !== 'approved' && reading.approvalStatus !== 'rejected');
-            const isApproved = reading.approvalStatus === 'approved' || reading.status === 'SYNCED';
-            const isRejected = reading.approvalStatus === 'rejected';
+            const isApproved = reading.approvalStatus === 'approved' || reading.status === 'APPROVED';
+            const isRejected = reading.approvalStatus === 'rejected' || reading.status === 'REJECTED';
+            const isPending = !isApproved && !isRejected;
 
             return (
               <div

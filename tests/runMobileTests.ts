@@ -379,6 +379,48 @@ export async function runAllMobileProcessTests(): Promise<{
     });
   }
 
+  // -------------------------------------------------------------------------
+  // TEST CASE 9: Admin Reading Approval, Status Change to APPROVED & Automatic Baseline Save
+  // -------------------------------------------------------------------------
+  {
+    // Approve the reading submitted in TC-MOB-06 (Account 011-102-056)
+    const approveRes = await request('/api/readings/011-102-056/approve', {
+      method: 'POST',
+      body: JSON.stringify({ approvedBy: 'Admin Chief Supervisor' }),
+    });
+
+    const isApproveSuccess = approveRes.ok && approveRes.data?.success === true;
+    const readingStatusApproved = 
+      approveRes.data?.reading?.status === 'APPROVED' && 
+      approveRes.data?.reading?.approvalStatus === 'approved';
+    const consumerBaselineAdvanced = 
+      approveRes.data?.consumer?.previousReading === 4400 && 
+      approveRes.data?.consumer?.previousConsumption === 23 &&
+      approveRes.data?.consumer?.isReadThisMonth === true;
+
+    // Verify GET /api/readings reflects APPROVED status
+    const listRes = await request('/api/readings?accountNumber=011-102-056');
+    const listVerified = listRes.ok && 
+      listRes.data?.readings?.some((r: any) => (r.status === 'APPROVED' || r.approvalStatus === 'approved'));
+
+    const passed = isApproveSuccess && readingStatusApproved && consumerBaselineAdvanced && listVerified;
+
+    results.push({
+      id: 'TC-MOB-09',
+      suite: '6. Admin Verification & Baseline Advancement',
+      title: 'Automatic Status Change to APPROVED & Baseline Data Persistence',
+      description: 'Verifies that when Admin approves a reading, status immediately transitions to APPROVED (not pending), the consumer baseline is advanced (previousReading = currentReading), and updated data is persisted.',
+      passed,
+      durationMs: approveRes.durationMs,
+      expected: 'HTTP 200 with status=APPROVED, approvalStatus=approved, and consumer previousReading=4400',
+      actual: `HTTP ${approveRes.status}: status="${approveRes.data?.reading?.status}", approvalStatus="${approveRes.data?.reading?.approvalStatus}", prevReading=${approveRes.data?.consumer?.previousReading} (${approveRes.durationMs}ms)`,
+      details: {
+        approveResponse: approveRes.data,
+        listVerification: listVerified,
+      },
+    });
+  }
+
   const totalDurationMs = Date.now() - suiteStartTime;
   const passedCount = results.filter(r => r.passed).length;
   const failedCount = results.filter(r => !r.passed).length;

@@ -175,6 +175,19 @@ function cleanRouteString(s: string): string {
  * Verifies if a given consumer belongs to the meter reader's assigned areas/routes.
  * Supports single or multiple assigned areas, route codes, and barangay aliases.
  */
+const BRGY_CANONICAL: Record<string, { brgy: string; id: string; prefix: string }> = {
+  poblacion: { brgy: 'poblacion', id: 'brg01', prefix: 'rtpob' },
+  natumolan: { brgy: 'natumolan', id: 'brg02', prefix: 'rtnat' },
+  baluarte: { brgy: 'baluarte', id: 'brg03', prefix: 'rtbal' },
+  staana: { brgy: 'staana', id: 'brg04', prefix: 'rtsna' },
+  stacruz: { brgy: 'stacruz', id: 'brg05', prefix: 'rtscz' },
+  mohon: { brgy: 'mohon', id: 'brg06', prefix: 'rtmoh' },
+  gracia: { brgy: 'gracia', id: 'brg07', prefix: 'rtgra' },
+  casinglot: { brgy: 'casinglot', id: 'brg08', prefix: 'rtcas' },
+  sugbongcogon: { brgy: 'sugbongcogon', id: 'brg09', prefix: 'rtsug' },
+  rosario: { brgy: 'rosario', id: 'brg10', prefix: 'rtros' },
+};
+
 export function isConsumerInAssignedAreas(
   consumer: any,
   assignedRoutes?: string[] | string | null
@@ -188,51 +201,45 @@ export function isConsumerInAssignedAreas(
   if (allowed.length === 0) return false;
 
   // If explicit admin 'all' is requested
-  if (allowed.some((r) => r.toLowerCase() === 'all' || r.toLowerCase() === 'all tagoloan districts')) {
+  if (allowed.some((r) => r.toLowerCase() === 'all' || r.toLowerCase() === 'all tagoloan districts' || r === '*')) {
     return true;
   }
 
-  const cleanBrgy = cleanRouteString(consumer.barangay || '');
-  const cleanRoute = cleanRouteString(consumer.routeCode || '');
-  const cleanAddr = cleanRouteString(consumer.address || '');
-
-  // Tagoloan 3-letter route code and name mappings
-  const CODE_MAP: Record<string, string[]> = {
-    poblacion: ['pob', 'rtpob'],
-    baluarte: ['bal', 'rtbal'],
-    casinglot: ['cas', 'rtcas'],
-    mohon: ['moh', 'rtmoh'],
-    natumolan: ['nat', 'rtnat'],
-    stacruz: ['scz', 'stc', 'rtscz', 'rtstc', 'santacruz'],
-    staana: ['sna', 'sta', 'rtsna', 'rtsta', 'santaana'],
-    sugbongcogon: ['sug', 'rtsug'],
-    gracia: ['gra', 'rtgra'],
-    rosario: ['ros', 'rtros'],
-  };
+  const cBrgy = cleanRouteString(consumer.barangay || '');
+  const cBrgyId = cleanRouteString(consumer.barangayId || '');
+  const cRoute = cleanRouteString(consumer.routeCode || '');
+  const cSitio = cleanRouteString(consumer.sitioZone || '');
+  const cAddr = cleanRouteString(consumer.address || '');
 
   return allowed.some((rawTarget) => {
-    const target = cleanRouteString(rawTarget);
+    if (!rawTarget) return false;
+    const target = cleanRouteString(rawTarget.replace(/^zone\s*[\d-]+\s*:\s*/i, ''));
     if (!target) return false;
 
-    // 1. Direct contains check
-    if (cleanBrgy === target || cleanBrgy.includes(target) || target.includes(cleanBrgy)) return true;
-    if (cleanRoute === target || cleanRoute.includes(target)) return true;
-    if (cleanAddr.includes(target)) return true;
+    if (target === 'all' || target === '*') return true;
 
-    // 2. Check route code abbreviation mapping
-    for (const [key, codes] of Object.entries(CODE_MAP)) {
-      // If target matches this barangay name
-      if (target === key || target.includes(key) || key.includes(target)) {
-        if (cleanBrgy.includes(key) || codes.some((c) => cleanRoute.includes(c) || cleanAddr.includes(c))) {
-          return true;
-        }
+    // 1. Direct barangay equality or full inclusion
+    if (cBrgy && (cBrgy === target || (target.length >= 4 && cBrgy.includes(target)))) {
+      return true;
+    }
+
+    // 2. Canonical mapping for Tagoloan official barangays
+    for (const [key, meta] of Object.entries(BRGY_CANONICAL)) {
+      if (target === key || (target.length >= 4 && key.includes(target))) {
+        if (cBrgy === meta.brgy) return true;
+        if (cBrgyId === meta.id) return true;
+        if (cRoute.startsWith(meta.prefix)) return true;
       }
-      // If target matches one of the abbreviations
-      if (codes.includes(target)) {
-        if (cleanBrgy.includes(key) || cleanRoute.includes(target) || cleanAddr.includes(key)) {
-          return true;
-        }
-      }
+    }
+
+    // 3. Specific route code or sitio matches
+    if (cRoute && cRoute === target) return true;
+    if (cSitio && (cSitio === target || (target.length >= 5 && cSitio.includes(target)))) return true;
+    if (cBrgyId && cBrgyId === target) return true;
+
+    // 4. Fallback if consumer has no barangay specified
+    if (!cBrgy && cAddr && target.length >= 5 && cAddr.includes(target)) {
+      return true;
     }
 
     return false;
@@ -241,28 +248,27 @@ export function isConsumerInAssignedAreas(
 
 /**
  * Consumer Route Sync & Admin ID Issuance Validation:
- * Consumers are strictly withheld from mobile sync until an Administrator has officially approved the account
- * and issued both an Account Number (e.g. 011-102-056) and a Meter Serial Number (e.g. 150307143).
- *
- * In addition, when an Admin deactivates an account or changes its status to not active (e.g., Inactive,
- * Disconnected, Blocked, Archived) OR when the associated water meter in the Water Meters module is marked
- * as Inactive, Damaged, Under Maintenance, or Unassigned, that consumer is strictly NOT available for field readings.
+ * Consumers are strictly verified to ensure both Account Number and Meter Tag Number are present.
+ * Any account starting with PENDING or unassigned is not issued.
  */
 export function isConsumerAccountIssued(c: any): boolean {
   if (!c) return false;
-  const acct = (c.accountNumber || '').toString().trim();
-  const meter = (c.meterNumber || c.meterSerial || '').toString().trim();
+  const acct = (c.accountNumber || '').toString().trim().toUpperCase();
+  const meter = (c.meterNumber || c.meterSerial || '').toString().trim().toUpperCase();
 
   const hasValidAccount = Boolean(
     acct !== '' && 
-    !acct.toUpperCase().startsWith('PENDING') && 
-    acct.toUpperCase() !== 'UNISSUED'
+    !acct.startsWith('PENDING') && 
+    acct !== 'UNISSUED' &&
+    acct !== 'UNASSIGNED' &&
+    acct !== 'PENDING ADMIN ISSUANCE'
   );
 
   const hasValidMeter = Boolean(
     meter !== '' && 
-    !meter.toUpperCase().startsWith('PENDING') && 
-    meter.toUpperCase() !== 'UNISSUED'
+    !meter.startsWith('PENDING') && 
+    meter !== 'UNISSUED' &&
+    meter !== 'UNASSIGNED'
   );
 
   return hasValidAccount && hasValidMeter;
@@ -271,48 +277,27 @@ export function isConsumerAccountIssued(c: any): boolean {
 export function isValidatedForFieldReading(c: any): boolean {
   if (!c) return false;
   
-  // 1. Must satisfy Admin ID Issuance Gate (Issued Account # and Meter Tag #)
+  // 1. Must satisfy Admin ID Issuance Gate (Issued Account # and Tag Number / Meter Serial)
   if (!isConsumerAccountIssued(c)) {
     return false;
   }
 
-  // 2. Check Consumer Account Status
-  // Only 'active' and 'reconnected' accounts are eligible for field meter readings.
+  // 2. Check Consumer Account Status: must not be a pending applicant or installation
   const status = (c.status || '').toString().trim().toLowerCase();
-  const INACTIVE_CONSUMER_STATUSES = new Set([
-    'inactive',
-    'deactivated',
-    'disconnected',
-    'blocked',
-    'archived',
-    'disconnection notice',
-    'disconnection_notice',
-    'for inspection',
+  const PENDING_STATUSES = new Set([
     'pending_approval',
     'pending',
     'pending_installation',
     'installation_not_scheduled',
   ]);
 
-  if (INACTIVE_CONSUMER_STATUSES.has(status)) {
+  if (PENDING_STATUSES.has(status)) {
     return false;
   }
 
-  // 3. Check Water Meter Operational Status from the Water Meters Module
-  // If the physical water meter is marked inactive, damaged, under maintenance, or unassigned,
-  // it is strictly NOT available for readings.
+  // 3. Physical meter operational status: if marked damaged or under maintenance, reader cannot read
   const meterStatus = (c.meterStatus || c.waterMeterStatus || '').toString().trim().toLowerCase();
-  const INACTIVE_METER_STATUSES = new Set([
-    'inactive',
-    'deactivated',
-    'damaged',
-    'maintenance',
-    'under_maintenance',
-    'under maintenance',
-    'unassigned',
-  ]);
-
-  if (meterStatus && INACTIVE_METER_STATUSES.has(meterStatus)) {
+  if (meterStatus === 'damaged' || meterStatus === 'maintenance' || meterStatus === 'under_maintenance') {
     return false;
   }
 

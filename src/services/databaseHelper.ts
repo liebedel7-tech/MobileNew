@@ -67,8 +67,32 @@ export class DatabaseHelper {
     return new Promise((resolve, reject) => {
       const tx = db.transaction('consumers', 'readwrite');
       const store = tx.objectStore('consumers');
-      consumers.forEach((consumer) => {
-        store.put(consumer);
+      consumers.forEach((consumer, idx) => {
+        const acc = (consumer.accountNumber || '').trim();
+        const meter = (consumer.meterNumber || consumer.meterSerial || '').trim();
+        const id = consumer.id || (acc ? `WDT-ACC-${acc.replace(/[^a-zA-Z0-9]/g, '')}` : `WDT-APP-${Date.now()}-${idx}`);
+
+        const normalized: Consumer = {
+          ...consumer,
+          id,
+          accountNumber: acc,
+          meterSerial: meter,
+          meterNumber: meter,
+          category: consumer.category || (consumer as any).consumerType || 'Residential',
+          consumerType: (consumer as any).consumerType || consumer.category || 'Residential',
+          routeCode: consumer.routeCode || (consumer as any).sitioZone || consumer.barangay || 'Poblacion',
+          previousReading: Number(consumer.previousReading || 0),
+          previousReadingDate: consumer.previousReadingDate || (consumer as any).lastReadingDate || '2026-10-25',
+          previousConsumption: consumer.previousConsumption !== undefined 
+            ? Number(consumer.previousConsumption) 
+            : (consumer.previousReading > 0 ? Math.min(25, Number(consumer.previousReading)) : 15),
+          averageConsumption: Number(consumer.averageConsumption || 18),
+          rateCode: consumer.rateCode || 'RES-01',
+          status: consumer.status || 'Active',
+          lastSyncDate: new Date().toISOString(),
+        };
+
+        store.put(normalized);
       });
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
@@ -431,6 +455,180 @@ export class DatabaseHelper {
     });
   }
 
+  /**
+   * Updates a meter reading's approval status (approved / rejected) in local IndexedDB.
+   * When approved by Admin:
+   * 1. The reading's status changes from 'pending_approval' to 'approved' and status to 'APPROVED'.
+   * 2. The reading's approved data (approvedAt, approvedBy, billNumber) is persisted.
+   * 3. The linked consumer's baseline is saved: previousReading advances to the approved currentReading,
+   *    isReadThisMonth is set to true, and currentMonthReading is updated.
+   */
+  static async updateReadingApprovalStatus(
+    readingIdOrAccountNumber: string,
+    approvalStatus: 'approved' | 'rejected',
+    details?: {
+      approvedBy?: string;
+      approvedAt?: string;
+      rejectionReason?: string;
+      currentReading?: number;
+      previousReading?: number;
+      consumption?: number;
+    }
+  ): Promise<{ reading: MeterReading | null; consumer: Consumer | null }> {
+    const db = await this.getDB();
+    const cleanKey = (readingIdOrAccountNumber || '').trim().toLowerCase();
+
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['readings', 'consumers'], 'readwrite');
+      const readingStore = tx.objectStore('readings');
+      const consumerStore = tx.objectStore('consumers');
+
+      const readingReq = readingStore.getAll();
+      let matchedReading: MeterReading | null = null;
+      let matchedConsumer: Consumer | null = null;
+
+      readingReq.onsuccess = () => {
+        const allReadings: MeterReading[] = readingReq.result || [];
+        matchedReading = allReadings.find(
+          (r) =>
+            r.id.toLowerCase() === cleanKey ||
+            r.accountNumber.toLowerCase() === cleanKey ||
+            r.consumerId.toLowerCase() === cleanKey
+        ) || null;
+
+        const nowIso = details?.approvedAt || new Date().toISOString();
+        const adminName = details?.approvedBy || 'Admin Supervisor';
+
+        if (matchedReading) {
+          const updatedReading: MeterReading = {
+            ...matchedReading,
+            approvalStatus,
+            status: approvalStatus === 'approved' ? 'APPROVED' : 'REJECTED',
+            approvedAt: approvalStatus === 'approved' ? nowIso : matchedReading.approvedAt,
+            approvedBy: approvalStatus === 'approved' ? adminName : matchedReading.approvedBy,
+            remarks: details?.rejectionReason || matchedReading.remarks,
+            currentReading: details?.currentReading !== undefined ? details.currentReading : matchedReading.currentReading,
+            previousReading: details?.previousReading !== undefined ? details.previousReading : matchedReading.previousReading,
+            consumption: details?.consumption !== undefined ? details.consumption : matchedReading.consumption,
+          };
+
+          readingStore.put(updatedReading);
+          matchedReading = updatedReading;
+
+          // Find linked consumer to save approved data & advance baseline
+          const consumerReq = consumerStore.getAll();
+          consumerReq.onsuccess = () => {
+            const allConsumers: Consumer[] = consumerReq.result || [];
+            matchedConsumer = allConsumers.find(
+              (c) =>
+                c.id === updatedReading.consumerId ||
+                c.accountNumber === updatedReading.accountNumber
+            ) || null;
+
+            if (matchedConsumer) {
+              const updatedConsumer: Consumer = {
+                ...matchedConsumer,
+                // If reading is approved, advance consumer baseline so next reading cycle uses this approved reading
+                previousReading: approvalStatus === 'approved' 
+                  ? updatedReading.currentReading 
+                  : matchedConsumer.previousReading,
+                previousConsumption: approvalStatus === 'approved' 
+                  ? updatedReading.consumption 
+                  : matchedConsumer.previousConsumption,
+                previousReadingDate: approvalStatus === 'approved' 
+                  ? (updatedReading.readingDate || nowIso.split('T')[0]) 
+                  : matchedConsumer.previousReadingDate,
+                isReadThisMonth: true,
+                currentMonthReading: updatedReading,
+                lastSyncDate: nowIso,
+              };
+
+              consumerStore.put(updatedConsumer);
+              matchedConsumer = updatedConsumer;
+            }
+          };
+        } else {
+          // If reading was not found directly in reading store, still check if consumer exists to update baseline
+          const consumerReq = consumerStore.getAll();
+          consumerReq.onsuccess = () => {
+            const allConsumers: Consumer[] = consumerReq.result || [];
+            matchedConsumer = allConsumers.find(
+              (c) =>
+                (c.id && c.id.toLowerCase() === cleanKey) ||
+                (c.accountNumber && c.accountNumber.toLowerCase() === cleanKey)
+            ) || null;
+
+            if (matchedConsumer && approvalStatus === 'approved' && details?.currentReading !== undefined) {
+              const prev = details.previousReading !== undefined ? details.previousReading : matchedConsumer.previousReading;
+              const curr = details.currentReading;
+              const cons = details.consumption !== undefined ? details.consumption : Math.max(0, curr - prev);
+              
+              const syntheticReading: MeterReading = {
+                id: `RDG-SYNC-${Date.now()}`,
+                consumerId: matchedConsumer.id,
+                accountNumber: matchedConsumer.accountNumber,
+                consumerName: matchedConsumer.name,
+                meterSerial: matchedConsumer.meterSerial,
+                category: matchedConsumer.category,
+                barangay: matchedConsumer.barangay,
+                routeCode: matchedConsumer.routeCode,
+                previousReading: prev,
+                currentReading: curr,
+                consumption: cons,
+                readingDate: nowIso.split('T')[0],
+                readingTime: new Date(nowIso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                readerId: 'ADMIN_APPROVED',
+                readerName: adminName,
+                gpsCoordinates: matchedConsumer.gpsCoordinates || { lat: 8.5398, lng: 124.7523 },
+                meterCondition: 'NORMAL',
+                approvalStatus: 'approved',
+                status: 'APPROVED',
+                approvedAt: nowIso,
+                approvedBy: adminName,
+                billCalculation: {
+                  consumption: cons,
+                  minimumCharge: 0,
+                  commodityCharge: 0,
+                  breakdown: [],
+                  subTotal: 0,
+                  environmentalFee: 0,
+                  franchiseTax: 0,
+                  maintenanceFee: 10,
+                  seniorDiscount: 0,
+                  totalAmountDue: 0,
+                  penaltyAfterDue: 0,
+                  grossAmountAfterDue: 0,
+                  billingPeriod: nowIso.slice(0, 7),
+                  dueDate: '',
+                  disconnectionDate: '',
+                },
+              };
+
+              readingStore.put(syntheticReading);
+              matchedReading = syntheticReading;
+
+              const updatedConsumer: Consumer = {
+                ...matchedConsumer,
+                previousReading: curr,
+                previousConsumption: cons,
+                previousReadingDate: nowIso.split('T')[0],
+                isReadThisMonth: true,
+                currentMonthReading: syntheticReading,
+                lastSyncDate: nowIso,
+              };
+
+              consumerStore.put(updatedConsumer);
+              matchedConsumer = updatedConsumer;
+            }
+          };
+        }
+      };
+
+      tx.oncomplete = () => resolve({ reading: matchedReading, consumer: matchedConsumer });
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
   // Audit Logs
   static async addAuditLog(log: AuditLog): Promise<void> {
     const db = await this.getDB();
@@ -595,11 +793,13 @@ export class DatabaseHelper {
   static async init(): Promise<void> {
     try {
       const existing = await this.getAllConsumers();
-      if (!existing || existing.length === 0) {
-        // Seed default consumers immediately to ensure instant offline capability
+      // If store is empty or contains legacy partial data (< 30 consumers)
+      const needsFullSync = !existing || existing.length < 30;
+
+      if (needsFullSync) {
         await this.saveConsumers(this.DEFAULT_SEED_CONSUMERS);
       } else {
-        // Automatically merge any newly added seed consumers (e.g. from Rosario) into existing local storage
+        // Automatically merge any newly added seed consumers into existing local storage
         const missing = this.DEFAULT_SEED_CONSUMERS.filter(
           (sc) => !existing.some((ec) => ec.id === sc.id || ec.accountNumber === sc.accountNumber)
         );
@@ -609,11 +809,12 @@ export class DatabaseHelper {
       }
 
       try {
-        const res = await universalApiFetch('/api/consumers');
+        const res = await universalApiFetch('/api/consumers?includeInactive=true');
         if (res.ok) {
           const data = await res.json();
-          if (data && (data.consumers || data.data) && Array.isArray(data.consumers || data.data)) {
-            await this.saveConsumers(data.consumers || data.data);
+          const serverConsumers = data?.consumers || data?.data;
+          if (Array.isArray(serverConsumers) && serverConsumers.length > 0) {
+            await this.saveConsumers(serverConsumers);
           }
         }
       } catch {

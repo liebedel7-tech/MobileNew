@@ -44,6 +44,8 @@ export interface WaterMeter {
 export type ReadingStatus = 
   | 'PENDING_SYNC' 
   | 'SYNCED' 
+  | 'APPROVED'
+  | 'REJECTED'
   | 'FAILED' 
   | 'DRAFT';
 
@@ -149,6 +151,7 @@ export interface MeterReading {
   approvalStatus?: ApprovalStatus;
   approvedAt?: string;
   approvedBy?: string;
+  rejectionReason?: string;
   billCalculation: BillCalculation;
   batchId?: string;
   syncTimestamp?: string;

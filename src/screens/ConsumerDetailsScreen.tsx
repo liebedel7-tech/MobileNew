@@ -203,9 +203,22 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
                 </span>
               </div>
             </div>
-            <span className="text-[11px] font-mono text-emerald-300 bg-emerald-900/80 px-2.5 py-1 rounded-lg border border-emerald-700 font-bold">
-              Pending Admin Approval
-            </span>
+            {consumer.currentMonthReading.approvalStatus === 'approved' || consumer.currentMonthReading.status === 'APPROVED' ? (
+              <span className="text-[11px] font-mono text-emerald-300 bg-emerald-950 px-2.5 py-1 rounded-lg border border-emerald-700 font-bold flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Approved by Admin</span>
+              </span>
+            ) : consumer.currentMonthReading.approvalStatus === 'rejected' || consumer.currentMonthReading.status === 'REJECTED' ? (
+              <span className="text-[11px] font-mono text-rose-300 bg-rose-950 px-2.5 py-1 rounded-lg border border-rose-700 font-bold flex items-center gap-1">
+                <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+                <span>Flagged / Rejected</span>
+              </span>
+            ) : (
+              <span className="text-[11px] font-mono text-amber-300 bg-amber-950 px-2.5 py-1 rounded-lg border border-amber-800 font-bold flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5 text-amber-400" />
+                <span>Pending Admin Approval</span>
+              </span>
+            )}
           </div>
 
           {/* Reading Continuity Grid */}

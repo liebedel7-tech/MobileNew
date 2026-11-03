@@ -137,6 +137,64 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
       });
   }, [consumer.id]);
 
+  // Listen for real-time Central Admin Reading Approvals & Flags
+  useEffect(() => {
+    const handleApprovalEvent = (e: any) => {
+      const detail = e.detail || {};
+      const readingKey = detail.readingId || detail.accountNumber || (detail.reading && (detail.reading.id || detail.reading.accountNumber));
+      if (
+        savedReading &&
+        (savedReading.id === readingKey ||
+          savedReading.accountNumber === detail.accountNumber ||
+          consumer.accountNumber === detail.accountNumber)
+      ) {
+        setSavedReading((prev) =>
+          prev
+            ? {
+                ...prev,
+                approvalStatus: 'approved',
+                status: 'APPROVED',
+                approvedAt: detail.timestamp || new Date().toISOString(),
+                approvedBy: detail.approvedBy || 'Admin Supervisor',
+              }
+            : null
+        );
+        setSendSuccess(true);
+        setSendFeedback('✓ Reading has been officially APPROVED by Admin! Baseline advanced & billing statement issued.');
+      }
+    };
+
+    const handleRejectionEvent = (e: any) => {
+      const detail = e.detail || {};
+      const readingKey = detail.readingId || detail.accountNumber || (detail.reading && (detail.reading.id || detail.reading.accountNumber));
+      if (
+        savedReading &&
+        (savedReading.id === readingKey ||
+          savedReading.accountNumber === detail.accountNumber ||
+          consumer.accountNumber === detail.accountNumber)
+      ) {
+        setSavedReading((prev) =>
+          prev
+            ? {
+                ...prev,
+                approvalStatus: 'rejected',
+                status: 'REJECTED',
+                rejectionReason: detail.reason,
+              }
+            : null
+        );
+        setSendFeedback(`⚠️ Reading flagged for re-inspection by Admin: ${detail.reason || 'Verification needed'}`);
+      }
+    };
+
+    window.addEventListener('twd:reading_approved', handleApprovalEvent);
+    window.addEventListener('twd:reading_rejected', handleRejectionEvent);
+    return () => {
+      window.removeEventListener('twd:reading_approved', handleApprovalEvent);
+      window.removeEventListener('twd:reading_rejected', handleRejectionEvent);
+    };
+  }, [savedReading, consumer.accountNumber]);
+
   const numReading = parseOdometerReading(currentReading);
   const prevReading = parseOdometerReading(consumer.previousReading || 0);
   const isReadingInvalid = currentReading !== '' && numReading < prevReading;
@@ -229,7 +287,15 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
       const syncResult = await SyncService.submitSingleReading(newReading);
       if (syncResult.success) {
         setSendSuccess(true);
-        setSendFeedback('Reading successfully transmitted to Central Admin for review & approval.');
+        if (syncResult.reading && (syncResult.reading.approvalStatus === 'approved' || syncResult.reading.status === 'APPROVED')) {
+          newReading.approvalStatus = 'approved';
+          newReading.status = 'APPROVED';
+          newReading.approvedAt = syncResult.reading.approvedAt;
+          newReading.approvedBy = syncResult.reading.approvedBy;
+          setSendFeedback('✓ Reading verified & APPROVED by Admin! Baseline advanced & billing statement issued.');
+        } else {
+          setSendFeedback('Reading successfully transmitted to Central Admin for review & approval.');
+        }
       } else {
         setSendSuccess(true);
         setSendFeedback('Recorded locally in encrypted storage. Queued for automatic admin sync.');
@@ -264,7 +330,18 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
       const result = await SyncService.submitSingleReading(savedReading);
       if (result.success) {
         setSendSuccess(true);
-        setSendFeedback('Reading successfully submitted to Central Admin Dashboard for review & approval.');
+        if (result.reading && (result.reading.approvalStatus === 'approved' || result.reading.status === 'APPROVED')) {
+          setSavedReading((prev) => prev ? {
+            ...prev,
+            approvalStatus: 'approved',
+            status: 'APPROVED',
+            approvedAt: result.reading.approvedAt,
+            approvedBy: result.reading.approvedBy,
+          } : null);
+          setSendFeedback('✓ Reading has been officially APPROVED by Admin! Baseline advanced & billing statement issued.');
+        } else {
+          setSendFeedback('Reading successfully submitted to Central Admin Dashboard for review & approval.');
+        }
         
         // Notify via WebSocket
         WebSocketService.send('READING_SUBMITTED_FOR_APPROVAL', {
@@ -290,26 +367,68 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
   // POST-SAVE CONFIRMATION VIEW (Digital Transmission to Central Admin)
   // -------------------------------------------------------------
   if (savedReading) {
+    const isApproved = savedReading.approvalStatus === 'approved' || savedReading.status === 'APPROVED';
+    const isRejected = savedReading.approvalStatus === 'rejected' || savedReading.status === 'REJECTED';
+
     return (
       <div className="p-3 sm:p-5 max-w-2xl mx-auto w-full space-y-4 pb-24 animate-in fade-in zoom-in-95 duration-200">
         {/* Status Confirmation Banner */}
         <div className="bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-2xl text-center space-y-4 relative overflow-hidden">
-          <div className="absolute top-0 right-0 transform translate-x-4 -translate-y-4 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
+          <div className={`absolute top-0 right-0 transform translate-x-4 -translate-y-4 w-32 h-32 rounded-full blur-2xl pointer-events-none ${
+            isApproved ? 'bg-emerald-500/20' : isRejected ? 'bg-rose-500/20' : 'bg-sky-500/10'
+          }`} />
           
-          <div className="w-16 h-16 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center mx-auto shadow-inner">
-            <CheckCircle2 className="w-9 h-9" />
+          <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto shadow-inner border ${
+            isApproved
+              ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400'
+              : isRejected
+              ? 'bg-rose-500/20 border-rose-500/50 text-rose-400'
+              : 'bg-sky-500/20 border-sky-500/40 text-sky-400'
+          }`}>
+            {isApproved ? (
+              <CheckCircle2 className="w-9 h-9" />
+            ) : isRejected ? (
+              <AlertTriangle className="w-9 h-9" />
+            ) : (
+              <ShieldCheck className="w-9 h-9" />
+            )}
           </div>
 
           <div>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/80 border border-emerald-800 text-emerald-400 text-[11px] font-mono font-bold tracking-wide uppercase mb-2">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Transmitted to Central Admin</span>
-            </span>
+            {isApproved ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/90 border border-emerald-600 text-emerald-300 text-[11px] font-mono font-bold tracking-wide uppercase mb-2 shadow-sm">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Approved by Central Admin</span>
+              </span>
+            ) : isRejected ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-950/90 border border-rose-700 text-rose-300 text-[11px] font-mono font-bold tracking-wide uppercase mb-2 shadow-sm">
+                <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+                <span>Flagged / Requires Re-Inspection</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-950/80 border border-amber-800 text-amber-300 text-[11px] font-mono font-bold tracking-wide uppercase mb-2">
+                <Clock className="w-3.5 h-3.5 text-amber-400" />
+                <span>Transmitted to Central Admin</span>
+              </span>
+            )}
+
             <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-              Reading Confirmed & Sent
+              {isApproved ? 'Reading Approved & Saved' : isRejected ? 'Reading Flagged for Review' : 'Reading Confirmed & Sent'}
             </h2>
             <p className="text-xs text-slate-400 max-w-md mx-auto mt-1">
-              Meter reading was logged and dispatched to Central Admin. Status: <strong className="text-amber-400 font-mono">Pending Admin Approval</strong>.
+              {isApproved ? (
+                <>
+                  Meter reading was <strong className="text-emerald-400 font-mono">Approved by Admin</strong>. Consumer baseline has been advanced and billing statement issued.
+                </>
+              ) : isRejected ? (
+                <>
+                  Admin requested re-check: <strong className="text-rose-400">{savedReading.rejectionReason || 'Inspection needed'}</strong>.
+                </>
+              ) : (
+                <>
+                  Meter reading was logged and dispatched to Central Admin. Status: <strong className="text-amber-400 font-mono">Pending Admin Approval</strong>.
+                </>
+              )}
             </p>
           </div>
 
@@ -359,16 +478,43 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
 
             <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
               <span className="text-xs text-slate-400">Transmission Status:</span>
-              <span className="text-xs font-bold text-amber-400 font-mono bg-amber-950/80 border border-amber-800/80 px-2 py-0.5 rounded">
-                Pending Admin Approval
-              </span>
+              {isApproved ? (
+                <span className="text-xs font-bold text-emerald-300 font-mono bg-emerald-950/90 border border-emerald-700 px-2.5 py-0.5 rounded-md flex items-center gap-1">
+                  <Check className="w-3 h-3 text-emerald-400" />
+                  Approved by Admin
+                </span>
+              ) : isRejected ? (
+                <span className="text-xs font-bold text-rose-300 font-mono bg-rose-950/90 border border-rose-700 px-2.5 py-0.5 rounded-md flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3 text-rose-400" />
+                  Flagged by Admin
+                </span>
+              ) : (
+                <span className="text-xs font-bold text-amber-300 font-mono bg-amber-950/80 border border-amber-800/80 px-2.5 py-0.5 rounded flex items-center gap-1">
+                  <Clock className="w-3 h-3 text-amber-400" />
+                  Pending Admin Approval
+                </span>
+              )}
             </div>
+
+            {isApproved && (savedReading.approvedBy || savedReading.approvedAt) && (
+              <div className="bg-emerald-950/40 border border-emerald-900/60 rounded-xl p-2.5 text-xs text-emerald-300 flex items-center justify-between font-mono">
+                <span className="text-[11px] text-emerald-400/80">Verified By:</span>
+                <span className="font-bold text-emerald-200">
+                  {savedReading.approvedBy || 'Admin Supervisor'}
+                  {savedReading.approvedAt ? ` • ${new Date(savedReading.approvedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Send Status Notification */}
           {sendFeedback && (
             <div className={`p-3 rounded-xl text-xs font-medium text-left flex items-start gap-2 ${
-              sendSuccess 
+              isApproved
+                ? 'bg-emerald-950/80 border border-emerald-800 text-emerald-300'
+                : isRejected
+                ? 'bg-rose-950/80 border border-rose-800 text-rose-300'
+                : sendSuccess 
                 ? 'bg-emerald-950/80 border border-emerald-800 text-emerald-300' 
                 : 'bg-sky-950/80 border border-sky-800 text-sky-300'
             }`}>
@@ -377,9 +523,19 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
             </div>
           )}
 
-          {/* Primary Action: SEND TO ADMIN DASHBOARD BUTTON */}
+          {/* Primary Action Button Area */}
           <div className="pt-2">
-            {!sendSuccess ? (
+            {isApproved ? (
+              <div className="p-3.5 bg-emerald-950/80 border border-emerald-500/60 rounded-2xl flex items-center justify-center gap-2 text-emerald-300 text-xs font-bold font-mono shadow-sm">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <span>Status: APPROVED BY ADMIN (SAVED)</span>
+              </div>
+            ) : isRejected ? (
+              <div className="p-3.5 bg-rose-950/80 border border-rose-500/60 rounded-2xl flex items-center justify-center gap-2 text-rose-300 text-xs font-bold font-mono shadow-sm">
+                <AlertTriangle className="w-4 h-4 text-rose-400" />
+                <span>Status: REJECTED — RE-INSPECTION NEEDED</span>
+              </div>
+            ) : !sendSuccess ? (
               <button
                 type="button"
                 onClick={handleSendToAdmin}
@@ -390,9 +546,9 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
                 <span>{isSendingToAdmin ? 'Submitting to Admin Portal...' : 'Send to Admin Dashboard'}</span>
               </button>
             ) : (
-              <div className="p-3.5 bg-emerald-950/60 border border-emerald-500/40 rounded-2xl flex items-center justify-center gap-2 text-emerald-300 text-xs font-bold font-mono">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                <span>Status: PENDING ADMIN APPROVAL</span>
+              <div className="p-3.5 bg-amber-950/60 border border-amber-500/40 rounded-2xl flex items-center justify-center gap-2 text-amber-300 text-xs font-bold font-mono">
+                <Clock className="w-4 h-4 text-amber-400" />
+                <span>Status: TRANSMITTED (PENDING ADMIN APPROVAL)</span>
               </div>
             )}
           </div>

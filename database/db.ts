@@ -7,7 +7,7 @@ import { INITIAL_CONSUMERS, INITIAL_READERS, DistrictConsumer, DistrictReader, W
 
 class DatabaseStore {
   private consumers: DistrictConsumer[] = [...INITIAL_CONSUMERS];
-  private readers: DistrictReader[] = [...INITIAL_READERS];
+  private readers: DistrictReader[] = [...INITIAL_READERS] as DistrictReader[];
   private readings: WaterDistrictReading[] = [];
   private auditLogs: Array<{
     id: string;
