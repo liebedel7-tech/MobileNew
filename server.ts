@@ -966,6 +966,10 @@ app.patch(['/api/staff/:id/status', '/api/readers/:id/status'], (req, res) => {
   if (status) {
     reader.status = status;
     (reader as any).employmentStatus = status;
+    if (status === 'terminated' || status === 'inactive' || status === 'deactivated' || status === 'rejected') {
+      (reader as any).previousAssignedRoutes = reader.assignedRoutes || [];
+      reader.assignedRoutes = []; // Automatically release routes!
+    }
   }
   if (status === 'active') {
     reader.approvedAt = new Date().toISOString();
@@ -1080,11 +1084,14 @@ app.all(['/api/readers/:id/terminate', '/api/readers/terminate/:id', '/api/staff
     return res.status(404).json({ success: false, message: 'Reader not found' });
   }
 
+  const previousRoutes = [...(reader.assignedRoutes || [])];
   reader.status = 'terminated';
   (reader as any).employmentStatus = 'terminated';
   (reader as any).terminationReason = reason || 'Account revoked by administrator';
   (reader as any).terminatedAt = new Date().toISOString();
   (reader as any).terminatedBy = terminatedBy || 'Administrator';
+  (reader as any).previousAssignedRoutes = previousRoutes;
+  reader.assignedRoutes = []; // Automatically release routes so they become available!
 
   // Broadcast WebSocket events across all platform protocols
   const termPayload = {
@@ -1095,6 +1102,8 @@ app.all(['/api/readers/:id/terminate', '/api/readers/terminate/:id', '/api/staff
     name: reader.name,
     status: 'terminated',
     employmentStatus: 'terminated',
+    assignedRoutes: [],
+    freedRoutes: previousRoutes,
     reason: reader.terminationReason,
     terminatedBy: reader.terminatedBy,
     timestamp: new Date().toISOString(),
@@ -1104,6 +1113,11 @@ app.all(['/api/readers/:id/terminate', '/api/readers/terminate/:id', '/api/staff
   broadcastWebSocketEvent('READER_TERMINATED', termPayload);
   broadcastWebSocketEvent('staff:terminated', termPayload);
   broadcastWebSocketEvent('READER_STATUS_CHANGED', termPayload);
+  broadcastWebSocketEvent('ROUTE_FREED_FOR_ASSIGNMENT', {
+    freedRoutes: previousRoutes,
+    readerId: reader.id,
+    timestamp: new Date().toISOString(),
+  });
 
   serverAuditLogs.push({
     id: `LOG-TERM-${Date.now()}`,

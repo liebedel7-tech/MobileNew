@@ -34,6 +34,7 @@ import {
   calculateLocationOccupancies, 
   checkIsLocationOccupied, 
   areLocationsEqual,
+  isReaderAccountDeactivated,
   LocationOccupancy 
 } from '../constants/routes';
 
@@ -91,8 +92,31 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           const serverList = data.readers || data.staff || [];
           if (Array.isArray(serverList) && serverList.length > 0) {
             const map = new Map<string, ReaderAccount>();
+            // Add local readers first
             local.forEach(r => map.set((r.username || r.id).toLowerCase(), r));
-            serverList.forEach((r: ReaderAccount) => map.set((r.username || r.id).toLowerCase(), r));
+
+            // Merge server readers, strictly enforcing that if an account is deactivated, its routes are automatically freed
+            serverList.forEach((sr: ReaderAccount) => {
+              const key = (sr.username || sr.id).toLowerCase();
+              const existingLocal = map.get(key);
+
+              const isDeactivated = isReaderAccountDeactivated(sr) || (existingLocal && isReaderAccountDeactivated(existingLocal));
+
+              if (isDeactivated) {
+                const deactivatedRecord: ReaderAccount = {
+                  ...(existingLocal || sr),
+                  ...sr,
+                  status: 'terminated',
+                  assignedRoutes: [], // Area route assigned is automatically available!
+                };
+                map.set(key, deactivatedRecord);
+                // Also update local DB so offline route occupancy stays freed
+                DatabaseHelper.updateLocalReaderStatus(key, 'terminated', []).catch(() => {});
+              } else {
+                map.set(key, { ...(existingLocal || {}), ...sr });
+              }
+            });
+
             const merged = Array.from(map.values());
             setRegisteredReaders(merged);
           }
@@ -107,8 +131,26 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
   useEffect(() => {
     loadReadersAndOccupancy();
-    const interval = setInterval(loadReadersAndOccupancy, 4000);
-    return () => clearInterval(interval);
+    const interval = setInterval(loadReadersAndOccupancy, 3500);
+
+    // Live WebSocket Listener: When mobile detects any account deactivation/termination, immediately reload & free routes!
+    const unsubWs = WebSocketService.subscribe((msg) => {
+      if (
+        msg.type === 'READER_ACCOUNT_TERMINATED' || 
+        msg.type === 'READER_TERMINATED' || 
+        msg.type === 'staff:terminated' ||
+        msg.type === 'READER_STATUS_CHANGED' ||
+        msg.type === 'READER_REGISTERED_ACTIVE' ||
+        msg.type === 'READER_APPROVED_ACTIVE'
+      ) {
+        loadReadersAndOccupancy();
+      }
+    });
+
+    return () => {
+      clearInterval(interval);
+      unsubWs();
+    };
   }, [loadReadersAndOccupancy]);
 
   // Compute live location occupancies
@@ -677,12 +719,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     <label className="block text-[11px] font-semibold text-slate-300">
                       Assigned Coverage Areas
                     </label>
-                    <span className="text-[10px] text-slate-400">
+                    <span className="text-[10px] text-slate-400 block">
                       <span className="text-emerald-400 font-medium">{availableLocations.length} Available</span>
                       {' • '}
                       <span className="text-amber-400/90">{occupiedLocations.length} Occupied</span>
                       {' • '}
                       <span className="text-sky-300 font-bold">{regSelectedRoutes.length} Selected</span>
+                    </span>
+                    <span className="text-[9.5px] text-emerald-400/90 block mt-0.5 font-medium">
+                      ✓ Routes of deactivated accounts are automatically released &amp; available
                     </span>
                   </div>
                   {availableLocations.length > 0 && (

@@ -553,10 +553,19 @@ export class DatabaseHelper {
           r.username.toLowerCase() === identifier.toLowerCase() ||
           (r.employeeId && r.employeeId.toLowerCase() === identifier.toLowerCase())
         ) {
+          const isDeactivating = status === 'terminated' || status === 'rejected';
+          // When mobile detects a deactivated account, the assigned area routes are automatically released and made available
+          const updatedRoutes = isDeactivating
+            ? (assignedRoutes !== undefined ? assignedRoutes : [])
+            : (assignedRoutes && assignedRoutes.length > 0 ? assignedRoutes : r.assignedRoutes);
+
           const mod = {
             ...r,
             status,
-            assignedRoutes: assignedRoutes && assignedRoutes.length > 0 ? assignedRoutes : r.assignedRoutes,
+            assignedRoutes: updatedRoutes,
+            previousAssignedRoutes: isDeactivating && r.assignedRoutes && r.assignedRoutes.length > 0
+              ? r.assignedRoutes
+              : (r as any).previousAssignedRoutes,
             approvedAt: status === 'active' ? new Date().toISOString() : r.approvedAt,
             approvedBy: approvedBy || 'Admin Supervisor',
           };

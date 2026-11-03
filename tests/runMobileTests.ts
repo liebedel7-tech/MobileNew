@@ -181,18 +181,30 @@ export async function runAllMobileProcessTests(): Promise<{
       body: JSON.stringify({ username: testReaderUsername, pin: '1234' }),
     });
 
-    const isTerminatedAndBlocked = termRes.ok && loginAgain.status === 403;
+    // Step 4C: Verify area routes of deactivated accounts automatically become available
+    const termRdr04 = await request('/api/readers/RDR-004/terminate', {
+      method: 'POST',
+      body: JSON.stringify({ reason: 'Area Route Auto-Release Verification' }),
+    });
+
+    const availabilityRes = await request('/api/locations/availability');
+    const locations: any[] = availabilityRes.data?.locations || [];
+    const rosarioLoc = locations.find((l: any) => l.location === 'Rosario');
+    const graciaLoc = locations.find((l: any) => l.location === 'Gracia');
+    const areRoutesFreed = Boolean(rosarioLoc && !rosarioLoc.isOccupied && graciaLoc && !graciaLoc.isOccupied);
+
+    const isTerminatedAndBlocked = termRes.ok && loginAgain.status === 403 && termRdr04.ok && areRoutesFreed;
 
     results.push({
       id: 'TC-MOB-04',
       suite: '2. Reader Lifecycle',
-      title: 'Admin Single Action: Termination & Immediate Mobile Lockout',
-      description: 'Verifies that the administrator only has the single disciplinary option to Terminate, and terminated readers are strictly blocked with HTTP 403 on login.',
+      title: 'Admin Single Action: Termination & Immediate Mobile Lockout with Auto-Freed Routes',
+      description: 'Verifies that terminating a reader account blocks mobile login with HTTP 403 and automatically frees all assigned area routes for immediate availability.',
       passed: isTerminatedAndBlocked,
-      durationMs: termRes.durationMs + loginAgain.durationMs,
-      expected: 'Termination endpoint succeeds, and subsequent login returns HTTP 403 Forbidden',
-      actual: `Termination HTTP ${termRes.status}, Post-Termination Login HTTP ${loginAgain.status} (${loginAgain.data?.message || 'Forbidden'})`,
-      details: { termResponse: termRes.data, blockedLoginResponse: loginAgain.data },
+      durationMs: termRes.durationMs + loginAgain.durationMs + availabilityRes.durationMs,
+      expected: 'Termination succeeds, login returns HTTP 403 Forbidden, and assigned area routes (Gracia & Rosario) become automatically available',
+      actual: `Termination HTTP ${termRes.status}, Post-Termination Login HTTP ${loginAgain.status}, Routes Freed: ${areRoutesFreed}`,
+      details: { termResponse: termRes.data, blockedLoginResponse: loginAgain.data, rosarioOccupancy: rosarioLoc, graciaOccupancy: graciaLoc },
     });
   }
 

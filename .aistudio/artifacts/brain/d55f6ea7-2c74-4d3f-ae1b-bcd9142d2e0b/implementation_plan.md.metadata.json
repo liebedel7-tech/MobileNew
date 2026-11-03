@@ -1,6 +1,6 @@
 {
-  "summary": "Comprehensive structural audit and live verification between Tagoloan Central Admin (https://twd-427m.onrender.com) and the Mobile Terminal (https://mobile-li9q.onrender.com):\n- Live health probes, consumers sync, batch reading ingestion, and single reading submission verified with 0 errors\n- Meter reader auto-active registration and administrative termination lockout verified live\n- 5-digit whole-number odometer constraint (00000 - 99999) enforced throughout\n- Full automated test suite (8/8) passing in 139ms",
-  "updatedAt": "2026-11-03T01:39:38.971591179Z",
+  "summary": "Automatic area route availability upon detecting deactivated reader accounts:\n- Implemented isReaderAccountDeactivated helper in routes.ts checking terminated, inactive, deactivated, rejected, suspended, revoked, disabled, or locked states\n- calculateLocationOccupancies automatically excludes deactivated readers, releasing their assigned routes\n- DatabaseHelper.updateLocalReaderStatus clears assignedRoutes when setting status to terminated/rejected and preserves history in previousAssignedRoutes\n- LoginScreen immediately synchronizes via WebSockets on account termination and marks released routes as Available\n- Tested and verified in TC-MOB-04 (All 8 tests passing)",
+  "updatedAt": "2026-11-03T02:08:03.014069187Z",
   "requestFeedback": true,
   "userFacing": true
 }

@@ -43,15 +43,54 @@ export function areLocationsEqual(a: string, b: string): boolean {
 }
 
 /**
+ * Checks if a meter reader account is deactivated, terminated, or inactive.
+ * When mobile detects any deactivated account, its assigned routes are automatically freed.
+ */
+export function isReaderAccountDeactivated(r: any): boolean {
+  if (!r) return true;
+  const status = String(r.status || '').trim().toLowerCase();
+  const empStatus = String(r.employmentStatus || '').trim().toLowerCase();
+  const isTerminatedFlag = Boolean(r.isTerminated || r.isDeactivated);
+
+  if (isTerminatedFlag) return true;
+
+  const DEACTIVATED_STATUSES = new Set([
+    'terminated',
+    'inactive',
+    'deactivated',
+    'rejected',
+    'suspended',
+    'revoked',
+    'disabled',
+    'locked',
+  ]);
+
+  if (DEACTIVATED_STATUSES.has(status) || DEACTIVATED_STATUSES.has(empStatus)) {
+    return true;
+  }
+
+  // Must have status === 'active' or employmentStatus === 'active'
+  if (status !== 'active' && empStatus !== 'active') {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Calculates the occupancy of all Tagoloan barangays based on current active meter readers.
  * If `excludeReaderId` is provided (e.g. when an existing reader or admin is editing their own routes),
  * that reader's current assignments will not count as occupied by someone else.
+ * 
+ * AUTOMATIC AVAILABILITY RULE:
+ * When an account is detected as deactivated, terminated, or inactive, its assigned area routes
+ * automatically become unassigned, available, and open for other meter readers to register or claim.
  */
 export function calculateLocationOccupancies(
   readers: Array<ReaderAccount | StaffUser>,
   excludeReaderId?: string
 ): LocationOccupancy[] {
-  // Filter for active readers (or readers with assigned routes)
+  // Filter for active readers only. Any deactivated, terminated, or revoked accounts automatically release routes!
   const activeReaders = (readers || []).filter((r) => {
     if (!r) return false;
     const rId = (r.id || '').toLowerCase();
@@ -63,9 +102,12 @@ export function calculateLocationOccupancies(
       return false; // exclude self
     }
 
-    // Only active readers occupy locations
-    const status = (r.status || 'active').toLowerCase();
-    return status === 'active';
+    // If mobile detects a deactivated or terminated account, its area route is automatically released and available!
+    if (isReaderAccountDeactivated(r)) {
+      return false;
+    }
+
+    return true;
   });
 
   return TAGOLOAN_BARANGAYS.map((barangay) => {

@@ -269,10 +269,10 @@ export function App() {
           (p.username && user.username && p.username.toLowerCase() === user.username.toLowerCase())
         );
 
-        // Update local database record
+        // Update local database record & automatically release assigned area routes
         const termId = p.readerId || p.id || p.employeeId || p.username;
         if (termId) {
-          DatabaseHelper.updateLocalReaderStatus(termId, 'terminated').catch(() => {});
+          DatabaseHelper.updateLocalReaderStatus(termId, 'terminated', []).catch(() => {});
         }
 
         if (isTarget) {
@@ -290,7 +290,13 @@ export function App() {
           setCurrentUser(null);
           setActiveScreen('login');
         } else {
-          // Another reader account was updated
+          // Another reader account was deactivated: routes are now automatically available
+          setLiveAdminAlert({
+            type: 'status_deactivated',
+            title: '⚡ Route Automatically Released & Available',
+            message: `Account for ${p.name || 'reader'} was deactivated. Assigned coverage routes have been automatically freed for assignment.`,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          });
           reloadData();
         }
       } else if (event.type === 'READING_APPROVED_BILL_ISSUED') {

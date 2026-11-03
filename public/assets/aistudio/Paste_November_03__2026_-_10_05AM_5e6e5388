@@ -1,0 +1,1181 @@
+banner.
+index-DLTHvV-D.js:459 [TWD-WS] [7:34:51 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #1)...
+index-DLTHvV-D.js:459 [TWD-WS] [7:34:52 AM] Connection established with Central Node: wss://mobile-li9q.onrender.com/ws
+index-DLTHvV-D.js:459 [TWD-WS] [7:34:52 AM] Handshake confirmed: Tagoloan Water District Central Billing Node
+/api/auth/login:1  Failed to load resource: the server responded with a status of 401 ()
+index-DLTHvV-D.js:459 [TWD-API] HTTP 401  on [POST] https://mobile-li9q.onrender.com/api/auth/login (255ms)
+We @ index-DLTHvV-D.js:459
+/api/auth/login:1  Failed to load resource: the server responded with a status of 401 ()
+index-DLTHvV-D.js:459 [TWD-API] HTTP 401  on [POST] https://mobile-li9q.onrender.com/api/auth/login (256ms)
+We @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:473 Geolocation sensor error, using Tagoloan field coordinates: Timeout expired
+navigator.geolocation.navigator.geolocation.getCurrentPosition.enableHighAccuracy @ index-DLTHvV-D.js:473
+index-DLTHvV-D.js:459 [TWD-WS] [10:31:42 AM] Heartbeat timeout: no server ping/pong received in 35s. Forcing reconnect...
+log @ index-DLTHvV-D.js:459
+(anonymous) @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [10:31:42 AM] Manual reconnect requested. Initiating connection immediately...
+index-DLTHvV-D.js:459 [TWD-WS] [10:31:42 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #1)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+forceReconnect @ index-DLTHvV-D.js:459
+(anonymous) @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [10:31:42 AM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+socket.onerror @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [10:31:42 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+socket.onclose @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [10:31:42 AM] Scheduling reconnect attempt #1 in 2.2s...
+index-DLTHvV-D.js:459 [TWD-WS] [10:31:45 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #2)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+(anonymous) @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [10:31:45 AM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+socket.onerror @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [10:31:45 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+socket.onclose @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [10:31:45 AM] Scheduling reconnect attempt #2 in 2.3s...
+index-DLTHvV-D.js:459 [TWD-WS] [10:31:48 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #3)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+(anonymous) @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [10:31:48 AM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+socket.onerror @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [10:31:48 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+socket.onclose @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [10:31:48 AM] Scheduling reconnect attempt #3 in 3.7s...
+index-DLTHvV-D.js:459 [TWD-WS] [10:31:52 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #4)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+(anonymous) @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [10:31:52 AM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+socket.onerror @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [10:31:52 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+socket.onclose @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [10:31:52 AM] Scheduling reconnect attempt #4 in 5.6s...
+index-DLTHvV-D.js:459 [TWD-WS] [10:31:58 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #5)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+(anonymous) @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [10:31:58 AM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+socket.onerror @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [10:31:58 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+socket.onclose @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [10:31:58 AM] Scheduling reconnect attempt #5 in 8.4s...
+index-DLTHvV-D.js:459 [TWD-WS] [10:32:01 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+socket.onclose @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [10:32:01 AM] Scheduling reconnect attempt #6 in 11.7s...
+index-DLTHvV-D.js:459 [TWD-WS] [10:32:14 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #7)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+(anonymous) @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [10:32:14 AM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+socket.onerror @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [10:32:14 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+socket.onclose @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [10:32:14 AM] Scheduling reconnect attempt #7 in 17.7s...
+index-DLTHvV-D.js:459 [TWD-WS] [10:32:26 AM] Network status changed: ONLINE. Re-establishing WebSocket link...
+index-DLTHvV-D.js:459 [TWD-WS] [10:32:26 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #1)...
+index-DLTHvV-D.js:459 [TWD-WS] [10:32:28 AM] Connection established with Central Node: wss://mobile-li9q.onrender.com/ws
+index-DLTHvV-D.js:459 [TWD-WS] [10:32:28 AM] Handshake confirmed: Tagoloan Water District Central Billing Node
+index-DLTHvV-D.js:459 [TWD-WS] [10:32:32 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #1)...
+index-DLTHvV-D.js:459 [TWD-WS] [10:32:33 AM] Connection established with Central Node: wss://mobile-li9q.onrender.com/ws
+index-DLTHvV-D.js:459 [TWD-WS] [10:32:33 AM] Handshake confirmed: Tagoloan Water District Central Billing Node
+index-DLTHvV-D.js:459 [TWD-WS] [12:59:42 PM] Heartbeat timeout: no server ping/pong received in 35s. Forcing reconnect...
+log @ index-DLTHvV-D.js:459
+(anonymous) @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [12:59:42 PM] Manual reconnect requested. Initiating connection immediately...
+index-DLTHvV-D.js:459 [TWD-WS] [12:59:42 PM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #1)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+forceReconnect @ index-DLTHvV-D.js:459
+(anonymous) @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [12:59:42 PM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+socket.onerror @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [12:59:42 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+socket.onclose @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [12:59:42 PM] Scheduling reconnect attempt #1 in 2.1s...
+index-DLTHvV-D.js:459 [TWD-WS] [12:59:45 PM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #2)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+(anonymous) @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [12:59:45 PM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+socket.onerror @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [12:59:45 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+socket.onclose @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [12:59:45 PM] Scheduling reconnect attempt #2 in 2.3s...
+index-DLTHvV-D.js:459 [TWD-WS] [12:59:48 PM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #3)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+(anonymous) @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [12:59:48 PM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+socket.onerror @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [12:59:48 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+socket.onclose @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [12:59:48 PM] Scheduling reconnect attempt #3 in 3.9s...
+index-DLTHvV-D.js:459 [TWD-WS] [12:59:52 PM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #4)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+(anonymous) @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [12:59:52 PM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+socket.onerror @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [12:59:52 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+socket.onclose @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [12:59:52 PM] Scheduling reconnect attempt #4 in 5.1s...
+index-DLTHvV-D.js:459 [TWD-WS] [12:59:58 PM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #5)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+(anonymous) @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [12:59:58 PM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+socket.onerror @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [12:59:58 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+socket.onclose @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [12:59:58 PM] Scheduling reconnect attempt #5 in 8.4s...
+index-DLTHvV-D.js:459 [TWD-WS] [1:00:01 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+socket.onclose @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [1:00:01 PM] Scheduling reconnect attempt #6 in 12s...
+index-DLTHvV-D.js:459 [TWD-WS] [1:00:14 PM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #7)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+(anonymous) @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [1:00:14 PM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+socket.onerror @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [1:00:14 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+socket.onclose @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [1:00:14 PM] Scheduling reconnect attempt #7 in 17.9s...
+index-DLTHvV-D.js:459 [TWD-WS] [1:00:32 PM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #8)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+(anonymous) @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [1:00:32 PM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+socket.onerror @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [1:00:32 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+socket.onclose @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [1:00:32 PM] Scheduling reconnect attempt #8 in 25.7s...
+index-DLTHvV-D.js:459 [TWD-WS] [1:00:46 PM] Network status changed: ONLINE. Re-establishing WebSocket link...
+index-DLTHvV-D.js:459 [TWD-WS] [1:00:46 PM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #1)...
+index-DLTHvV-D.js:459 [TWD-WS] [1:00:49 PM] Connection established with Central Node: wss://mobile-li9q.onrender.com/ws
+index-DLTHvV-D.js:459 [TWD-WS] [1:00:49 PM] Handshake confirmed: Tagoloan Water District Central Billing Node
+index-DLTHvV-D.js:459 [TWD-WS] [1:00:58 PM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #1)...
+index-DLTHvV-D.js:459 [TWD-WS] [1:00:59 PM] Connection established with Central Node: wss://mobile-li9q.onrender.com/ws
+index-DLTHvV-D.js:459 [TWD-WS] [1:00:59 PM] Handshake confirmed: Tagoloan Water District Central Billing Node
+index-DLTHvV-D.js:459 [TWD-WS] [4:58:42 PM] Heartbeat timeout: no server ping/pong received in 35s. Forcing reconnect...
+log @ index-DLTHvV-D.js:459
+(anonymous) @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:58:42 PM] Manual reconnect requested. Initiating connection immediately...
+index-DLTHvV-D.js:459 [TWD-WS] [4:58:42 PM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #1)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+forceReconnect @ index-DLTHvV-D.js:459
+(anonymous) @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:58:42 PM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+socket.onerror @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:58:42 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+socket.onclose @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:58:42 PM] Scheduling reconnect attempt #1 in 1.9s...
+index-DLTHvV-D.js:459 [TWD-WS] [4:58:44 PM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #2)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+(anonymous) @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:58:44 PM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+socket.onerror @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:58:44 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+socket.onclose @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:58:44 PM] Scheduling reconnect attempt #2 in 3s...
+index-DLTHvV-D.js:459 [TWD-WS] [4:58:47 PM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #3)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+(anonymous) @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:58:47 PM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+socket.onerror @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:58:47 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+socket.onclose @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:58:47 PM] Scheduling reconnect attempt #3 in 3.5s...
+index-DLTHvV-D.js:459 [TWD-WS] [4:58:51 PM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #4)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+(anonymous) @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:58:51 PM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+socket.onerror @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:58:51 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+socket.onclose @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:58:51 PM] Scheduling reconnect attempt #4 in 5.5s...
+index-DLTHvV-D.js:459 [TWD-WS] [4:58:57 PM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #5)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+(anonymous) @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:58:57 PM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+socket.onerror @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:58:57 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+socket.onclose @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:58:57 PM] Scheduling reconnect attempt #5 in 8.3s...
+index-DLTHvV-D.js:459 [TWD-WS] [4:59:01 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+socket.onclose @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:59:01 PM] Scheduling reconnect attempt #6 in 12.1s...
+index-DLTHvV-D.js:459 [TWD-WS] [4:59:14 PM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #7)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+(anonymous) @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:59:14 PM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+socket.onerror @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:59:14 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+socket.onclose @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:59:14 PM] Scheduling reconnect attempt #7 in 17.3s...
+index-DLTHvV-D.js:459 [TWD-WS] [4:59:30 PM] Network status changed: ONLINE. Re-establishing WebSocket link...
+index-DLTHvV-D.js:459 [TWD-WS] [4:59:30 PM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #1)...
+index-DLTHvV-D.js:459 [TWD-WS] [4:59:32 PM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #1)...
+index-DLTHvV-D.js:459 [TWD-WS] [4:59:32 PM] Connection established with Central Node: wss://mobile-li9q.onrender.com/ws
+index-DLTHvV-D.js:459 [TWD-WS] [4:59:32 PM] Handshake confirmed: Tagoloan Water District Central Billing Node
+index-DLTHvV-D.js:459 [TWD-WS] [4:59:33 PM] Connection established with Central Node: wss://mobile-li9q.onrender.com/ws
+index-DLTHvV-D.js:459 [TWD-WS] [4:59:33 PM] Handshake confirmed: Tagoloan Water District Central Billing Node
+index-DLTHvV-D.js:459 [TWD-WS] [7:46:42 PM] Heartbeat timeout: no server ping/pong received in 35s. Forcing reconnect...
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [7:46:42 PM] Manual reconnect requested. Initiating connection immediately...
+index-DLTHvV-D.js:459 [TWD-WS] [7:46:42 PM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #1)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [7:46:42 PM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [7:46:42 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [7:46:42 PM] Scheduling reconnect attempt #1 in 2.3s...
+index-DLTHvV-D.js:459 [TWD-WS] [7:46:45 PM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #2)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [7:46:45 PM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [7:46:45 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [7:46:45 PM] Scheduling reconnect attempt #2 in 2.5s...
+index-DLTHvV-D.js:459 [TWD-WS] [7:46:48 PM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #3)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [7:46:48 PM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [7:46:48 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [7:46:48 PM] Scheduling reconnect attempt #3 in 3.6s...
+index-DLTHvV-D.js:459 [TWD-WS] [7:46:52 PM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #4)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [7:46:52 PM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [7:46:52 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [7:46:52 PM] Scheduling reconnect attempt #4 in 5.3s...
+index-DLTHvV-D.js:459 [TWD-WS] [7:46:58 PM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #5)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [7:46:58 PM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [7:46:58 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [7:46:58 PM] Scheduling reconnect attempt #5 in 7.9s...
+index-DLTHvV-D.js:459 [TWD-WS] [7:47:01 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [7:47:01 PM] Scheduling reconnect attempt #6 in 12s...
+index-DLTHvV-D.js:459 [TWD-WS] [7:47:14 PM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #7)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [7:47:14 PM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [7:47:14 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [7:47:14 PM] Scheduling reconnect attempt #7 in 17.2s...
+index-DLTHvV-D.js:459 [TWD-WS] [7:47:32 PM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #8)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [7:47:32 PM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [7:47:32 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [7:47:32 PM] Scheduling reconnect attempt #8 in 26.3s...
+index-DLTHvV-D.js:459 [TWD-WS] [7:47:50 PM] Network status changed: ONLINE. Re-establishing WebSocket link...
+index-DLTHvV-D.js:459 [TWD-WS] [7:47:50 PM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #1)...
+index-DLTHvV-D.js:459 [TWD-WS] [7:47:51 PM] Connection established with Central Node: wss://mobile-li9q.onrender.com/ws
+index-DLTHvV-D.js:459 [TWD-WS] [7:47:51 PM] Handshake confirmed: Tagoloan Water District Central Billing Node
+index-DLTHvV-D.js:459 [TWD-WS] [7:47:59 PM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #1)...
+index-DLTHvV-D.js:459 [TWD-WS] [7:48:00 PM] Connection established with Central Node: wss://mobile-li9q.onrender.com/ws
+index-DLTHvV-D.js:459 [TWD-WS] [7:48:00 PM] Handshake confirmed: Tagoloan Water District Central Billing Node
+consumers?zones=Casinglot%2CMohon&readerId=WDT-MR02&username=reader02&includeInactive=true:1  Failed to load resource: net::ERR_NETWORK_CHANGED
+index-DLTHvV-D.js:459 [TWD-API] Network attempt 1/2 failed for [GET] https://mobile-li9q.onrender.com/api/consumers?zones=Casinglot%2CMohon&readerId=WDT-MR02&username=reader02&includeInactive=true: Failed to fetch
+We @ index-DLTHvV-D.js:459
+ais-dev-ui6fsepfskrowqsfycbac7-946013608969.asia-southeast1.run.app/api/consumers?zones=Casinglot%2CMohon&readerId=WDT-MR02&username=reader02&includeInactive=true:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+index-DLTHvV-D.js:459 [TWD-API] Network attempt 2/2 failed for [GET] https://ais-dev-ui6fsepfskrowqsfycbac7-946013608969.asia-southeast1.run.app/api/consumers?zones=Casinglot%2CMohon&readerId=WDT-MR02&username=reader02&includeInactive=true: Failed to fetch
+We @ index-DLTHvV-D.js:459
+consumers?zones=Casinglot%2CMohon&readerId=WDT-MR02&username=reader02&includeInactive=true:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+index-DLTHvV-D.js:459 [TWD-API] Direct relative fetch failed for [GET] /api/consumers?zones=Casinglot%2CMohon&readerId=WDT-MR02&username=reader02&includeInactive=true: Failed to fetch
+We @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-API] Engaging resilient offline synthetic fallback for [GET] /api/consumers?zones=Casinglot%2CMohon&readerId=WDT-MR02&username=reader02&includeInactive=true after 3 attempts: Failed to fetch
+sync:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+index-DLTHvV-D.js:459 [TWD-API] Network attempt 1/2 failed for [POST] https://mobile-li9q.onrender.com/api/readers/sync: Failed to fetch
+We @ index-DLTHvV-D.js:459
+ais-dev-ui6fsepfskrowqsfycbac7-946013608969.asia-southeast1.run.app/api/readers/sync:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+index-DLTHvV-D.js:459 [TWD-API] Network attempt 2/2 failed for [POST] https://ais-dev-ui6fsepfskrowqsfycbac7-946013608969.asia-southeast1.run.app/api/readers/sync: Failed to fetch
+We @ index-DLTHvV-D.js:459
+sync:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+index-DLTHvV-D.js:459 [TWD-API] Direct relative fetch failed for [POST] /api/readers/sync: Failed to fetch
+We @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-API] Engaging resilient offline synthetic fallback for [POST] /api/readers/sync after 3 attempts: Failed to fetch
+index-DLTHvV-D.js:459 [TWD-WS] [12:10:01 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [12:10:01 AM] Scheduling reconnect attempt #1 in 1.8s...
+index-DLTHvV-D.js:459 [TWD-WS] [12:10:04 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #2)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [12:10:04 AM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [12:10:04 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [12:10:04 AM] Scheduling reconnect attempt #2 in 2.6s...
+index-DLTHvV-D.js:459 [TWD-WS] [12:10:07 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #3)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [12:10:07 AM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [12:10:07 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [12:10:07 AM] Scheduling reconnect attempt #3 in 3.4s...
+index-DLTHvV-D.js:459 [TWD-WS] [12:10:11 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #4)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [12:10:11 AM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [12:10:11 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [12:10:11 AM] Scheduling reconnect attempt #4 in 5.1s...
+index-DLTHvV-D.js:459 [TWD-WS] [12:10:17 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #5)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [12:10:17 AM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [12:10:17 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [12:10:17 AM] Scheduling reconnect attempt #5 in 8.3s...
+index-DLTHvV-D.js:459 [TWD-WS] [12:10:26 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #6)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [12:10:26 AM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [12:10:26 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [12:10:26 AM] Scheduling reconnect attempt #6 in 12s...
+index-DLTHvV-D.js:459 [TWD-WS] [12:10:38 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #7)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [12:10:38 AM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [12:10:38 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [12:10:38 AM] Scheduling reconnect attempt #7 in 17.1s...
+index-DLTHvV-D.js:459 [TWD-WS] [12:10:56 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #8)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [12:10:56 AM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [12:10:56 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [12:10:56 AM] Scheduling reconnect attempt #8 in 26.2s...
+index-DLTHvV-D.js:459 [TWD-WS] [12:11:11 AM] Network status changed: ONLINE. Re-establishing WebSocket link...
+index-DLTHvV-D.js:459 [TWD-WS] [12:11:11 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #1)...
+index-DLTHvV-D.js:459 [TWD-WS] [12:11:16 AM] Connection established with Central Node: wss://mobile-li9q.onrender.com/ws
+index-DLTHvV-D.js:459 [TWD-WS] [12:11:16 AM] Handshake confirmed: Tagoloan Water District Central Billing Node
+index-DLTHvV-D.js:459 [TWD-WS] [12:11:23 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #1)...
+index-DLTHvV-D.js:459 [TWD-WS] [12:11:24 AM] Connection established with Central Node: wss://mobile-li9q.onrender.com/ws
+index-DLTHvV-D.js:459 [TWD-WS] [12:11:24 AM] Handshake confirmed: Tagoloan Water District Central Billing Node
+consumers?zones=Casinglot%2CMohon&readerId=WDT-MR02&username=reader02&includeInactive=true:1  Failed to load resource: net::ERR_NETWORK_CHANGED
+index-DLTHvV-D.js:459 [TWD-API] Network attempt 1/2 failed for [GET] https://mobile-li9q.onrender.com/api/consumers?zones=Casinglot%2CMohon&readerId=WDT-MR02&username=reader02&includeInactive=true: Failed to fetch
+We @ index-DLTHvV-D.js:459
+ais-dev-ui6fsepfskrowqsfycbac7-946013608969.asia-southeast1.run.app/api/consumers?zones=Casinglot%2CMohon&readerId=WDT-MR02&username=reader02&includeInactive=true:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+index-DLTHvV-D.js:459 [TWD-API] Network attempt 2/2 failed for [GET] https://ais-dev-ui6fsepfskrowqsfycbac7-946013608969.asia-southeast1.run.app/api/consumers?zones=Casinglot%2CMohon&readerId=WDT-MR02&username=reader02&includeInactive=true: Failed to fetch
+We @ index-DLTHvV-D.js:459
+consumers?zones=Casinglot%2CMohon&readerId=WDT-MR02&username=reader02&includeInactive=true:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+index-DLTHvV-D.js:459 [TWD-API] Direct relative fetch failed for [GET] /api/consumers?zones=Casinglot%2CMohon&readerId=WDT-MR02&username=reader02&includeInactive=true: Failed to fetch
+We @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-API] Engaging resilient offline synthetic fallback for [GET] /api/consumers?zones=Casinglot%2CMohon&readerId=WDT-MR02&username=reader02&includeInactive=true after 3 attempts: Failed to fetch
+sync:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+index-DLTHvV-D.js:459 [TWD-API] Network attempt 1/2 failed for [POST] https://mobile-li9q.onrender.com/api/readers/sync: Failed to fetch
+We @ index-DLTHvV-D.js:459
+ais-dev-ui6fsepfskrowqsfycbac7-946013608969.asia-southeast1.run.app/api/readers/sync:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+index-DLTHvV-D.js:459 [TWD-API] Network attempt 2/2 failed for [POST] https://ais-dev-ui6fsepfskrowqsfycbac7-946013608969.asia-southeast1.run.app/api/readers/sync: Failed to fetch
+We @ index-DLTHvV-D.js:459
+sync:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+index-DLTHvV-D.js:459 [TWD-API] Direct relative fetch failed for [POST] /api/readers/sync: Failed to fetch
+We @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-API] Engaging resilient offline synthetic fallback for [POST] /api/readers/sync after 3 attempts: Failed to fetch
+index-DLTHvV-D.js:459 [TWD-WS] [2:08:01 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:08:01 AM] Scheduling reconnect attempt #1 in 2.3s...
+index-DLTHvV-D.js:459 [TWD-WS] [2:08:04 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #2)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:08:04 AM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:08:04 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:08:04 AM] Scheduling reconnect attempt #2 in 2.5s...
+index-DLTHvV-D.js:459 [TWD-WS] [2:08:07 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #3)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:08:07 AM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:08:07 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:08:07 AM] Scheduling reconnect attempt #3 in 3.8s...
+index-DLTHvV-D.js:459 [TWD-WS] [2:08:11 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #4)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:08:11 AM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:08:11 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:08:11 AM] Scheduling reconnect attempt #4 in 5.6s...
+index-DLTHvV-D.js:459 [TWD-WS] [2:08:17 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #5)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:08:17 AM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:08:17 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:08:17 AM] Scheduling reconnect attempt #5 in 8.2s...
+index-DLTHvV-D.js:459 [TWD-WS] [2:08:26 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #6)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:08:26 AM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:08:26 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:08:26 AM] Scheduling reconnect attempt #6 in 11.5s...
+index-DLTHvV-D.js:459 [TWD-WS] [2:08:38 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #7)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:08:38 AM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:08:38 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:08:38 AM] Scheduling reconnect attempt #7 in 17.7s...
+index-DLTHvV-D.js:459 [TWD-WS] [2:08:56 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #8)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:08:56 AM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:08:56 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:08:56 AM] Scheduling reconnect attempt #8 in 26s...
+index-DLTHvV-D.js:459 [TWD-WS] [2:09:16 AM] Network status changed: ONLINE. Re-establishing WebSocket link...
+index-DLTHvV-D.js:459 [TWD-WS] [2:09:16 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #1)...
+index-DLTHvV-D.js:459 [TWD-WS] [2:09:20 AM] Connection established with Central Node: wss://mobile-li9q.onrender.com/ws
+index-DLTHvV-D.js:459 [TWD-WS] [2:09:20 AM] Handshake confirmed: Tagoloan Water District Central Billing Node
+index-DLTHvV-D.js:459 [TWD-WS] [2:09:23 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #1)...
+index-DLTHvV-D.js:459 [TWD-WS] [2:09:24 AM] Connection established with Central Node: wss://mobile-li9q.onrender.com/ws
+index-DLTHvV-D.js:459 [TWD-WS] [2:09:24 AM] Handshake confirmed: Tagoloan Water District Central Billing Node
+index-DLTHvV-D.js:459 [TWD-WS] [4:11:45 AM] Heartbeat timeout: no server ping/pong received in 35s. Forcing reconnect...
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:11:45 AM] Manual reconnect requested. Initiating connection immediately...
+index-DLTHvV-D.js:459 [TWD-WS] [4:11:45 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #1)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:11:45 AM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:11:45 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:11:45 AM] Scheduling reconnect attempt #1 in 2s...
+index-DLTHvV-D.js:459 [TWD-WS] [4:11:48 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #2)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:11:48 AM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:11:48 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:11:48 AM] Scheduling reconnect attempt #2 in 2.7s...
+index-DLTHvV-D.js:459 [TWD-WS] [4:11:51 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #3)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:11:51 AM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:11:51 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:11:51 AM] Scheduling reconnect attempt #3 in 3.9s...
+index-DLTHvV-D.js:459 [TWD-WS] [4:11:55 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #4)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:11:55 AM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:11:55 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:11:55 AM] Scheduling reconnect attempt #4 in 5.6s...
+index-DLTHvV-D.js:459 [TWD-WS] [4:12:01 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #5)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:12:01 AM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:12:01 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:12:01 AM] Scheduling reconnect attempt #5 in 8.3s...
+index-DLTHvV-D.js:459 [TWD-WS] [4:12:04 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:12:04 AM] Scheduling reconnect attempt #6 in 11.8s...
+index-DLTHvV-D.js:459 [TWD-WS] [4:12:17 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #7)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:12:17 AM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:12:17 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [4:12:17 AM] Scheduling reconnect attempt #7 in 17.6s...
+index-DLTHvV-D.js:459 [TWD-WS] [4:12:35 AM] Network status changed: ONLINE. Re-establishing WebSocket link...
+index-DLTHvV-D.js:459 [TWD-WS] [4:12:35 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #1)...
+index-DLTHvV-D.js:459 [TWD-WS] [4:12:37 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #1)...
+index-DLTHvV-D.js:459 [TWD-WS] [4:12:38 AM] Connection established with Central Node: wss://mobile-li9q.onrender.com/ws
+index-DLTHvV-D.js:459 [TWD-WS] [4:12:38 AM] Handshake confirmed: Tagoloan Water District Central Billing Node
+index-DLTHvV-D.js:459 [TWD-WS] [4:12:38 AM] Connection established with Central Node: wss://mobile-li9q.onrender.com/ws
+index-DLTHvV-D.js:459 [TWD-WS] [4:12:38 AM] Handshake confirmed: Tagoloan Water District Central Billing Node
+index-DLTHvV-D.js:459 [TWD-WS] [8:41:46 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [8:41:46 AM] Scheduling reconnect attempt #1 in 2.2s...
+index-DLTHvV-D.js:459 [TWD-WS] [8:41:49 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #2)...
+index-DLTHvV-D.js:459 [TWD-WS] [8:41:50 AM] Connection established with Central Node: wss://mobile-li9q.onrender.com/ws
+index-DLTHvV-D.js:459 [TWD-WS] [8:41:50 AM] Handshake confirmed: Tagoloan Water District Central Billing Node
+index-DLTHvV-D.js:459 [TWD-WS] [11:55:45 AM] Heartbeat timeout: no server ping/pong received in 35s. Forcing reconnect...
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [11:55:45 AM] Manual reconnect requested. Initiating connection immediately...
+index-DLTHvV-D.js:459 [TWD-WS] [11:55:45 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #1)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [11:55:45 AM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [11:55:45 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [11:55:45 AM] Scheduling reconnect attempt #1 in 2.1s...
+index-DLTHvV-D.js:459 [TWD-WS] [11:55:48 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #2)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [11:55:48 AM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [11:55:48 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [11:55:48 AM] Scheduling reconnect attempt #2 in 2.6s...
+index-DLTHvV-D.js:459 [TWD-WS] [11:55:51 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #3)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [11:55:51 AM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [11:55:51 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [11:55:51 AM] Scheduling reconnect attempt #3 in 3.5s...
+index-DLTHvV-D.js:459 [TWD-WS] [11:55:55 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #4)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [11:55:55 AM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [11:55:55 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [11:55:55 AM] Scheduling reconnect attempt #4 in 5.8s...
+index-DLTHvV-D.js:459 [TWD-WS] [11:56:01 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #5)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [11:56:01 AM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [11:56:01 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [11:56:01 AM] Scheduling reconnect attempt #5 in 7.7s...
+index-DLTHvV-D.js:459 [TWD-WS] [11:56:04 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [11:56:04 AM] Scheduling reconnect attempt #6 in 12.1s...
+index-DLTHvV-D.js:459 [TWD-WS] [11:56:17 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #7)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [11:56:17 AM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [11:56:17 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [11:56:17 AM] Scheduling reconnect attempt #7 in 17.3s...
+index-DLTHvV-D.js:459 [TWD-WS] [11:56:35 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #8)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [11:56:35 AM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [11:56:35 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [11:56:35 AM] Scheduling reconnect attempt #8 in 25.7s...
+index-DLTHvV-D.js:459 [TWD-WS] [11:56:43 AM] Network status changed: ONLINE. Re-establishing WebSocket link...
+index-DLTHvV-D.js:459 [TWD-WS] [11:56:43 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #1)...
+index-DLTHvV-D.js:459 [TWD-WS] [11:56:48 AM] Connection established with Central Node: wss://mobile-li9q.onrender.com/ws
+index-DLTHvV-D.js:459 [TWD-WS] [11:56:48 AM] Handshake confirmed: Tagoloan Water District Central Billing Node
+index-DLTHvV-D.js:459 [TWD-WS] [11:57:01 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #1)...
+index-DLTHvV-D.js:459 [TWD-WS] [11:57:02 AM] Connection established with Central Node: wss://mobile-li9q.onrender.com/ws
+index-DLTHvV-D.js:459 [TWD-WS] [11:57:02 AM] Handshake confirmed: Tagoloan Water District Central Billing Node
+consumers?zones=Casinglot%2CMohon&readerId=WDT-MR02&username=reader02&includeInactive=true:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+index-DLTHvV-D.js:459 [TWD-API] Network attempt 1/2 failed for [GET] https://mobile-li9q.onrender.com/api/consumers?zones=Casinglot%2CMohon&readerId=WDT-MR02&username=reader02&includeInactive=true: Failed to fetch
+We @ index-DLTHvV-D.js:459
+ais-dev-ui6fsepfskrowqsfycbac7-946013608969.asia-southeast1.run.app/api/consumers?zones=Casinglot%2CMohon&readerId=WDT-MR02&username=reader02&includeInactive=true:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+index-DLTHvV-D.js:459 [TWD-API] Network attempt 2/2 failed for [GET] https://ais-dev-ui6fsepfskrowqsfycbac7-946013608969.asia-southeast1.run.app/api/consumers?zones=Casinglot%2CMohon&readerId=WDT-MR02&username=reader02&includeInactive=true: Failed to fetch
+We @ index-DLTHvV-D.js:459
+consumers?zones=Casinglot%2CMohon&readerId=WDT-MR02&username=reader02&includeInactive=true:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+index-DLTHvV-D.js:459 [TWD-API] Direct relative fetch failed for [GET] /api/consumers?zones=Casinglot%2CMohon&readerId=WDT-MR02&username=reader02&includeInactive=true: Failed to fetch
+We @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-API] Engaging resilient offline synthetic fallback for [GET] /api/consumers?zones=Casinglot%2CMohon&readerId=WDT-MR02&username=reader02&includeInactive=true after 3 attempts: Failed to fetch
+sync:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+index-DLTHvV-D.js:459 [TWD-API] Network attempt 1/2 failed for [POST] https://mobile-li9q.onrender.com/api/readers/sync: Failed to fetch
+We @ index-DLTHvV-D.js:459
+ais-dev-ui6fsepfskrowqsfycbac7-946013608969.asia-southeast1.run.app/api/readers/sync:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+index-DLTHvV-D.js:459 [TWD-API] Network attempt 2/2 failed for [POST] https://ais-dev-ui6fsepfskrowqsfycbac7-946013608969.asia-southeast1.run.app/api/readers/sync: Failed to fetch
+We @ index-DLTHvV-D.js:459
+sync:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+index-DLTHvV-D.js:459 [TWD-API] Direct relative fetch failed for [POST] /api/readers/sync: Failed to fetch
+We @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-API] Engaging resilient offline synthetic fallback for [POST] /api/readers/sync after 3 attempts: Failed to fetch
+index-DLTHvV-D.js:459 [TWD-WS] [2:12:04 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:12:04 PM] Scheduling reconnect attempt #1 in 1.8s...
+index-DLTHvV-D.js:459 [TWD-WS] [2:12:07 PM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #2)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:12:07 PM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:12:07 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:12:07 PM] Scheduling reconnect attempt #2 in 2.4s...
+index-DLTHvV-D.js:459 [TWD-WS] [2:12:10 PM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #3)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:12:10 PM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:12:10 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:12:10 PM] Scheduling reconnect attempt #3 in 3.7s...
+index-DLTHvV-D.js:459 [TWD-WS] [2:12:14 PM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #4)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:12:14 PM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:12:14 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:12:14 PM] Scheduling reconnect attempt #4 in 5.7s...
+index-DLTHvV-D.js:459 [TWD-WS] [2:12:20 PM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #5)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:12:20 PM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:12:20 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:12:20 PM] Scheduling reconnect attempt #5 in 8.3s...
+index-DLTHvV-D.js:459 [TWD-WS] [2:12:29 PM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #6)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:12:29 PM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:12:29 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:12:29 PM] Scheduling reconnect attempt #6 in 12.1s...
+index-DLTHvV-D.js:459 [TWD-WS] [2:12:42 PM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #7)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:12:42 PM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:12:42 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:12:42 PM] Scheduling reconnect attempt #7 in 17.8s...
+index-DLTHvV-D.js:459 [TWD-WS] [2:13:00 PM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #8)...
+index-DLTHvV-D.js:459 WebSocket connection to 'wss://mobile-li9q.onrender.com/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+connect @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:13:00 PM] Socket error encountered on wss://mobile-li9q.onrender.com/ws. Will retry via backoff strategy.
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:13:00 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [2:13:00 PM] Scheduling reconnect attempt #8 in 26.4s...
+index-DLTHvV-D.js:459 [TWD-WS] [2:13:15 PM] Network status changed: ONLINE. Re-establishing WebSocket link...
+index-DLTHvV-D.js:459 [TWD-WS] [2:13:20 PM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #1)...
+index-DLTHvV-D.js:459 [TWD-WS] [2:13:21 PM] Connection established with Central Node: wss://mobile-li9q.onrender.com/ws
+index-DLTHvV-D.js:459 [TWD-WS] [2:13:21 PM] Handshake confirmed: Tagoloan Water District Central Billing Node
+index-DLTHvV-D.js:459 [TWD-WS] [2:13:27 PM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #1)...
+index-DLTHvV-D.js:459 [TWD-WS] [2:13:28 PM] Connection established with Central Node: wss://mobile-li9q.onrender.com/ws
+index-DLTHvV-D.js:459 [TWD-WS] [2:13:28 PM] Handshake confirmed: Tagoloan Water District Central Billing Node
+index-DLTHvV-D.js:459 [TWD-WS] [8:50:38 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [8:50:38 PM] Scheduling reconnect attempt #1 in 1.9s...
+index-DLTHvV-D.js:459 [TWD-WS] [8:50:38 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [8:50:38 PM] Scheduling reconnect attempt #2 in 2.7s...
+index-DLTHvV-D.js:459 [TWD-WS] [8:50:38 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [8:50:38 PM] Scheduling reconnect attempt #3 in 4s...
+index-DLTHvV-D.js:459 [TWD-WS] [8:50:38 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [8:50:38 PM] Scheduling reconnect attempt #4 in 5.3s...
+index-DLTHvV-D.js:459 [TWD-WS] [8:50:38 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [8:50:38 PM] Scheduling reconnect attempt #5 in 8.2s...
+index-DLTHvV-D.js:459 [TWD-WS] [8:50:38 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [8:50:38 PM] Scheduling reconnect attempt #6 in 11.5s...
+index-DLTHvV-D.js:459 [TWD-WS] [8:50:38 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [8:50:38 PM] Scheduling reconnect attempt #7 in 17.6s...
+index-DLTHvV-D.js:459 [TWD-WS] [8:50:38 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [8:50:38 PM] Scheduling reconnect attempt #8 in 26.2s...
+index-DLTHvV-D.js:459 [TWD-WS] [8:50:38 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [8:50:38 PM] Scheduling reconnect attempt #9 in 30s...
+index-DLTHvV-D.js:459 [TWD-WS] [8:50:38 PM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [8:50:38 PM] Scheduling reconnect attempt #10 in 30.6s...
+index-DLTHvV-D.js:459 [TWD-WS] [5:10:22 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #11)...
+index-DLTHvV-D.js:459 [TWD-WS] [5:10:46 AM] Connection established with Central Node: wss://mobile-li9q.onrender.com/ws
+index-DLTHvV-D.js:459 [TWD-WS] [5:10:46 AM] Handshake confirmed: Tagoloan Water District Central Billing Node
+index-DLTHvV-D.js:459 [TWD-WS] [5:12:58 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [5:12:58 AM] Scheduling reconnect attempt #1 in 2s...
+index-DLTHvV-D.js:459 [TWD-WS] [5:13:00 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #2)...
+index-DLTHvV-D.js:459 [TWD-WS] [5:13:01 AM] Connection established with Central Node: wss://mobile-li9q.onrender.com/ws
+index-DLTHvV-D.js:459 [TWD-WS] [5:13:01 AM] Handshake confirmed: Tagoloan Water District Central Billing Node
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+index-DLTHvV-D.js:459 [TWD-WS] [6:02:45 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [6:02:45 AM] Scheduling reconnect attempt #1 in 1.8s...
+index-DLTHvV-D.js:459 [TWD-WS] [6:02:47 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #2)...
+index-DLTHvV-D.js:459 [TWD-WS] [6:02:48 AM] Connection established with Central Node: wss://mobile-li9q.onrender.com/ws
+index-DLTHvV-D.js:459 [TWD-WS] [6:02:48 AM] Handshake confirmed: Tagoloan Water District Central Billing Node
+index-DLTHvV-D.js:459 [TWD-WS] [6:42:14 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [6:42:14 AM] Scheduling reconnect attempt #1 in 1.5s...
+index-DLTHvV-D.js:459 [TWD-WS] [6:42:15 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #2)...
+index-DLTHvV-D.js:459 [TWD-WS] [6:42:16 AM] Connection established with Central Node: wss://mobile-li9q.onrender.com/ws
+index-DLTHvV-D.js:459 [TWD-WS] [6:42:16 AM] Handshake confirmed: Tagoloan Water District Central Billing Node
+index-DLTHvV-D.js:459 [TWD-WS] [6:59:29 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [6:59:29 AM] Scheduling reconnect attempt #1 in 1.9s...
+index-DLTHvV-D.js:459 [TWD-WS] [6:59:31 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #2)...
+index-DLTHvV-D.js:459 [TWD-WS] [6:59:32 AM] Connection established with Central Node: wss://mobile-li9q.onrender.com/ws
+index-DLTHvV-D.js:459 [TWD-WS] [6:59:32 AM] Handshake confirmed: Tagoloan Water District Central Billing Node
+index-DLTHvV-D.js:459 [TWD-WS] [8:03:49 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [8:03:49 AM] Scheduling reconnect attempt #1 in 2.1s...
+index-DLTHvV-D.js:459 [TWD-WS] [8:03:52 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #2)...
+index-DLTHvV-D.js:459 [TWD-WS] [8:03:53 AM] Connection established with Central Node: wss://mobile-li9q.onrender.com/ws
+index-DLTHvV-D.js:459 [TWD-WS] [8:03:53 AM] Handshake confirmed: Tagoloan Water District Central Billing Node
+index-DLTHvV-D.js:459 [TWD-WS] [8:41:36 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [8:41:36 AM] Scheduling reconnect attempt #1 in 1.9s...
+index-DLTHvV-D.js:459 [TWD-WS] [8:41:39 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #2)...
+index-DLTHvV-D.js:459 [TWD-WS] [8:41:40 AM] Connection established with Central Node: wss://mobile-li9q.onrender.com/ws
+index-DLTHvV-D.js:459 [TWD-WS] [8:41:40 AM] Handshake confirmed: Tagoloan Water District Central Billing Node
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+index-DLTHvV-D.js:459 [TWD-WS] [9:42:06 AM] Socket closed (code: 1006, clean: false).
+log @ index-DLTHvV-D.js:459
+index-DLTHvV-D.js:459 [TWD-WS] [9:42:06 AM] Scheduling reconnect attempt #1 in 1.7s...
+index-DLTHvV-D.js:459 [TWD-WS] [9:42:07 AM] Attempting connection to wss://mobile-li9q.onrender.com/ws (attempt #2)...
+index-DLTHvV-D.js:459 [TWD-WS] [9:42:08 AM] Connection established with Central Node: wss://mobile-li9q.onrender.com/ws
+index-DLTHvV-D.js:459 [TWD-WS] [9:42:08 AM] Handshake confirmed: Tagoloan Water District Central Billing Node
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+(index):1 Uncaught (in promise) null
+index-DLTHvV-D.js:473 Geolocation sensor error, using Tagoloan field coordinates: Timeout expired
+navigator.geolocation.navigator.geolocation.getCurrentPosition.enableHighAccuracy @ index-DLTHvV-D.js:473
+(index):1 Uncaught (in promise) null
+Promise.then
+(anonymous) @ index-DLTHvV-D.js:525
+(anonymous) @ index-DLTHvV-D.js:459
+socket.onmessage @ index-DLTHvV-D.js:459
+(index):1 Uncaught (in promise) null
+Promise.then
+(anonymous) @ index-DLTHvV-D.js:525
+(anonymous) @ index-DLTHvV-D.js:459
+socket.onmessage @ index-DLTHvV-D.js:459
+(index):1 Uncaught (in promise) null
+Promise.then
+(anonymous) @ index-DLTHvV-D.js:525
+(anonymous) @ index-DLTHvV-D.js:459
+socket.onmessage @ index-DLTHvV-D.js:459
+(index):1 Uncaught (in promise) null
+Promise.then
+(anonymous) @ index-DLTHvV-D.js:525
+(anonymous) @ index-DLTHvV-D.js:459
+socket.onmessage @ index-DLTHvV-D.js:459
+(index):1 Uncaught (in promise) null
+Promise.then
+(anonymous) @ index-DLTHvV-D.js:525
+(anonymous) @ index-DLTHvV-D.js:459
+socket.onmessage @ index-DLTHvV-D.js:459
+(index):1 Uncaught (in promise) null
+Promise.then
+(anonymous) @ index-DLTHvV-D.js:525
+(anonymous) @ index-DLTHvV-D.js:459
+socket.onmessage @ index-DLTHvV-D.js:459
+(index):1 Uncaught (in promise) null
+Promise.then
+(anonymous) @ index-DLTHvV-D.js:525
+(anonymous) @ index-DLTHvV-D.js:459
+socket.onmessage @ index-DLTHvV-D.js:459
+(index):1 Uncaught (in promise) null
+Promise.then
+(anonymous) @ index-DLTHvV-D.js:525
+(anonymous) @ index-DLTHvV-D.js:459
+socket.onmessage @ index-DLTHvV-D.js:459
+(index):1 Uncaught (in promise) null
+Promise.then
+(anonymous) @ index-DLTHvV-D.js:525
+(anonymous) @ index-DLTHvV-D.js:459
+socket.onmessage @ index-DLTHvV-D.js:459
+(index):1 Uncaught (in promise) null
+Promise.then
+(anonymous) @ index-DLTHvV-D.js:525
+(anonymous) @ index-DLTHvV-D.js:459
+socket.onmessage @ index-DLTHvV-D.js:459
+(index):1 Uncaught (in promise) null
+Promise.then
+(anonymous) @ index-DLTHvV-D.js:525
+(anonymous) @ index-DLTHvV-D.js:459
+socket.onmessage @ index-DLTHvV-D.js:459
+(index):1 Uncaught (in promise) null
+Promise.then
+(anonymous) @ index-DLTHvV-D.js:525
+(anonymous) @ index-DLTHvV-D.js:459
+socket.onmessage @ index-DLTHvV-D.js:459
+(index):1 Uncaught (in promise) null
+Promise.then
+(anonymous) @ index-DLTHvV-D.js:525
+(anonymous) @ index-DLTHvV-D.js:459
+socket.onmessage @ index-DLTHvV-D.js:459
+(index):1 Uncaught (in promise) null
+Promise.then
+(anonymous) @ index-DLTHvV-D.js:525
+(anonymous) @ index-DLTHvV-D.js:459
+socket.onmessage @ index-DLTHvV-D.js:459
+(index):1 Uncaught (in promise) null
+Promise.then
+(anonymous) @ index-DLTHvV-D.js:525
+(anonymous) @ index-DLTHvV-D.js:459
+socket.onmessage @ index-DLTHvV-D.js:459
+(index):1 Uncaught (in promise) null
+Promise.then
+(anonymous) @ index-DLTHvV-D.js:525
+(anonymous) @ index-DLTHvV-D.js:459
+socket.onmessage @ index-DLTHvV-D.js:459
+(index):1 Uncaught (in promise) null
+Promise.then
+(anonymous) @ index-DLTHvV-D.js:525
+(anonymous) @ index-DLTHvV-D.js:459
+socket.onmessage @ index-DLTHvV-D.js:459
+(index):1 Uncaught (in promise) null
+Promise.then
+(anonymous) @ index-DLTHvV-D.js:525
+(anonymous) @ index-DLTHvV-D.js:459
+socket.onmessage @ index-DLTHvV-D.js:459
+(index):1 Uncaught (in promise) null
+Promise.then
+(anonymous) @ index-DLTHvV-D.js:525
+(anonymous) @ index-DLTHvV-D.js:459
+socket.onmessage @ index-DLTHvV-D.js:459
+(index):1 Uncaught (in promise) null
+Promise.then
+(anonymous) @ index-DLTHvV-D.js:525
+(anonymous) @ index-DLTHvV-D.js:459
+socket.onmessage @ index-DLTHvV-D.js:459
+(index):1 Uncaught (in promise) null
+Promise.then
+(anonymous) @ index-DLTHvV-D.js:525
+(anonymous) @ index-DLTHvV-D.js:459
+socket.onmessage @ index-DLTHvV-D.js:459

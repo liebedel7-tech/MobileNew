@@ -202,21 +202,24 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
         }).catch(() => {});
       }
 
-      // 2. Local Database Update
+      // 2. Local Database Update - Area routes assigned are automatically released & made available
       await DatabaseHelper.updateLocalReaderStatus(
         target.id,
         'terminated',
-        target.assignedRoutes,
+        [],
         currentUser?.name || 'Administrator'
       );
 
       // 3. Log Audit Trail
       await LoggerService.log(
         'READER_TERMINATED',
-        `Administrator terminated meter reader account for ${target.name} (${target.employeeId}). Reason: ${reasonText}`
+        `Administrator terminated meter reader account for ${target.name} (${target.employeeId}). Assigned routes (${(target.assignedRoutes || []).join(', ')}) automatically released and made available. Reason: ${reasonText}`
       );
 
-      setActionSuccessMessage(`⛔ Meter reader '${target.name}' has been TERMINATED. Mobile terminal access revoked.`);
+      const freedRoutesText = target.assignedRoutes && target.assignedRoutes.length > 0 
+        ? ` Area routes [${target.assignedRoutes.join(', ')}] are now automatically available.` 
+        : '';
+      setActionSuccessMessage(`⛔ Meter reader '${target.name}' has been TERMINATED.${freedRoutesText}`);
       setReaderToTerminate(null);
       setTerminationReason('Account terminated by administrator');
       await loadAndSyncReaders(false);
