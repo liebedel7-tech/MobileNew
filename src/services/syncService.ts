@@ -132,6 +132,16 @@ export class SyncService {
     try {
       const readingPayload = {
         ...reading,
+        accountNumber: reading.accountNumber,
+        presentReading: reading.currentReading,
+        currentReading: reading.currentReading,
+        previousReading: reading.previousReading,
+        consumption: reading.consumption,
+        readerId: reading.readerId,
+        readerName: reading.readerName,
+        readingDate: reading.readingDate,
+        photoUrl: reading.photoUrl,
+        remarks: reading.remarks,
         status: 'PENDING_SYNC',
         approvalStatus: 'pending_approval',
       };
@@ -139,7 +149,10 @@ export class SyncService {
       const res = await universalApiFetch('/api/readings/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ readings: [readingPayload] }),
+        body: JSON.stringify({
+          ...readingPayload,
+          readings: [readingPayload],
+        }),
       });
 
       if (res.ok) {
@@ -311,8 +324,10 @@ export class SyncService {
 
           if (uploadRes.ok) {
             const resData = await safeParseJson(uploadRes);
-            if (resData && (resData.success || resData.processedCount)) {
-              const syncedIds = pendingReadings.map((r) => r.id);
+            if (resData && (resData.success || resData.processedCount || resData.count || (resData.syncedIds && resData.syncedIds.length > 0))) {
+              const syncedIds = (resData.syncedIds && Array.isArray(resData.syncedIds) && resData.syncedIds.length > 0)
+                ? resData.syncedIds
+                : pendingReadings.map((r) => r.id);
               const syncTimestamp = new Date().toISOString();
               await DatabaseHelper.updateReadingsStatus(syncedIds, 'SYNCED', batchId, syncTimestamp);
               uploadedCount = pendingReadings.length;

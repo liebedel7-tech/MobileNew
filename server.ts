@@ -422,6 +422,7 @@ app.get(['/api/health', '/health'], (req, res) => {
       activeReaders: REGISTERED_READERS.filter(r => r.status === 'active').length,
       terminatedReaders: REGISTERED_READERS.filter(r => r.status === 'terminated').length,
       wsActiveConnections: activeClients.size,
+      mobileTerminalUrl: process.env.MOBILE_TERMINAL_URL || process.env.VITE_MOBILE_TERMINAL_URL || 'https://mobile-li9q.onrender.com',
     });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message || 'Server error' });

@@ -93,7 +93,8 @@ export const LIVE_BACKEND_URL = typeof window !== 'undefined' && window.location
   ? window.location.origin 
   : '';
 
-export const DEFAULT_TAGOLOAN_CLOUD_URL = 'https://ais-dev-ui6fsepfskrowqsfycbac7-946013608969.asia-southeast1.run.app';
+export const DEFAULT_TAGOLOAN_CLOUD_URL = 'https://twd-427m.onrender.com';
+export const DEFAULT_MOBILE_RENDER_URL = 'https://mobile-li9q.onrender.com';
 
 // Dynamic Resolution: Default to the active server origin hosting this application
 // to guarantee 100% instant connectivity out of the box, with full support for external targets
@@ -177,7 +178,10 @@ export function getApiBaseUrl(): string {
   try {
     const meta = import.meta as any;
     if (meta && meta.env) {
-      const envUrl = meta.env.VITE_API_URL || meta.env.VITE_CENTRAL_API_URL;
+      const envUrl = meta.env.VITE_MOBILE_TERMINAL_URL || 
+                     meta.env.MOBILE_TERMINAL_URL || 
+                     meta.env.VITE_API_URL || 
+                     meta.env.VITE_CENTRAL_API_URL;
       if (envUrl && typeof envUrl === 'string' && envUrl.trim()) {
         return envUrl.trim().replace(/\/+$/, '').replace(/\/api$/, '');
       }
@@ -215,7 +219,36 @@ export function getCandidateBackendUrls(): string[] {
     }
   }
 
-  // Candidate 3: Official Tagoloan Cloud Service
+  // Candidate 3: Vite / Environment Variable overrides
+  try {
+    const meta = import.meta as any;
+    if (meta && meta.env) {
+      const envCustom = meta.env.VITE_MOBILE_TERMINAL_URL || 
+                        meta.env.MOBILE_TERMINAL_URL || 
+                        meta.env.VITE_CENTRAL_API_URL || 
+                        meta.env.VITE_API_URL;
+      if (envCustom && typeof envCustom === 'string' && envCustom.trim()) {
+        const cleanEnv = envCustom.trim().replace(/\/+$/, '').replace(/\/api$/, '');
+        if (cleanEnv && !candidates.includes(cleanEnv)) {
+          candidates.push(cleanEnv);
+        }
+      }
+    }
+  } catch {
+    // Ignore in non-vite environments
+  }
+
+  // Candidate 4: Official Tagoloan Render Central Billing & Admin Server
+  if (!candidates.includes('https://twd-427m.onrender.com')) {
+    candidates.push('https://twd-427m.onrender.com');
+  }
+
+  // Candidate 5: Official Tagoloan Render Mobile Applet Server
+  if (!candidates.includes('https://mobile-li9q.onrender.com')) {
+    candidates.push('https://mobile-li9q.onrender.com');
+  }
+
+  // Candidate 6: Default Cloud Service
   if (!candidates.includes(DEFAULT_TAGOLOAN_CLOUD_URL)) {
     candidates.push(DEFAULT_TAGOLOAN_CLOUD_URL);
   }
