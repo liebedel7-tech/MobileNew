@@ -27,7 +27,6 @@ interface WDTHeaderProps {
   isMobileChassis: boolean;
   onToggleChassis: () => void;
   onOpenApkModal: () => void;
-  onOpenAdminMeterModal?: () => void;
   wsStatus?: 'CONNECTING' | 'CONNECTED' | 'DISCONNECTED' | 'RECONNECTING';
 }
 
@@ -41,7 +40,6 @@ export const WDTHeader: React.FC<WDTHeaderProps> = ({
   isMobileChassis,
   onToggleChassis,
   onOpenApkModal,
-  onOpenAdminMeterModal,
   wsStatus = 'CONNECTED',
 }) => {
   const { isInstalled } = useDeviceInstallStatus();
@@ -127,18 +125,6 @@ export const WDTHeader: React.FC<WDTHeaderProps> = ({
             title="Download Android APK / Install App"
           >
             <Smartphone className="w-3.5 h-3.5" />
-          </button>
-        )}
-
-        {/* Admin Modules (Water Meters, Reading Approvals, Meter Readers, Consumers, Issue IDs) */}
-        {onOpenAdminMeterModal && (
-          <button
-            onClick={onOpenAdminMeterModal}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-950/80 hover:bg-blue-900 border border-blue-700/80 text-blue-300 hover:text-white transition text-xs font-bold shadow-sm cursor-pointer"
-            title="Open Admin Control Modules (Meter Readers, Approvals, Meters, Consumers)"
-          >
-            <Gauge className="w-3.5 h-3.5 text-sky-400" />
-            <span className="hidden sm:inline">Admin Modules</span>
           </button>
         )}
 

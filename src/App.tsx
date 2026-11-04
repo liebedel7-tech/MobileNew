@@ -19,7 +19,6 @@ import { DownloadApkModal } from './components/DownloadApkModal';
 import { ScreenTransition } from './components/ScreenTransition';
 import { ModuleLoadingScreen, LoadingProcessInfo } from './components/ModuleLoadingScreen';
 import { AppSplashScreen } from './components/AppSplashScreen';
-import { AdminMeterStatusModal } from './components/AdminMeterStatusModal';
 
 // Screens
 import { LandingScreen } from './screens/LandingScreen';
@@ -52,7 +51,6 @@ export function App() {
   const [selectedConsumer, setSelectedConsumer] = useState<Consumer | null>(null);
   const [isMobileChassis, setIsMobileChassis] = useState<boolean>(true);
   const [isApkModalOpen, setIsApkModalOpen] = useState<boolean>(false);
-  const [isAdminMeterModalOpen, setIsAdminMeterModalOpen] = useState<boolean>(false);
   const [liveAdminAlert, setLiveAdminAlert] = useState<{
     type: 'status_deactivated' | 'status_activated' | 'meter_deactivated' | 'meter_activated' | 'id_issued' | 'reading_approved';
     title: string;
@@ -301,11 +299,13 @@ export function App() {
         }
       } else if (event.type === 'READING_APPROVED_BILL_ISSUED' || event.type === 'READING_APPROVED') {
         const p = event.payload || {};
-        const readingKey = p.readingId || p.accountNumber || (p.reading && (p.reading.id || p.reading.accountNumber));
+        const readingKey = p.accountNumber || p.readingId || (p.reading && (p.reading.accountNumber || p.reading.id));
+        const accNum = p.accountNumber || (p.reading && p.reading.accountNumber);
         
         // 1. Immediately update IndexedDB reading status to approved & advance consumer baseline
         if (readingKey) {
           DatabaseHelper.updateReadingApprovalStatus(readingKey, 'approved', {
+            accountNumber: accNum,
             approvedBy: p.approvedBy || 'Admin Supervisor',
             approvedAt: p.timestamp || new Date().toISOString(),
             currentReading: p.currentReading,
@@ -766,7 +766,6 @@ export function App() {
           isMobileChassis={isMobileChassis}
           onToggleChassis={() => setIsMobileChassis(!isMobileChassis)}
           onOpenApkModal={() => setIsApkModalOpen(true)}
-          onOpenAdminMeterModal={() => setIsAdminMeterModalOpen(true)}
           wsStatus={wsStatus}
         />
       )}
@@ -1017,14 +1016,6 @@ export function App() {
           deferredPrompt={deferredInstallPrompt}
         />
       )}
-
-      {/* Admin Central Modules Console (Water Meters, Reading Approvals, Meter Readers, Consumers, Issue IDs) */}
-      <AdminMeterStatusModal
-        isOpen={isAdminMeterModalOpen}
-        onClose={() => setIsAdminMeterModalOpen(false)}
-        onRefreshData={reloadData}
-        currentReaderRoutes={currentUser?.assignedRoutes || (currentUser?.zone ? [currentUser.zone] : ['Poblacion'])}
-      />
 
       {/* 🚫 FULL-SCREEN LOCKOUT MODAL WHEN READER TERMINATED BY CENTRAL ADMIN */}
       {terminatedLockout && (

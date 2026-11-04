@@ -48,10 +48,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const unreadCount = Math.max(0, totalAssigned - readCount);
   const percentComplete = totalAssigned > 0 ? Math.round((readCount / totalAssigned) * 100) : 0;
 
+  const isReadingApproved = (r: MeterReading) => r.approvalStatus === 'approved' || r.status === 'APPROVED';
+  const isReadingRejected = (r: MeterReading) => r.approvalStatus === 'rejected' || r.status === 'REJECTED';
+  const isReadingPending = (r: MeterReading) => !isReadingApproved(r) && !isReadingRejected(r);
+
   // Filter pending and recent readings for field reader tracking
-  const pendingApprovalReadings = readings.filter(
-    (r: MeterReading) => r.approvalStatus === 'pending_approval' || (r.status === 'PENDING_SYNC' && r.approvalStatus !== 'approved' && r.approvalStatus !== 'rejected')
-  );
+  const pendingApprovalReadings = readings.filter(isReadingPending);
 
   const recentReadings = [...readings].slice(0, 5);
 
@@ -289,9 +291,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         ) : (
           <div className="space-y-2.5">
             {recentReadings.map((reading) => {
-              const isPending = reading.approvalStatus === 'pending_approval' || (reading.status === 'PENDING_SYNC' && reading.approvalStatus !== 'approved' && reading.approvalStatus !== 'rejected');
-              const isApproved = reading.approvalStatus === 'approved' || reading.status === 'SYNCED';
-              const isRejected = reading.approvalStatus === 'rejected';
+              const isApproved = isReadingApproved(reading);
+              const isRejected = isReadingRejected(reading);
+              const isPending = isReadingPending(reading);
 
               return (
                 <div

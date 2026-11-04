@@ -436,7 +436,8 @@ export class SyncService {
           if (Array.isArray(sReadings) && sReadings.length > 0) {
             for (const sr of sReadings) {
               if (sr.approvalStatus === 'approved' || sr.status === 'APPROVED' || sr.status === 'approved') {
-                await DatabaseHelper.updateReadingApprovalStatus(sr.id || sr.accountNumber, 'approved', {
+                await DatabaseHelper.updateReadingApprovalStatus(sr.accountNumber || sr.id, 'approved', {
+                  accountNumber: sr.accountNumber,
                   approvedBy: sr.approvedBy || 'Admin Supervisor',
                   approvedAt: sr.approvedAt || sr.receivedAt || new Date().toISOString(),
                   currentReading: sr.currentReading,
@@ -444,7 +445,8 @@ export class SyncService {
                   consumption: sr.consumption,
                 });
               } else if (sr.approvalStatus === 'rejected') {
-                await DatabaseHelper.updateReadingApprovalStatus(sr.id || sr.accountNumber, 'rejected', {
+                await DatabaseHelper.updateReadingApprovalStatus(sr.accountNumber || sr.id, 'rejected', {
+                  accountNumber: sr.accountNumber,
                   rejectionReason: sr.rejectionReason,
                 });
               }

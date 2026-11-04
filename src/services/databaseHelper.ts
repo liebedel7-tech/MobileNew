@@ -407,7 +407,50 @@ export class DatabaseHelper {
       const tx = db.transaction('readings', 'readonly');
       const store = tx.objectStore('readings');
       const request = store.getAll();
-      request.onsuccess = () => resolve(request.result || []);
+      request.onsuccess = () => {
+        const rawList: MeterReading[] = request.result || [];
+
+        // Track all accounts that have an approved reading
+        const approvedAccounts = new Set(
+          rawList
+            .filter((r) => r.approvalStatus === 'approved' || r.status === 'APPROVED')
+            .map((r) => (r.accountNumber || '').trim().toLowerCase())
+            .filter(Boolean)
+        );
+
+        // Sort: newest first, approved first
+        const sorted = [...rawList].sort((a, b) => {
+          const isAApp = a.approvalStatus === 'approved' || a.status === 'APPROVED';
+          const isBApp = b.approvalStatus === 'approved' || b.status === 'APPROVED';
+          if (isAApp && !isBApp) return -1;
+          if (!isAApp && isBApp) return 1;
+
+          const timeA = new Date(`${a.readingDate}T${a.readingTime || '00:00:00'}`).getTime();
+          const timeB = new Date(`${b.readingDate}T${b.readingTime || '00:00:00'}`).getTime();
+          return timeB - timeA;
+        });
+
+        const deduplicated: MeterReading[] = [];
+        const seenAccountDates = new Set<string>();
+
+        sorted.forEach((r) => {
+          const cleanAcc = (r.accountNumber || '').trim().toLowerCase();
+          const isApp = r.approvalStatus === 'approved' || r.status === 'APPROVED';
+
+          // If this reading is pending, but an approved reading exists for this account, ignore redundant pending record
+          if (!isApp && approvedAccounts.has(cleanAcc)) {
+            return;
+          }
+
+          const dedupeKey = `${cleanAcc}_${r.readingDate || ''}_${r.currentReading || ''}`;
+          if (!seenAccountDates.has(dedupeKey)) {
+            seenAccountDates.add(dedupeKey);
+            deduplicated.push(r);
+          }
+        });
+
+        resolve(deduplicated);
+      };
       request.onerror = () => reject(request.error);
     });
   }
@@ -467,6 +510,7 @@ export class DatabaseHelper {
     readingIdOrAccountNumber: string,
     approvalStatus: 'approved' | 'rejected',
     details?: {
+      accountNumber?: string;
       approvedBy?: string;
       approvedAt?: string;
       rejectionReason?: string;
@@ -477,6 +521,7 @@ export class DatabaseHelper {
   ): Promise<{ reading: MeterReading | null; consumer: Consumer | null }> {
     const db = await this.getDB();
     const cleanKey = (readingIdOrAccountNumber || '').trim().toLowerCase();
+    const cleanAccount = (details?.accountNumber || '').trim().toLowerCase();
 
     return new Promise((resolve, reject) => {
       const tx = db.transaction(['readings', 'consumers'], 'readwrite');
@@ -489,31 +534,35 @@ export class DatabaseHelper {
 
       readingReq.onsuccess = () => {
         const allReadings: MeterReading[] = readingReq.result || [];
-        matchedReading = allReadings.find(
+        
+        // Find ALL readings matching this consumer / account or id
+        const matchingReadings = allReadings.filter(
           (r) =>
-            r.id.toLowerCase() === cleanKey ||
-            r.accountNumber.toLowerCase() === cleanKey ||
-            r.consumerId.toLowerCase() === cleanKey
-        ) || null;
+            (cleanKey && (r.id.toLowerCase() === cleanKey || r.accountNumber.toLowerCase() === cleanKey || r.consumerId.toLowerCase() === cleanKey)) ||
+            (cleanAccount && r.accountNumber.toLowerCase() === cleanAccount)
+        );
 
         const nowIso = details?.approvedAt || new Date().toISOString();
         const adminName = details?.approvedBy || 'Admin Supervisor';
 
-        if (matchedReading) {
-          const updatedReading: MeterReading = {
-            ...matchedReading,
-            approvalStatus,
-            status: approvalStatus === 'approved' ? 'APPROVED' : 'REJECTED',
-            approvedAt: approvalStatus === 'approved' ? nowIso : matchedReading.approvedAt,
-            approvedBy: approvalStatus === 'approved' ? adminName : matchedReading.approvedBy,
-            remarks: details?.rejectionReason || matchedReading.remarks,
-            currentReading: details?.currentReading !== undefined ? details.currentReading : matchedReading.currentReading,
-            previousReading: details?.previousReading !== undefined ? details.previousReading : matchedReading.previousReading,
-            consumption: details?.consumption !== undefined ? details.consumption : matchedReading.consumption,
-          };
+        if (matchingReadings.length > 0) {
+          // Update all matching readings for this account to APPROVED/REJECTED so there are never dual statuses!
+          matchingReadings.forEach((rItem, idx) => {
+            const updatedReading: MeterReading = {
+              ...rItem,
+              approvalStatus,
+              status: approvalStatus === 'approved' ? 'APPROVED' : 'REJECTED',
+              approvedAt: approvalStatus === 'approved' ? nowIso : rItem.approvedAt,
+              approvedBy: approvalStatus === 'approved' ? adminName : rItem.approvedBy,
+              remarks: details?.rejectionReason || rItem.remarks,
+              currentReading: details?.currentReading !== undefined ? details.currentReading : rItem.currentReading,
+              previousReading: details?.previousReading !== undefined ? details.previousReading : rItem.previousReading,
+              consumption: details?.consumption !== undefined ? details.consumption : rItem.consumption,
+            };
 
-          readingStore.put(updatedReading);
-          matchedReading = updatedReading;
+            readingStore.put(updatedReading);
+            if (idx === 0) matchedReading = updatedReading;
+          });
 
           // Find linked consumer to save approved data & advance baseline
           const consumerReq = consumerStore.getAll();
@@ -521,25 +570,26 @@ export class DatabaseHelper {
             const allConsumers: Consumer[] = consumerReq.result || [];
             matchedConsumer = allConsumers.find(
               (c) =>
-                c.id === updatedReading.consumerId ||
-                c.accountNumber === updatedReading.accountNumber
+                (matchedReading && (c.id === matchedReading.consumerId || c.accountNumber === matchedReading.accountNumber)) ||
+                (cleanAccount && c.accountNumber.toLowerCase() === cleanAccount) ||
+                (cleanKey && (c.id.toLowerCase() === cleanKey || c.accountNumber.toLowerCase() === cleanKey))
             ) || null;
 
-            if (matchedConsumer) {
+            if (matchedConsumer && matchedReading) {
               const updatedConsumer: Consumer = {
                 ...matchedConsumer,
-                // If reading is approved, advance consumer baseline so next reading cycle uses this approved reading
+                // Advance consumer baseline so next reading cycle uses this approved reading
                 previousReading: approvalStatus === 'approved' 
-                  ? updatedReading.currentReading 
+                  ? matchedReading.currentReading 
                   : matchedConsumer.previousReading,
                 previousConsumption: approvalStatus === 'approved' 
-                  ? updatedReading.consumption 
+                  ? matchedReading.consumption 
                   : matchedConsumer.previousConsumption,
                 previousReadingDate: approvalStatus === 'approved' 
-                  ? (updatedReading.readingDate || nowIso.split('T')[0]) 
+                  ? (matchedReading.readingDate || nowIso.split('T')[0]) 
                   : matchedConsumer.previousReadingDate,
                 isReadThisMonth: true,
-                currentMonthReading: updatedReading,
+                currentMonthReading: matchedReading,
                 lastSyncDate: nowIso,
               };
 
@@ -554,8 +604,8 @@ export class DatabaseHelper {
             const allConsumers: Consumer[] = consumerReq.result || [];
             matchedConsumer = allConsumers.find(
               (c) =>
-                (c.id && c.id.toLowerCase() === cleanKey) ||
-                (c.accountNumber && c.accountNumber.toLowerCase() === cleanKey)
+                (cleanAccount && c.accountNumber.toLowerCase() === cleanAccount) ||
+                (cleanKey && (c.id.toLowerCase() === cleanKey || c.accountNumber.toLowerCase() === cleanKey))
             ) || null;
 
             if (matchedConsumer && approvalStatus === 'approved' && details?.currentReading !== undefined) {
@@ -564,7 +614,7 @@ export class DatabaseHelper {
               const cons = details.consumption !== undefined ? details.consumption : Math.max(0, curr - prev);
               
               const syntheticReading: MeterReading = {
-                id: `RDG-SYNC-${Date.now()}`,
+                id: `RDG-APP-${matchedConsumer.accountNumber.replace(/[^a-zA-Z0-9]/g, '')}`,
                 consumerId: matchedConsumer.id,
                 accountNumber: matchedConsumer.accountNumber,
                 consumerName: matchedConsumer.name,

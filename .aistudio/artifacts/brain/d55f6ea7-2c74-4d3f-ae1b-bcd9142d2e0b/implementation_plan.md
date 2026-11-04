@@ -58,7 +58,24 @@ When the Administrator approves or accepts meter readings:
 
 ---
 
-## 5. Test Verification
+## 5. Mobile App Boundaries & Unified Reading Status Resolution
+1. **Removal of Admin Modules from Mobile Terminal**:
+   - The Tagoloan Water District Mobile Terminal is exclusively designated for Field Meter Readers. Admin operations (such as staff termination, physical meter inventory changes, and consumer applicant ID issuance) belong strictly to the Central Admin Desktop Web Portal.
+   - Removed the `Admin Modules` button from `src/components/WDTHeader.tsx` and removed the `AdminMeterStatusModal` from `src/App.tsx`.
+2. **Unified Mutually-Exclusive Reading Status**:
+   - Fixed the status calculation bug where uploaded readings (`status === 'SYNCED'`) were erroneously counted as approved while remaining pending approval, causing dual and inconsistent badges.
+   - Defined strict mutually exclusive status helpers across `HistoryScreen.tsx`, `DashboardScreen.tsx`, and `ConsumerDetailsScreen.tsx`:
+     - **Approved & Billed**: `approvalStatus === 'approved' || status === 'APPROVED'`
+     - **Flagged / Rejected**: `approvalStatus === 'rejected' || status === 'REJECTED'`
+     - **Pending Admin Approval**: `!isApproved && !isRejected`
+   - Zero overlap: a reading can never simultaneously display both "Pending Admin Approval" and "Approved & Billed".
+3. **Approval Reconciliation & Deduplication**:
+   - In `DatabaseHelper.getAllReadings()`, readings are consolidated per consumer account. When an approved reading is present for an account, any stale duplicate pending record for that same account is resolved and omitted from the log.
+   - In `DatabaseHelper.updateReadingApprovalStatus()`, matching prioritizes the consumer's `accountNumber` so that live approvals received via WebSocket or sync immediately update all local readings for that account.
+
+---
+
+## 6. Test Verification
 - **Automated Test Suite**: 9/9 tests passed (100% pass rate) via `tests/runMobileTests.ts`.
   - `TC-MOB-01`: Gateway Health Probe & District Identification (PASS)
   - `TC-MOB-02`: Direct Auto-Active Registration (Zero Admin Delay) (PASS)

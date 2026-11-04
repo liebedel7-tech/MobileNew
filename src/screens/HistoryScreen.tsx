@@ -26,15 +26,13 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [filterApproval, setFilterApproval] = useState<'ALL' | 'pending' | 'approved' | 'rejected'>('ALL');
 
-  const pendingCount = readings.filter(
-    (r) => r.approvalStatus === 'pending_approval' || (r.status === 'PENDING_SYNC' && r.approvalStatus !== 'approved' && r.approvalStatus !== 'rejected')
-  ).length;
-  const approvedCount = readings.filter(
-    (r) => r.approvalStatus === 'approved' || r.status === 'SYNCED'
-  ).length;
-  const rejectedCount = readings.filter(
-    (r) => r.approvalStatus === 'rejected'
-  ).length;
+  const isReadingApproved = (r: MeterReading) => r.approvalStatus === 'approved' || r.status === 'APPROVED';
+  const isReadingRejected = (r: MeterReading) => r.approvalStatus === 'rejected' || r.status === 'REJECTED';
+  const isReadingPending = (r: MeterReading) => !isReadingApproved(r) && !isReadingRejected(r);
+
+  const pendingCount = readings.filter(isReadingPending).length;
+  const approvedCount = readings.filter(isReadingApproved).length;
+  const rejectedCount = readings.filter(isReadingRejected).length;
 
   const filteredReadings = useMemo(() => {
     return readings.filter((r) => {
@@ -43,9 +41,9 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
         r.accountNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
         r.meterSerial.toLowerCase().includes(searchTerm.toLowerCase());
 
-      const isApproved = r.approvalStatus === 'approved' || r.status === 'APPROVED';
-      const isRejected = r.approvalStatus === 'rejected' || r.status === 'REJECTED';
-      const isPending = !isApproved && !isRejected;
+      const isApproved = isReadingApproved(r);
+      const isRejected = isReadingRejected(r);
+      const isPending = isReadingPending(r);
 
       const matchApproval =
         filterApproval === 'ALL' ||
@@ -163,9 +161,9 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
           </div>
         ) : (
           filteredReadings.map((reading) => {
-            const isApproved = reading.approvalStatus === 'approved' || reading.status === 'APPROVED';
-            const isRejected = reading.approvalStatus === 'rejected' || reading.status === 'REJECTED';
-            const isPending = !isApproved && !isRejected;
+            const isApproved = isReadingApproved(reading);
+            const isRejected = isReadingRejected(reading);
+            const isPending = isReadingPending(reading);
 
             return (
               <div
