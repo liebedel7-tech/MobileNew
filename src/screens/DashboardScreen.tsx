@@ -58,9 +58,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const recentReadings = [...readings].slice(0, 5);
 
   return (
-    <div className="flex-1 p-3.5 sm:p-5 lg:p-7 flex flex-col gap-4 max-w-7xl mx-auto w-full">
+    <div className="flex-1 p-3.5 sm:p-5 max-w-4xl mx-auto w-full space-y-4 pb-20">
       {/* FIELD TERMINAL MODULES (Prominently Showcased on Sign In) */}
-      <section className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-lg space-y-3.5">
+      <section className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-sky-500/10 border border-sky-500/30 text-sky-400 flex items-center justify-center">

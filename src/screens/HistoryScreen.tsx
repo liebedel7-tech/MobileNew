@@ -5,9 +5,6 @@ import {
   History, 
   CheckCircle2, 
   Clock, 
-  MapPin, 
-  Droplet,
-  XCircle,
   AlertCircle,
   RefreshCw,
   ShieldCheck
@@ -44,7 +41,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [onReload]);
 
   const handleManualCheckApprovals = async () => {
     if (isCheckingApprovals) return;
@@ -56,7 +53,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
       setSyncFeedback(res.message || 'Approvals synchronized from Central Admin.');
       setTimeout(() => setSyncFeedback(null), 3500);
     } catch {
-      setSyncFeedback('Unable to reach Central Server. Reading queue safe in local storage.');
+      setSyncFeedback('Unable to reach Central Server. Queue safely stored locally.');
       setTimeout(() => setSyncFeedback(null), 3500);
     } finally {
       setIsCheckingApprovals(false);
@@ -93,12 +90,13 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
   }, [readings, searchTerm, filterApproval]);
 
   return (
-    <div className="p-3 sm:p-4 max-w-4xl mx-auto w-full space-y-4 pb-20">
-      {/* Header Nav */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
+    <div className="p-3.5 sm:p-5 max-w-4xl mx-auto w-full space-y-3.5 pb-20">
+      {/* Top Header & Screen Breadcrumb */}
+      <div className="flex items-center justify-between gap-2">
         <button
+          type="button"
           onClick={() => onNavigate('dashboard')}
-          className="flex items-center gap-1 text-xs font-bold text-sky-400 hover:text-sky-300 transition"
+          className="flex items-center gap-1.5 text-xs font-semibold text-sky-400 hover:text-sky-300 transition active:scale-95"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Dashboard</span>
@@ -109,21 +107,22 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
             type="button"
             onClick={handleManualCheckApprovals}
             disabled={isCheckingApprovals}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-sky-950 hover:bg-sky-900 border border-sky-800 text-sky-300 text-xs font-bold transition disabled:opacity-50 cursor-pointer shadow-sm active:scale-95"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-950/80 hover:bg-sky-900 border border-sky-800/80 text-sky-300 text-xs font-semibold transition disabled:opacity-50 active:scale-95 cursor-pointer shadow-sm"
             title="Check Central Admin for newly approved readings"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isCheckingApprovals ? 'animate-spin text-sky-400' : ''}`} />
-            <span>{isCheckingApprovals ? 'Checking Approvals...' : 'Check Admin Approvals'}</span>
+            <span>{isCheckingApprovals ? 'Syncing...' : 'Sync Approvals'}</span>
           </button>
 
-          <span className="text-xs text-slate-400">
-            Total Logged: <strong className="text-white">{readings.length}</strong>
+          <span className="text-xs font-mono text-slate-400">
+            Total: <strong className="text-white">{readings.length}</strong>
           </span>
         </div>
       </div>
 
+      {/* Sync Feedback Toast */}
       {syncFeedback && (
-        <div className="p-2.5 rounded-xl bg-emerald-950/80 border border-emerald-800 text-emerald-300 text-xs flex items-center justify-between animate-in fade-in slide-in-from-top-1">
+        <div className="p-2.5 rounded-xl bg-emerald-950/80 border border-emerald-800 text-emerald-300 text-xs flex items-center justify-between animate-in fade-in slide-in-from-top-1 shadow-sm">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
             <span>{syncFeedback}</span>
@@ -131,24 +130,25 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
         </div>
       )}
 
+      {/* Title Section */}
       <div>
-        <h2 className="text-lg font-black text-white uppercase tracking-tight">
-          Field Meter Readings Log
+        <h2 className="text-lg font-bold text-white tracking-tight">
+          Readings History
         </h2>
-        <p className="text-xs text-slate-400">
-          History of recorded meter readings and central approval verification status
+        <p className="text-xs text-slate-400 mt-0.5">
+          Chronological field records and central administrative approval verification
         </p>
       </div>
 
-      {/* Approval Status Filters */}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Segmented Filter Control */}
+      <div className="grid grid-cols-4 gap-1 p-1 bg-slate-900 border border-slate-800 rounded-xl select-none">
         <button
           type="button"
           onClick={() => setFilterApproval('ALL')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border ${
+          className={`py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold transition text-center ${
             filterApproval === 'ALL'
-              ? 'bg-sky-600 text-white border-sky-500'
-              : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
+              ? 'bg-sky-600 text-white shadow-sm'
+              : 'text-slate-400 hover:text-white'
           }`}
         >
           All ({readings.length})
@@ -157,39 +157,39 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
         <button
           type="button"
           onClick={() => setFilterApproval('pending')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border flex items-center gap-1.5 ${
+          className={`py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold transition text-center flex items-center justify-center gap-1 ${
             filterApproval === 'pending'
-              ? 'bg-amber-500 text-slate-950 border-amber-400'
-              : 'bg-slate-900 text-amber-400 border-slate-800 hover:border-amber-700'
+              ? 'bg-amber-500 text-slate-950 font-bold shadow-sm'
+              : 'text-slate-400 hover:text-amber-300'
           }`}
         >
-          <Clock className="w-3.5 h-3.5" />
-          <span>Pending Approval ({pendingCount})</span>
+          <Clock className="w-3 h-3 hidden sm:inline" />
+          <span>Pending ({pendingCount})</span>
         </button>
 
         <button
           type="button"
           onClick={() => setFilterApproval('approved')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border flex items-center gap-1.5 ${
+          className={`py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold transition text-center flex items-center justify-center gap-1 ${
             filterApproval === 'approved'
-              ? 'bg-emerald-600 text-white border-emerald-500'
-              : 'bg-slate-900 text-emerald-400 border-slate-800 hover:border-emerald-700'
+              ? 'bg-emerald-600 text-white font-bold shadow-sm'
+              : 'text-slate-400 hover:text-emerald-300'
           }`}
         >
-          <CheckCircle2 className="w-3.5 h-3.5" />
+          <CheckCircle2 className="w-3 h-3 hidden sm:inline" />
           <span>Approved ({approvedCount})</span>
         </button>
 
         <button
           type="button"
           onClick={() => setFilterApproval('rejected')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border flex items-center gap-1.5 ${
+          className={`py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold transition text-center flex items-center justify-center gap-1 ${
             filterApproval === 'rejected'
-              ? 'bg-rose-600 text-white border-rose-500'
-              : 'bg-slate-900 text-rose-400 border-slate-800 hover:border-rose-700'
+              ? 'bg-rose-600 text-white font-bold shadow-sm'
+              : 'text-slate-400 hover:text-rose-300'
           }`}
         >
-          <AlertCircle className="w-3.5 h-3.5" />
+          <AlertCircle className="w-3 h-3 hidden sm:inline" />
           <span>Flagged ({rejectedCount})</span>
         </button>
       </div>
@@ -203,13 +203,13 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
           type="text"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Search history by Account #, Name, or Meter Serial..."
-          className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 font-sans"
+          placeholder="Search by Account No, Name, or Meter Serial..."
+          className="w-full h-10 bg-slate-900 border border-slate-700/80 rounded-xl pl-9 pr-4 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 transition shadow-inner font-sans"
         />
       </div>
 
-      {/* Readings Archive List */}
-      <div className="space-y-2.5">
+      {/* Readings Cards List */}
+      <div className="space-y-3">
         {filteredReadings.length === 0 ? (
           <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-8 text-center text-slate-400 space-y-2">
             <History className="w-8 h-8 mx-auto text-slate-500" />
@@ -227,66 +227,98 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
             return (
               <div
                 key={reading.id}
-                className="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm hover:border-slate-700 transition"
+                className="bg-slate-900 border border-slate-800/90 rounded-2xl p-3.5 sm:p-4 space-y-2.5 shadow-sm hover:border-slate-700/80 transition"
               >
-                <div className="space-y-1 flex-1 min-w-0 pr-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono text-xs font-bold text-sky-400 bg-sky-950 px-2 py-0.5 rounded border border-sky-800">
-                      {reading.accountNumber}
+                {/* Header Row: Account Tag & Mutually Exclusive Status */}
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <span className="font-mono text-xs font-bold text-sky-400 bg-sky-950/80 px-2.5 py-0.5 rounded border border-sky-800/60">
+                    {reading.accountNumber}
+                  </span>
+
+                  {isPending && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-950/80 text-amber-400 border border-amber-800/60 flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      <span>Pending Admin Approval</span>
                     </span>
+                  )}
 
-                    {isPending && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-950 text-amber-400 border border-amber-800 flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        <span>Pending Admin Approval</span>
-                      </span>
-                    )}
+                  {isApproved && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span>Approved & Billed</span>
+                    </span>
+                  )}
 
-                    {isApproved && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3" />
-                        <span>Approved & Billed</span>
-                      </span>
-                    )}
+                  {isRejected && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-rose-950/80 text-rose-400 border border-rose-800/60 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      <span>Flagged / Rejected</span>
+                    </span>
+                  )}
+                </div>
 
-                    {isRejected && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-rose-950 text-rose-400 border border-rose-800 flex items-center gap-1">
-                        <AlertCircle className="w-3 h-3" />
-                        <span>Flagged / Rejected</span>
-                      </span>
-                    )}
+                {/* Consumer Name & Meter Tag */}
+                <div className="flex items-baseline justify-between gap-2">
+                  <h4 className="font-bold text-sm text-white tracking-tight truncate">
+                    {reading.consumerName}
+                  </h4>
+                  <span className="text-[11px] font-mono text-slate-400 shrink-0">
+                    Tag: {reading.meterSerial}
+                  </span>
+                </div>
+
+                {/* Standardized 3-Column Odometer Breakdown */}
+                <div className="grid grid-cols-3 gap-2 bg-slate-950/80 rounded-xl p-2.5 border border-slate-800/70 text-center font-mono">
+                  <div>
+                    <span className="text-[9px] uppercase font-bold text-slate-500 tracking-wider block">
+                      PREVIOUS
+                    </span>
+                    <span className="text-xs font-bold text-slate-300 block mt-0.5">
+                      {formatOdometerReading(reading.previousReading)} cu.m.
+                    </span>
                   </div>
 
-                  <h4 className="font-bold text-xs text-white truncate">{reading.consumerName}</h4>
-
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-slate-400 font-mono">
-                    <span>PREVIOUS: <strong className="text-slate-300">{formatOdometerReading(reading.previousReading)} cu.m.</strong></span>
-                    <span>•</span>
-                    <span>PRESENT: <strong className="text-sky-300">{formatOdometerReading(reading.currentReading)} cu.m.</strong></span>
-                    <span>•</span>
-                    <span>CONSUMPTION: <strong className="text-emerald-400">+{reading.consumption} cu.m.</strong></span>
+                  <div>
+                    <span className="text-[9px] uppercase font-bold text-sky-400 tracking-wider block">
+                      PRESENT
+                    </span>
+                    <span className="text-xs font-black text-sky-300 block mt-0.5">
+                      {formatOdometerReading(reading.currentReading)} cu.m.
+                    </span>
                   </div>
 
-                  <div className="text-[10px] text-slate-500 flex flex-wrap items-center gap-1.5 font-mono">
-                    <span>{reading.readingDate} {reading.readingTime}</span>
-                    <span>•</span>
-                    <span>Reader: {reading.readerName || reading.readerId}</span>
-                    {isApproved && (
-                      <>
-                        <span>•</span>
-                        <span className="text-emerald-400 font-bold flex items-center gap-1">
-                          <ShieldCheck className="w-3 h-3" />
-                          <span>Admin Verified ({reading.approvedBy || 'Supervisor'})</span>
-                        </span>
-                      </>
-                    )}
-                    {reading.remarks && (
-                      <>
-                        <span>•</span>
-                        <span className="text-slate-400 italic">Note: {reading.remarks}</span>
-                      </>
-                    )}
+                  <div>
+                    <span className="text-[9px] uppercase font-bold text-emerald-400 tracking-wider block">
+                      CONSUMPTION
+                    </span>
+                    <span className="text-xs font-black text-emerald-400 block mt-0.5">
+                      +{reading.consumption} cu.m.
+                    </span>
                   </div>
+                </div>
+
+                {/* Footer Metadata */}
+                <div className="text-[10.5px] text-slate-400 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono pt-0.5">
+                  <span>{reading.readingDate} {reading.readingTime}</span>
+                  <span className="text-slate-600">·</span>
+                  <span>Reader: {reading.readerName || reading.readerId}</span>
+                  
+                  {isApproved && (
+                    <>
+                      <span className="text-slate-600">·</span>
+                      <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                        <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                        <span>Admin Verified ({reading.approvedBy || 'Supervisor'})</span>
+                      </span>
+                    </>
+                  )}
+
+                  {reading.remarks && (
+                    <>
+                      <span className="text-slate-600">·</span>
+                      <span className="text-slate-400 italic">Note: {reading.remarks}</span>
+                    </>
+                  )}
                 </div>
               </div>
             );
@@ -296,3 +328,5 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
     </div>
   );
 };
+
+export default HistoryScreen;

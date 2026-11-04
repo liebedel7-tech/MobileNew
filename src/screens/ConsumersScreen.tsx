@@ -104,27 +104,33 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
   }, [baseConsumerPool, searchTerm, selectedBarangay, categoryFilter, filterStatus]);
 
   return (
-    <div className="p-3 sm:p-4 max-w-5xl mx-auto w-full space-y-3 pb-16">
+    <div className="p-3.5 sm:p-5 max-w-5xl mx-auto w-full space-y-3.5 pb-20">
       {/* Top Header Navigation */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <button
+          type="button"
           onClick={() => onNavigate('dashboard')}
-          className="flex items-center gap-1 text-xs font-bold text-sky-400 hover:text-sky-300 transition"
+          className="flex items-center gap-1.5 text-xs font-semibold text-sky-400 hover:text-sky-300 transition active:scale-95"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Dashboard</span>
         </button>
-        <span className="text-xs font-semibold text-slate-400">
-          Showing {filteredConsumers.length} of {consumers.length} Consumers
+        <span className="text-xs font-mono text-slate-400">
+          Showing <strong className="text-white">{filteredConsumers.length}</strong> of {consumers.length}
         </span>
       </div>
 
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h2 className="text-lg font-black text-white uppercase tracking-tight">
-          Consumer Directory
-        </h2>
+        <div>
+          <h2 className="text-lg font-bold text-white tracking-tight">
+            Consumer Directory
+          </h2>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Field meter reading assignment & sequence
+          </p>
+        </div>
         {currentUser && (
-          <span className="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-sky-950 border border-sky-700/80 text-sky-300 font-semibold">
+          <span className="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-sky-950/80 border border-sky-800/80 text-sky-300 font-semibold">
             Assigned: {currentUser.assignedRoutes && currentUser.assignedRoutes.length > 0 ? currentUser.assignedRoutes.join(', ') : (currentUser.zone || 'All Routes')}
           </span>
         )}
@@ -140,7 +146,7 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           placeholder="Search by Account No, Name, Meter Serial or Address..."
-          className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 transition shadow-inner font-sans"
+          className="w-full h-10 bg-slate-900 border border-slate-700/80 rounded-xl pl-9 pr-4 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 transition shadow-inner font-sans"
         />
       </div>
 
@@ -319,23 +325,23 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
                       </div>
                     )}
 
-                    {/* Reading & Consumption Block */}
-                    <div className="mt-2.5 pt-2 border-t border-slate-800/80 bg-slate-950/80 rounded-xl p-3 space-y-2 font-mono text-xs border border-slate-800/80">
-                      <div className="flex items-center justify-between text-slate-300">
-                        <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                          PREVIOUS READING
+                    {/* Standardized 3-Column Odometer Breakdown */}
+                    <div className="mt-2.5 grid grid-cols-3 gap-2 bg-slate-950/80 rounded-xl p-2.5 border border-slate-800/80 text-center font-mono">
+                      <div>
+                        <span className="text-[9px] uppercase font-bold text-slate-500 tracking-wider block">
+                          PREVIOUS
                         </span>
-                        <span className="font-bold text-slate-200 text-sm">
+                        <span className="text-xs font-bold text-slate-300 block mt-0.5">
                           {formatOdometerReading(consumer.previousReading)} cu.m.
                         </span>
                       </div>
 
-                      <div className="flex items-center justify-between text-slate-300">
-                        <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                          PRESENT READING
+                      <div>
+                        <span className="text-[9px] uppercase font-bold text-sky-400 tracking-wider block">
+                          PRESENT
                         </span>
-                        <span className={`font-bold text-sm ${
-                          consumer.isReadThisMonth ? 'text-sky-300' : 'text-slate-500 italic text-xs'
+                        <span className={`text-xs block mt-0.5 ${
+                          consumer.isReadThisMonth ? 'font-black text-sky-300' : 'text-slate-500 italic'
                         }`}>
                           {consumer.isReadThisMonth && consumer.currentMonthReading
                             ? `${formatOdometerReading(consumer.currentMonthReading.currentReading)} cu.m.`
@@ -343,16 +349,16 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
                         </span>
                       </div>
 
-                      <div className="flex items-center justify-between pt-1.5 border-t border-slate-800/80">
-                        <span className="text-[10px] uppercase font-bold text-emerald-400 tracking-wider">
+                      <div>
+                        <span className="text-[9px] uppercase font-bold text-emerald-400 tracking-wider block">
                           CONSUMPTION
                         </span>
-                        <span className={`font-black text-sm ${
+                        <span className={`text-xs font-black block mt-0.5 ${
                           consumer.isReadThisMonth ? 'text-emerald-400' : 'text-slate-400'
                         }`}>
                           {consumer.isReadThisMonth && consumer.currentMonthReading
                             ? `+${consumer.currentMonthReading.consumption} cu.m.`
-                            : (consumer.previousConsumption ? `${consumer.previousConsumption} cu.m. (Prev)` : '—')}
+                            : (consumer.previousConsumption ? `${consumer.previousConsumption} cu.m.` : '—')}
                         </span>
                       </div>
                     </div>
