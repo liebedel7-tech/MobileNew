@@ -44,7 +44,7 @@ import { WebSocketService } from '../services/websocketService';
 
 interface ReadingEntryScreenProps {
   consumer: Consumer;
-  user: StaffUser;
+  user: StaffUser | null;
   allConsumers?: Consumer[];
   initialReadingValue?: number;
   initialPhotoUrl?: string;
@@ -258,8 +258,8 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
       consumption,
       readingDate: now.toISOString().split('T')[0],
       readingTime: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      readerId: user.id,
-      readerName: user.name,
+      readerId: user?.id || 'RDR-001',
+      readerName: user?.name || 'Field Staff',
       gpsCoordinates: gpsLocation,
       photoUrl,
       ocrConfidence: initialOcrConfidence,
@@ -278,8 +278,8 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
     await LoggerService.log(
       'READING_CONFIRMED_SENT',
       `Meter reading ${numReading} cu.m. (${consumption} cu.m. consumed) confirmed & dispatched for Acc #${consumer.accountNumber}. Status: Pending Admin Approval.`,
-      user.id,
-      user.name
+      user?.id || 'RDR-001',
+      user?.name || 'Field Staff'
     );
 
     // 2. Transmit / Send to Admin
@@ -308,7 +308,7 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
         consumerName: newReading.consumerName,
         consumption: newReading.consumption,
         amount: newReading.billCalculation.totalAmountDue,
-        readerName: user.name,
+        readerName: user?.name || 'Field Staff',
         timestamp: now.toISOString(),
       });
     } catch {
@@ -350,7 +350,7 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
           consumerName: savedReading.consumerName,
           consumption: savedReading.consumption,
           amount: savedReading.billCalculation.totalAmountDue,
-          readerName: user.name,
+          readerName: user?.name || 'Field Staff',
           timestamp: new Date().toISOString(),
         });
       } else {

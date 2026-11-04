@@ -322,10 +322,16 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
                       className={`text-[9px] font-bold px-2 py-0.5 rounded ${
                         reading.approvalStatus === 'approved' || reading.status === 'APPROVED'
                           ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
-                          : 'bg-amber-950 text-amber-400 border border-amber-800'
+                          : (reading.approvalStatus === 'rejected' || reading.status === 'REJECTED'
+                              ? 'bg-rose-950 text-rose-400 border border-rose-800'
+                              : 'bg-amber-950 text-amber-400 border border-amber-800')
                       }`}
                     >
-                      {reading.approvalStatus === 'approved' || reading.status === 'APPROVED' ? 'Approved & Billed' : 'Pending Admin Approval'}
+                      {reading.approvalStatus === 'approved' || reading.status === 'APPROVED' 
+                        ? 'Approved & Billed' 
+                        : (reading.approvalStatus === 'rejected' || reading.status === 'REJECTED'
+                            ? 'Flagged / Rejected'
+                            : 'Pending Admin Approval')}
                     </span>
                   </div>
 

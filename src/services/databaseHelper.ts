@@ -303,9 +303,9 @@ export class DatabaseHelper {
     const exact = all.find(
       (c) =>
         (c.meterNumber && c.meterNumber.toLowerCase() === rawClean) ||
-        c.meterSerial.toLowerCase() === rawClean ||
-        c.accountNumber.toLowerCase() === rawClean ||
-        c.accountNumber.replace(/-/g, '').toLowerCase() === rawClean.replace(/-/g, '')
+        (c.meterSerial && c.meterSerial.toLowerCase() === rawClean) ||
+        (c.accountNumber && c.accountNumber.toLowerCase() === rawClean) ||
+        (c.accountNumber && c.accountNumber.replace(/-/g, '').toLowerCase() === rawClean.replace(/-/g, ''))
     );
     if (exact) return exact;
 
@@ -538,8 +538,12 @@ export class DatabaseHelper {
         // Find ALL readings matching this consumer / account or id
         const matchingReadings = allReadings.filter(
           (r) =>
-            (cleanKey && (r.id.toLowerCase() === cleanKey || r.accountNumber.toLowerCase() === cleanKey || r.consumerId.toLowerCase() === cleanKey)) ||
-            (cleanAccount && r.accountNumber.toLowerCase() === cleanAccount)
+            (cleanKey && (
+              (r.id && r.id.toLowerCase() === cleanKey) ||
+              (r.accountNumber && r.accountNumber.toLowerCase() === cleanKey) ||
+              (r.consumerId && r.consumerId.toLowerCase() === cleanKey)
+            )) ||
+            (cleanAccount && r.accountNumber && r.accountNumber.toLowerCase() === cleanAccount)
         );
 
         const nowIso = details?.approvedAt || new Date().toISOString();
@@ -571,8 +575,8 @@ export class DatabaseHelper {
             matchedConsumer = allConsumers.find(
               (c) =>
                 (matchedReading && (c.id === matchedReading.consumerId || c.accountNumber === matchedReading.accountNumber)) ||
-                (cleanAccount && c.accountNumber.toLowerCase() === cleanAccount) ||
-                (cleanKey && (c.id.toLowerCase() === cleanKey || c.accountNumber.toLowerCase() === cleanKey))
+                (cleanAccount && c.accountNumber && c.accountNumber.toLowerCase() === cleanAccount) ||
+                (cleanKey && ((c.id && c.id.toLowerCase() === cleanKey) || (c.accountNumber && c.accountNumber.toLowerCase() === cleanKey)))
             ) || null;
 
             if (matchedConsumer && matchedReading) {
@@ -604,8 +608,8 @@ export class DatabaseHelper {
             const allConsumers: Consumer[] = consumerReq.result || [];
             matchedConsumer = allConsumers.find(
               (c) =>
-                (cleanAccount && c.accountNumber.toLowerCase() === cleanAccount) ||
-                (cleanKey && (c.id.toLowerCase() === cleanKey || c.accountNumber.toLowerCase() === cleanKey))
+                (cleanAccount && c.accountNumber && c.accountNumber.toLowerCase() === cleanAccount) ||
+                (cleanKey && ((c.id && c.id.toLowerCase() === cleanKey) || (c.accountNumber && c.accountNumber.toLowerCase() === cleanKey)))
             ) || null;
 
             if (matchedConsumer && approvalStatus === 'approved' && details?.currentReading !== undefined) {
@@ -770,8 +774,8 @@ export class DatabaseHelper {
     try {
       const existing = await this.getLocalReaders();
       const updated = existing.filter(
-        r => r.username.toLowerCase() !== reader.username.toLowerCase() && 
-             r.id.toLowerCase() !== reader.id.toLowerCase()
+        r => ((r.username && reader.username) ? r.username.toLowerCase() !== reader.username.toLowerCase() : true) && 
+             ((r.id && reader.id) ? r.id.toLowerCase() !== reader.id.toLowerCase() : true)
       );
       updated.push(reader);
 
@@ -795,11 +799,12 @@ export class DatabaseHelper {
     try {
       const readers = await this.getLocalReaders();
       let updatedReader: ReaderAccount | null = null;
+      const cleanId = (identifier || '').toLowerCase();
       const updated = readers.map((r) => {
         if (
-          r.id.toLowerCase() === identifier.toLowerCase() ||
-          r.username.toLowerCase() === identifier.toLowerCase() ||
-          (r.employeeId && r.employeeId.toLowerCase() === identifier.toLowerCase())
+          (r.id && r.id.toLowerCase() === cleanId) ||
+          (r.username && r.username.toLowerCase() === cleanId) ||
+          (r.employeeId && r.employeeId.toLowerCase() === cleanId)
         ) {
           const isDeactivating = status === 'terminated' || status === 'rejected';
           // When mobile detects a deactivated account, the assigned area routes are automatically released and made available

@@ -21,10 +21,10 @@ export const AuditLogScreen: React.FC<AuditLogScreenProps> = ({ logs, onNavigate
 
   const filteredLogs = logs.filter(
     (l) =>
-      l.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      l.details.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      l.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      l.userId.toLowerCase().includes(searchTerm.toLowerCase())
+      (l.action || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (l.details || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (l.userName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (l.userId || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleExportLogs = () => {

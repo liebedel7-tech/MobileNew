@@ -21,7 +21,7 @@ import {
 import { Consumer, MeterReading, StaffUser, SyncState, ActiveScreen } from '../types';
 
 interface DashboardScreenProps {
-  user: StaffUser;
+  user: StaffUser | null;
   consumers: Consumer[];
   readings: MeterReading[];
   syncState: SyncState;
@@ -74,7 +74,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 </span>
               </h2>
               <p className="text-[10.5px] text-slate-400 font-mono">
-                Authorized Reader: {user.name} • {user.assignedRoutes && user.assignedRoutes.length > 0 ? user.assignedRoutes.join(', ') : user.zone}
+                Authorized Reader: {user?.name || 'Authorized Field Staff'} • {user?.assignedRoutes && user.assignedRoutes.length > 0 ? user.assignedRoutes.join(', ') : (user?.zone || 'All Routes')}
               </p>
             </div>
           </div>
@@ -218,7 +218,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         <div className="flex items-center justify-between mb-3">
           <div>
             <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-              Shift Progress • {user.assignedRoutes && user.assignedRoutes.length > 0 ? user.assignedRoutes.join(', ') : user.zone}
+              Shift Progress • {user?.assignedRoutes && user.assignedRoutes.length > 0 ? user.assignedRoutes.join(', ') : (user?.zone || 'All Routes')}
             </h2>
             <p className="text-[11px] text-slate-500 font-mono mt-0.5">
               Assigned Consumer Accounts

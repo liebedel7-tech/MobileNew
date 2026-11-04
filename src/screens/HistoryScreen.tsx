@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   ArrowLeft, 
   Search, 
@@ -8,10 +8,13 @@ import {
   MapPin, 
   Droplet,
   XCircle,
-  AlertCircle
+  AlertCircle,
+  RefreshCw,
+  ShieldCheck
 } from 'lucide-react';
 import { MeterReading, ActiveScreen } from '../types';
 import { formatOdometerReading } from '../constants/routes';
+import { SyncService } from '../services/syncService';
 
 interface HistoryScreenProps {
   readings: MeterReading[];
@@ -22,9 +25,43 @@ interface HistoryScreenProps {
 export const HistoryScreen: React.FC<HistoryScreenProps> = ({
   readings,
   onNavigate,
+  onReload,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterApproval, setFilterApproval] = useState<'ALL' | 'pending' | 'approved' | 'rejected'>('ALL');
+  const [isCheckingApprovals, setIsCheckingApprovals] = useState(false);
+  const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
+
+  // Auto-sync approvals from Central Admin on screen load
+  useEffect(() => {
+    let isMounted = true;
+    SyncService.syncNow(true).then(() => {
+      if (isMounted && onReload) {
+        onReload();
+      }
+    }).catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleManualCheckApprovals = async () => {
+    if (isCheckingApprovals) return;
+    setIsCheckingApprovals(true);
+    setSyncFeedback(null);
+    try {
+      const res = await SyncService.syncNow(false);
+      if (onReload) await onReload();
+      setSyncFeedback(res.message || 'Approvals synchronized from Central Admin.');
+      setTimeout(() => setSyncFeedback(null), 3500);
+    } catch {
+      setSyncFeedback('Unable to reach Central Server. Reading queue safe in local storage.');
+      setTimeout(() => setSyncFeedback(null), 3500);
+    } finally {
+      setIsCheckingApprovals(false);
+    }
+  };
 
   const isReadingApproved = (r: MeterReading) => r.approvalStatus === 'approved' || r.status === 'APPROVED';
   const isReadingRejected = (r: MeterReading) => r.approvalStatus === 'rejected' || r.status === 'REJECTED';
@@ -37,9 +74,9 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
   const filteredReadings = useMemo(() => {
     return readings.filter((r) => {
       const matchSearch =
-        r.consumerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.accountNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.meterSerial.toLowerCase().includes(searchTerm.toLowerCase());
+        (r.consumerName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (r.accountNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (r.meterSerial || '').toLowerCase().includes(searchTerm.toLowerCase());
 
       const isApproved = isReadingApproved(r);
       const isRejected = isReadingRejected(r);
@@ -58,7 +95,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
   return (
     <div className="p-3 sm:p-4 max-w-4xl mx-auto w-full space-y-4 pb-20">
       {/* Header Nav */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <button
           onClick={() => onNavigate('dashboard')}
           className="flex items-center gap-1 text-xs font-bold text-sky-400 hover:text-sky-300 transition"
@@ -67,10 +104,32 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
           <span>Dashboard</span>
         </button>
 
-        <span className="text-xs text-slate-400">
-          Total Logged: <strong className="text-white">{readings.length}</strong>
-        </span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleManualCheckApprovals}
+            disabled={isCheckingApprovals}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-sky-950 hover:bg-sky-900 border border-sky-800 text-sky-300 text-xs font-bold transition disabled:opacity-50 cursor-pointer shadow-sm active:scale-95"
+            title="Check Central Admin for newly approved readings"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isCheckingApprovals ? 'animate-spin text-sky-400' : ''}`} />
+            <span>{isCheckingApprovals ? 'Checking Approvals...' : 'Check Admin Approvals'}</span>
+          </button>
+
+          <span className="text-xs text-slate-400">
+            Total Logged: <strong className="text-white">{readings.length}</strong>
+          </span>
+        </div>
       </div>
+
+      {syncFeedback && (
+        <div className="p-2.5 rounded-xl bg-emerald-950/80 border border-emerald-800 text-emerald-300 text-xs flex items-center justify-between animate-in fade-in slide-in-from-top-1">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>{syncFeedback}</span>
+          </div>
+        </div>
+      )}
 
       <div>
         <h2 className="text-lg font-black text-white uppercase tracking-tight">
@@ -208,10 +267,19 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                     <span>CONSUMPTION: <strong className="text-emerald-400">+{reading.consumption} cu.m.</strong></span>
                   </div>
 
-                  <div className="text-[10px] text-slate-500 flex flex-wrap items-center gap-1 font-mono">
+                  <div className="text-[10px] text-slate-500 flex flex-wrap items-center gap-1.5 font-mono">
                     <span>{reading.readingDate} {reading.readingTime}</span>
                     <span>•</span>
                     <span>Reader: {reading.readerName || reading.readerId}</span>
+                    {isApproved && (
+                      <>
+                        <span>•</span>
+                        <span className="text-emerald-400 font-bold flex items-center gap-1">
+                          <ShieldCheck className="w-3 h-3" />
+                          <span>Admin Verified ({reading.approvedBy || 'Supervisor'})</span>
+                        </span>
+                      </>
+                    )}
                     {reading.remarks && (
                       <>
                         <span>•</span>

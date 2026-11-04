@@ -83,11 +83,11 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
   const filteredConsumers = useMemo(() => {
     return baseConsumerPool.filter((c) => {
       const matchSearch =
-        c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.accountNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.meterSerial.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (c.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (c.accountNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (c.meterSerial || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (c.meterNumber && c.meterNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        c.address.toLowerCase().includes(searchTerm.toLowerCase());
+        (c.address || '').toLowerCase().includes(searchTerm.toLowerCase());
 
       const matchBarangay = selectedBarangay === 'ALL' || c.barangay === selectedBarangay;
       const matchCategory = categoryFilter === 'ALL' || c.category === categoryFilter;
@@ -125,7 +125,7 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
         </h2>
         {currentUser && (
           <span className="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-sky-950 border border-sky-700/80 text-sky-300 font-semibold">
-            Assigned: {currentUser.assignedRoutes && currentUser.assignedRoutes.length > 0 ? currentUser.assignedRoutes.join(', ') : currentUser.zone}
+            Assigned: {currentUser.assignedRoutes && currentUser.assignedRoutes.length > 0 ? currentUser.assignedRoutes.join(', ') : (currentUser.zone || 'All Routes')}
           </span>
         )}
       </div>
