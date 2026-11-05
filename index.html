@@ -28,20 +28,15 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
-      // Clean up any stale service workers to guarantee instant updates
+      // Register service worker to enable PWA installability and offline caching
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(function(registrations) {
-          for (let registration of registrations) {
-            registration.unregister();
-          }
-        });
-        if ('caches' in window) {
-          caches.keys().then(function(names) {
-            for (let name of names) {
-              caches.delete(name);
-            }
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/sw.js').then(function(reg) {
+            console.log('[TWD-PWA] Service worker registered successfully:', reg.scope);
+          }).catch(function(err) {
+            console.warn('[TWD-PWA] Service worker registration failed:', err);
           });
-        }
+        });
       }
     </script>
   </body>

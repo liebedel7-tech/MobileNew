@@ -32,6 +32,7 @@ export const DownloadApkModal: React.FC<DownloadApkModalProps> = ({
   const [activeTab, setActiveTab] = useState<'INSTALL' | 'FLUTTER_APK' | 'MANUAL'>('INSTALL');
   const [copiedCmd, setCopiedCmd] = useState(false);
 
+  const [showDirectGuide, setShowDirectGuide] = useState(false);
   const effectiveIsInstalled = isInstalled || installStatus === 'INSTALLED';
 
   const handleTriggerNativeInstall = async () => {
@@ -47,13 +48,11 @@ export const DownloadApkModal: React.FC<DownloadApkModalProps> = ({
         }
       } catch (err) {
         console.warn('Install prompt was already triggered or dismissed:', err);
+        setShowDirectGuide(true);
       }
     } else {
-      markAppAsInstalled();
-      setInstallStatus('INSTALLED');
-      alert(
-        'To install the app on your device:\n\n1. Open this app in Chrome / Samsung Internet / Safari.\n2. Tap the browser Menu (⋮ or Share).\n3. Tap "Install App" or "Add to Home Screen".\n\nYour device will install the standalone Tagoloan Water District App!'
-      );
+      // If browser beforeinstallprompt hasn't triggered or on iOS Safari, show the direct guide
+      setShowDirectGuide(true);
     }
   };
 
@@ -198,7 +197,7 @@ export const DownloadApkModal: React.FC<DownloadApkModalProps> = ({
                         resetInstallStatus();
                         setInstallStatus('IDLE');
                       }}
-                      className="text-slate-400 hover:text-sky-400 underline flex items-center gap-1"
+                      className="text-slate-400 hover:text-sky-400 underline flex items-center gap-1 cursor-pointer"
                     >
                       <RotateCcw className="w-3 h-3" />
                       <span>Re-check / Reset</span>
@@ -206,13 +205,35 @@ export const DownloadApkModal: React.FC<DownloadApkModalProps> = ({
                   </div>
                 </div>
               ) : (
-                <button
-                  onClick={handleTriggerNativeInstall}
-                  className="w-full bg-sky-600 hover:bg-sky-500 text-white font-black py-3.5 rounded-2xl shadow-xl shadow-sky-600/30 flex items-center justify-center gap-2 text-sm uppercase tracking-wider transition hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>Install the App on Your Device</span>
-                </button>
+                <div className="space-y-3">
+                  <button
+                    onClick={handleTriggerNativeInstall}
+                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3.5 rounded-2xl shadow-xl shadow-emerald-600/30 flex items-center justify-center gap-2 text-sm uppercase tracking-wider transition hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Install App on Your Phone</span>
+                  </button>
+
+                  {/* Browser Direct Instructions Guide */}
+                  {showDirectGuide && (
+                    <div className="p-3 bg-slate-950 border border-sky-500/40 rounded-xl space-y-2.5 animate-in fade-in">
+                      <div className="text-xs font-bold text-sky-400 flex items-center gap-1.5">
+                        <Smartphone className="w-3.5 h-3.5" />
+                        <span>How to Install from Your Mobile Browser:</span>
+                      </div>
+                      <div className="space-y-2 text-[11px] text-slate-300">
+                        <div className="p-2 rounded-lg bg-slate-900 border border-slate-800">
+                          <strong className="text-emerald-400 block mb-0.5">🤖 Chrome / Android:</strong>
+                          <span>Tap the <strong>three dots (⋮)</strong> menu at the top-right of Chrome, then select <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>.</span>
+                        </div>
+                        <div className="p-2 rounded-lg bg-slate-900 border border-slate-800">
+                          <strong className="text-sky-400 block mb-0.5">🍎 Safari / iPhone:</strong>
+                          <span>Tap the <strong>Share</strong> button (box with upward arrow) at the bottom toolbar, then select <strong>"Add to Home Screen"</strong>.</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
 
               {/* Flutter Native Capabilities */}

@@ -741,7 +741,17 @@ export function App() {
           onLogin={handleLogin} 
           onBackToLanding={() => navigateTo('landing')}
           initialMode={loginInitialMode}
+          onOpenApkModal={() => setIsApkModalOpen(true)}
+          deferredPrompt={deferredInstallPrompt}
         />
+
+        {/* Android APK & Mobile Installation Modal on Login Screen */}
+        {isApkModalOpen && (
+          <DownloadApkModal
+            onClose={() => setIsApkModalOpen(false)}
+            deferredPrompt={deferredInstallPrompt}
+          />
+        )}
       </MobileFrameWrapper>
     );
   }

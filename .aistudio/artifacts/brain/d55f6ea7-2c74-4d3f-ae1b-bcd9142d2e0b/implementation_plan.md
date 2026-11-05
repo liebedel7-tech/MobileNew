@@ -75,14 +75,19 @@ When the Administrator approves or accepts meter readings:
 
 ---
 
-## 6. Test Verification
-- **Automated Test Suite**: 9/9 tests passed (100% pass rate) via `tests/runMobileTests.ts`.
-  - `TC-MOB-01`: Gateway Health Probe & District Identification (PASS)
-  - `TC-MOB-02`: Direct Auto-Active Registration (Zero Admin Delay) (PASS)
-  - `TC-MOB-03`: Mobile Reader Login & Session Authorization (PASS)
-  - `TC-MOB-04`: Admin Single Action: Termination & Auto-Freed Routes (PASS)
-  - `TC-MOB-05`: Admin ID Issuance Validation Gate (62 Validated System Consumers) (PASS)
-  - `TC-MOB-06`: Live Field Reading Transmission with GPS & Photo (PASS)
-  - `TC-MOB-07`: Offline Queue Batch Ingestion (Field Dead-Spot Recovery) (PASS)
-  - `TC-MOB-08`: Strict No-Print & No-Bill-Distribution Enforcement (PASS)
-  - `TC-MOB-09`: Automatic Status Change to APPROVED & Baseline Data Persistence (PASS)
+## 7. Mobile Phone Browser Install Button & Password Eye Icon Standardization
+1. **PWA Install Button Availability in Phone Browsers**:
+   - **Root Cause 1 (`installService.ts`)**: `isAppInstalledOnDevice()` previously checked `localStorage.getItem('twd_app_installed_v1') === 'true'`. Once clicked or previewed, this flag permanently hid the install button across the entire app for that browser even when running in a normal browser tab. Fixed: the app is now strictly considered installed only when running in true standalone or fullscreen display mode (`display-mode: standalone`, `display-mode: fullscreen`, `navigator.standalone === true`, or launcher parameters).
+   - **Root Cause 2 (`index.html`)**: `index.html` contained a script that actively unregistered all service workers on every page load, preventing Chromium/Android from triggering the `beforeinstallprompt` event. Fixed: replaced with standard `/sw.js` service worker registration.
+   - **Root Cause 3 (`LoginScreen.tsx` & Headers)**: `LoginScreen` had no install button or `DownloadApkModal` mounted, meaning phone browser users arriving at the login screen could never install the app. Added a prominent "Install App" header button and an install prompt card on `LoginScreen`, and updated `WDTHeader` and `LandingScreen` with clearly labeled emerald install pill buttons (`<Smartphone /> Install App`) instead of ambiguous unlabeled icon buttons.
+   - **Root Cause 4 (`DownloadApkModal.tsx`)**: Removed `window.alert(...)` (which is prohibited and gets blocked in mobile iframes) and prevented premature `markAppAsInstalled()` execution. Added direct inline step-by-step guidance for Android Chrome (⋮ menu -> Install app) and iOS Safari (Share -> Add to Home Screen).
+
+2. **Password Eye Icon Standardization**:
+   - **Touch Hit Target**: Expanded the password visibility button to a full `w-10 h-full flex items-center justify-center touch-manipulation` hit target on mobile screens so taps never miss or trigger unwanted keyboard re-focus.
+   - **Visual Consistency**: Standardized icon sizing to `w-4 h-4`, padding to `pl-9 pr-10`, and interactive colors (`text-slate-400 hover:text-sky-400 active:text-sky-300`).
+   - **Icon State Logic**: Consistent semantic behavior:
+     - When password is hidden (`type="password"`): displays `<Eye className="w-4 h-4" />` with `aria-label="Show password"` and `title="Show password"`.
+     - When password is shown (`type="text"`): displays `<EyeOff className="w-4 h-4" />` with `aria-label="Hide password"` and `title="Hide password"`.
+   - **Adaptive Font Tracking**: When masked, uses `font-mono tracking-widest` for clean dot spacing; when revealed, smoothly transitions to `font-mono tracking-normal` so alphanumeric characters are legible and not awkwardly spaced.
+   - **Tab State Reset**: Automatically resets `showPin` and `showRegPin` when switching between Sign In and Register tabs in `LoginScreen`.
+

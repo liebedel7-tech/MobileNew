@@ -112,15 +112,16 @@ export const WDTHeader: React.FC<WDTHeaderProps> = ({
           <RefreshCw className={`w-3.5 h-3.5 ${syncState.syncInProgress ? 'animate-spin text-sky-400' : ''}`} />
         </button>
 
-        {/* Install Mobile WebAPK Button (Only if not installed) */}
+        {/* Install Mobile WebAPK Button (Only if not running in standalone installed mode) */}
         {!isInstalled && (
           <button
             type="button"
             onClick={onOpenApkModal}
-            className="p-2 rounded-lg bg-slate-800/80 hover:bg-slate-750 border border-slate-700/80 text-emerald-400 hover:text-emerald-300 transition active:scale-95 cursor-pointer shadow-sm"
-            title="Download Android APK / Install App"
+            className="px-2 py-1.5 rounded-lg bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-600/70 text-emerald-300 hover:text-emerald-100 transition active:scale-95 cursor-pointer shadow-sm flex items-center gap-1 text-xs font-bold shrink-0"
+            title="Install App on Phone"
           >
-            <Smartphone className="w-3.5 h-3.5" />
+            <Smartphone className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <span className="text-[11px] font-bold">Install</span>
           </button>
         )}
 

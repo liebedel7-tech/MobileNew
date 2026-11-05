@@ -131,10 +131,11 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
               <button
                 type="button"
                 onClick={onOpenApkModal}
-                className="p-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-emerald-400 transition cursor-pointer"
-                title="Download Android APK / Install App"
+                className="px-2 py-1 rounded-xl bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-600/70 text-emerald-300 hover:text-emerald-100 transition cursor-pointer flex items-center gap-1 font-bold text-xs"
+                title="Install App on Phone"
               >
-                <Smartphone className="w-3.5 h-3.5" />
+                <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="text-[10px]">Install</span>
               </button>
             )}
           </div>

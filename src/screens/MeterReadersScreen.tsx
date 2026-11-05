@@ -1065,15 +1065,19 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
                         value={newPin}
                         onChange={(e) => setNewPin(e.target.value)}
                         placeholder="1234"
-                        className="w-full pl-3 pr-9 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:border-sky-500"
+                        className={`w-full pl-3 pr-10 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:border-sky-500 font-mono ${
+                          showNewPin ? 'tracking-normal' : 'tracking-widest'
+                        }`}
                       />
                       <button
                         type="button"
+                        tabIndex={-1}
                         onClick={() => setShowNewPin(!showNewPin)}
-                        className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-200 transition focus:outline-none"
+                        className="absolute inset-y-0 right-0 w-10 flex items-center justify-center text-slate-400 hover:text-sky-400 active:text-sky-300 transition cursor-pointer touch-manipulation focus:outline-none"
                         aria-label={showNewPin ? "Hide PIN" : "Show PIN"}
+                        title={showNewPin ? "Hide PIN" : "Show PIN"}
                       >
-                        {showNewPin ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        {showNewPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
                   </div>

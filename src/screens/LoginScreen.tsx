@@ -15,6 +15,7 @@ import {
   BadgeCheck, 
   RefreshCw,
   Smartphone,
+  Download,
   AlertCircle,
   Sparkles,
   Ban,
@@ -29,6 +30,7 @@ import { SyncService } from '../services/syncService';
 import { universalApiFetch, getApiEndpoint } from '../services/apiConfig';
 import { OfficialLogo } from '../components/OfficialLogo';
 import { APP_OFFICIAL_BADGE, APP_OFFICIAL_TITLE } from '../constants/branding';
+import { useDeviceInstallStatus } from '../services/installService';
 import { 
   TAGOLOAN_BARANGAYS, 
   calculateLocationOccupancies, 
@@ -42,13 +44,18 @@ interface LoginScreenProps {
   onLogin: (user: StaffUser) => void;
   onBackToLanding?: () => void;
   initialMode?: 'LOGIN' | 'REGISTER';
+  onOpenApkModal?: () => void;
+  deferredPrompt?: any;
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ 
   onLogin, 
   onBackToLanding,
   initialMode = 'LOGIN',
+  onOpenApkModal,
+  deferredPrompt,
 }) => {
+  const { isInstalled } = useDeviceInstallStatus();
   const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER'>(initialMode === 'REGISTER' ? 'REGISTER' : 'LOGIN');
 
   useEffect(() => {
@@ -458,9 +465,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
   return (
     <div className="w-full h-full min-h-0 flex-1 overflow-y-auto overflow-x-hidden flex flex-col justify-start px-3 sm:px-4 py-3 sm:py-4 max-w-md mx-auto scrollbar-thin scrollbar-thumb-slate-800">
-      {/* Return to Portal Header */}
-      {onBackToLanding && (
-        <div className="mb-2 shrink-0">
+      {/* Return to Portal & Mobile Install Button Header */}
+      <div className="flex items-center justify-between mb-2 shrink-0">
+        {onBackToLanding ? (
           <button
             type="button"
             onClick={onBackToLanding}
@@ -469,8 +476,21 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Back to Field Portal</span>
           </button>
-        </div>
-      )}
+        ) : <div />}
+
+        {/* Install Mobile WebAPK / PWA Button on Phone Browser */}
+        {!isInstalled && onOpenApkModal && (
+          <button
+            type="button"
+            onClick={onOpenApkModal}
+            className="px-2.5 py-1 rounded-xl bg-emerald-950/90 hover:bg-emerald-900 border border-emerald-600/70 text-emerald-300 hover:text-emerald-100 transition active:scale-95 cursor-pointer flex items-center gap-1.5 text-xs font-bold shadow-sm"
+            title="Install App on Phone"
+          >
+            <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="text-[11px]">Install App</span>
+          </button>
+        )}
+      </div>
 
       {/* Official District Emblem - Compact in Register Mode */}
       <div className={`text-center flex flex-col items-center shrink-0 ${authMode === 'REGISTER' ? 'mb-2.5' : 'mb-3.5'}`}>
@@ -491,12 +511,35 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         </p>
       </div>
 
+      {/* Install App Prompt Card for Phone Browser */}
+      {!isInstalled && onOpenApkModal && (
+        <button
+          type="button"
+          onClick={onOpenApkModal}
+          className="w-full mb-2.5 p-2 rounded-xl bg-emerald-950/40 hover:bg-emerald-950/60 border border-emerald-700/60 text-emerald-300 flex items-center justify-between text-xs transition cursor-pointer active:scale-[0.99] shrink-0"
+        >
+          <div className="flex items-center gap-2">
+            <Smartphone className="w-4 h-4 text-emerald-400 shrink-0" />
+            <div className="text-left">
+              <span className="font-bold text-white block text-[11px]">Install App on Your Phone</span>
+              <span className="text-[9.5px] text-emerald-300/80">Offline camera OCR & standalone field mode</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-900/60 px-2 py-1 rounded-lg border border-emerald-700/60">
+            <Download className="w-3 h-3" />
+            <span>Install</span>
+          </div>
+        </button>
+      )}
+
       {/* Auth Mode Toggle Tabs (Sign In vs Register) */}
       <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800 mb-2.5 shadow-sm shrink-0">
         <button
           type="button"
           onClick={() => {
             setAuthMode('LOGIN');
+            setShowPin(false);
+            setShowRegPin(false);
             setError(null);
           }}
           className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition flex items-center justify-center gap-1.5 cursor-pointer ${
@@ -513,6 +556,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           type="button"
           onClick={() => {
             setAuthMode('REGISTER');
+            setShowPin(false);
+            setShowRegPin(false);
             setError(null);
           }}
           className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition flex items-center justify-center gap-1.5 cursor-pointer ${
@@ -590,13 +635,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     }}
                     placeholder="Password"
                     required
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-10 py-2 text-xs text-white focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition font-mono tracking-widest"
+                    className={`w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-10 py-2 text-xs text-white focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition font-mono ${
+                      showPin ? 'tracking-normal' : 'tracking-widest'
+                    }`}
                   />
                   <button
                     type="button"
+                    tabIndex={-1}
                     onClick={() => setShowPin(!showPin)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-200 transition focus:outline-none"
+                    className="absolute inset-y-0 right-0 w-10 flex items-center justify-center text-slate-400 hover:text-sky-400 active:text-sky-300 transition cursor-pointer touch-manipulation focus:outline-none"
                     aria-label={showPin ? "Hide password" : "Show password"}
+                    title={showPin ? "Hide password" : "Show password"}
                   >
                     {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -698,15 +747,19 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegPin(e.target.value)}
                       placeholder="Password"
                       required
-                      className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-8 pr-8 py-1.5 text-xs text-white font-mono tracking-wider focus:outline-none focus:border-sky-500 transition"
+                      className={`w-full bg-slate-950 border border-slate-700 rounded-xl pl-8 pr-10 py-1.5 text-xs text-white font-mono transition focus:outline-none focus:border-sky-500 ${
+                        showRegPin ? 'tracking-normal' : 'tracking-widest'
+                      }`}
                     />
                     <button
                       type="button"
+                      tabIndex={-1}
                       onClick={() => setShowRegPin(!showRegPin)}
-                      className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-200 transition focus:outline-none"
+                      className="absolute inset-y-0 right-0 w-10 flex items-center justify-center text-slate-400 hover:text-sky-400 active:text-sky-300 transition cursor-pointer touch-manipulation focus:outline-none"
                       aria-label={showRegPin ? "Hide password" : "Show password"}
+                      title={showRegPin ? "Hide password" : "Show password"}
                     >
-                      {showRegPin ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      {showRegPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>

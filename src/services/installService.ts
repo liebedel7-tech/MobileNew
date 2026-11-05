@@ -9,10 +9,22 @@ import { useState, useEffect } from 'react';
 const INSTALL_STORAGE_KEY = 'twd_app_installed_v1';
 const INSTALL_EVENT_NAME = 'twd:app-install-status-changed';
 
+export function isMobileDevice(): boolean {
+  if (typeof window === 'undefined') return false;
+  const ua = window.navigator.userAgent.toLowerCase();
+  return /android|iphone|ipad|ipod|mobile|phone/i.test(ua);
+}
+
+export function isIOSDevice(): boolean {
+  if (typeof window === 'undefined') return false;
+  const ua = window.navigator.userAgent.toLowerCase();
+  return /iphone|ipad|ipod/i.test(ua);
+}
+
 /**
- * Checks all native browser and environment signals to determine
- * if the application is running as an installed standalone mobile app
- * or has already been downloaded/installed on this device.
+ * Checks native browser and environment signals to determine
+ * if the application is currently running as an installed standalone mobile app.
+ * In a phone browser tab, this returns false so the Install Button is always shown.
  */
 export function isAppInstalledOnDevice(): boolean {
   if (typeof window === 'undefined') return false;
@@ -45,12 +57,6 @@ export function isAppInstalledOnDevice(): boolean {
       searchParams.get('installed') === 'true' || 
       searchParams.get('mode') === 'standalone'
     ) {
-      return true;
-    }
-
-    // 6. Check persistent local storage record (set upon user installing / downloading)
-    const storedStatus = localStorage.getItem(INSTALL_STORAGE_KEY);
-    if (storedStatus === 'true') {
       return true;
     }
   } catch (err) {
