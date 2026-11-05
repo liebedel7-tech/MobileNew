@@ -54,7 +54,7 @@ export class DatabaseHelper {
 
       request.onerror = () => {
         console.error('IndexedDB open error:', request.error);
-        reject(request.error);
+        reject(request.error || new Error('Failed to open IndexedDB database'));
       };
     });
 
@@ -95,7 +95,7 @@ export class DatabaseHelper {
         store.put(normalized);
       });
       tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
+      tx.onerror = () => reject(tx.error || new Error('Transaction error while saving consumers'));
     });
   }
 
@@ -107,14 +107,14 @@ export class DatabaseHelper {
         const store = tx.objectStore('consumers');
         const request = store.getAll();
         request.onsuccess = () => resolve(request.result || []);
-        request.onerror = () => reject(request.error);
+        request.onerror = () => reject(request.error || new Error('Failed to load consumers'));
       }),
       new Promise<MeterReading[]>((resolve, reject) => {
         const tx = db.transaction('readings', 'readonly');
         const store = tx.objectStore('readings');
         const request = store.getAll();
         request.onsuccess = () => resolve(request.result || []);
-        request.onerror = () => reject(request.error);
+        request.onerror = () => reject(request.error || new Error('Failed to load readings'));
       }),
     ]);
 
@@ -217,7 +217,7 @@ export class DatabaseHelper {
         }
       };
 
-      req.onerror = () => reject(req.error);
+      req.onerror = () => reject(req.error || new Error('Failed to update consumer status'));
     });
   }
 
@@ -260,7 +260,7 @@ export class DatabaseHelper {
         resolve(matchedConsumer);
       };
 
-      req.onerror = () => reject(req.error);
+      req.onerror = () => reject(req.error || new Error('Failed to update meter status'));
     });
   }
 
@@ -356,48 +356,162 @@ export class DatabaseHelper {
   }
 
   // Readings Operations
-  static async saveReading(reading: MeterReading): Promise<void> {
+  static async saveReading(reading: MeterReading): Promise<MeterReading> {
     const db = await this.getDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(['readings', 'consumers'], 'readwrite');
       const readingStore = tx.objectStore('readings');
       const consumerStore = tx.objectStore('consumers');
 
-      readingStore.put(reading);
+      const getAllReq = readingStore.getAll();
+      getAllReq.onsuccess = () => {
+        const all: MeterReading[] = getAllReq.result || [];
+        const cleanAcc = (reading.accountNumber || '').trim().toLowerCase();
+        const cleanMeter = (reading.meterSerial || reading.meterNumber || '').trim().toLowerCase();
 
-      // Update consumer's status for this month
-      const consumerReq = consumerStore.get(reading.consumerId);
-      consumerReq.onsuccess = () => {
-        if (consumerReq.result) {
-          const updatedConsumer: Consumer = {
-            ...consumerReq.result,
-            isReadThisMonth: true,
-            currentMonthReading: reading,
-          };
-          consumerStore.put(updatedConsumer);
-        } else {
-          // If not found by ID, search by accountNumber index
-          try {
-            const accIndex = consumerStore.index('accountNumber');
-            const accReq = accIndex.get(reading.accountNumber);
-            accReq.onsuccess = () => {
-              if (accReq.result) {
-                const updatedConsumer: Consumer = {
-                  ...accReq.result,
-                  isReadThisMonth: true,
-                  currentMonthReading: reading,
-                };
-                consumerStore.put(updatedConsumer);
-              }
+        // Check if an unapproved pending reading already exists for this water meter
+        const existingPending = all.find((r) => {
+          const isPending = r.approvalStatus === 'pending_approval' || (r.status as string) === 'PENDING_APPROVAL' || r.status === 'PENDING_SYNC';
+          if (!isPending) return false;
+          if (r.id === reading.id) return true;
+          const rAcc = (r.accountNumber || '').trim().toLowerCase();
+          const rMeter = (r.meterSerial || r.meterNumber || '').trim().toLowerCase();
+          return (cleanAcc && rAcc === cleanAcc) || (cleanMeter && rMeter === cleanMeter);
+        });
+
+        // If a pending record exists, reuse its ID to edit/update in place rather than duplicate
+        const targetReading: MeterReading = existingPending && existingPending.id !== reading.id
+          ? { ...reading, id: existingPending.id }
+          : reading;
+
+        readingStore.put(targetReading);
+
+        // Update consumer's status for this month
+        const consumerReq = consumerStore.get(targetReading.consumerId);
+        consumerReq.onsuccess = () => {
+          if (consumerReq.result) {
+            const updatedConsumer: Consumer = {
+              ...consumerReq.result,
+              isReadThisMonth: true,
+              currentMonthReading: targetReading,
             };
-          } catch (e) {
-            console.debug('Account lookup note:', e);
+            consumerStore.put(updatedConsumer);
+          } else {
+            // If not found by ID, search by accountNumber index
+            try {
+              const accIndex = consumerStore.index('accountNumber');
+              const accReq = accIndex.get(targetReading.accountNumber);
+              accReq.onsuccess = () => {
+                if (accReq.result) {
+                  const updatedConsumer: Consumer = {
+                    ...accReq.result,
+                    isReadThisMonth: true,
+                    currentMonthReading: targetReading,
+                  };
+                  consumerStore.put(updatedConsumer);
+                }
+              };
+            } catch (e) {
+              console.debug('Account lookup note:', e);
+            }
           }
-        }
+        };
+
+        tx.oncomplete = () => resolve(targetReading);
       };
 
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
+      getAllReq.onerror = () => {
+        readingStore.put(reading);
+        tx.oncomplete = () => resolve(reading);
+      };
+
+      tx.onerror = () => reject(tx.error || new Error('Transaction error while saving reading'));
+    });
+  }
+
+  /**
+   * Retrieves the latest APPROVED reading for a specific water meter identified by Account Number & Meter Number.
+   * Its present reading will serve as the previous reading baseline for the next submission cycle.
+   */
+  static async getLatestApprovedReading(accountNumber: string, meterNumber?: string): Promise<MeterReading | null> {
+    const db = await this.getDB();
+    const cleanAcc = (accountNumber || '').trim().toLowerCase();
+    const cleanMeter = (meterNumber || '').trim().toLowerCase();
+
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('readings', 'readonly');
+      const store = tx.objectStore('readings');
+      const request = store.getAll();
+
+      request.onsuccess = () => {
+        const all: MeterReading[] = request.result || [];
+        const approved = all.filter((r) => {
+          const isApp = r.approvalStatus === 'approved' || r.status === 'APPROVED';
+          if (!isApp) return false;
+          const rAcc = (r.accountNumber || '').trim().toLowerCase();
+          const rMeter = (r.meterSerial || r.meterNumber || '').trim().toLowerCase();
+
+          return (cleanAcc && rAcc === cleanAcc) || (cleanMeter && (rMeter === cleanMeter || rMeter.includes(cleanMeter) || cleanMeter.includes(rMeter)));
+        });
+
+        if (approved.length === 0) {
+          resolve(null);
+          return;
+        }
+
+        // Sort by approvedAt or readingDate descending
+        approved.sort((a, b) => {
+          const timeA = new Date(a.approvedAt || `${a.readingDate}T${a.readingTime || '00:00:00'}`).getTime();
+          const timeB = new Date(b.approvedAt || `${b.readingDate}T${b.readingTime || '00:00:00'}`).getTime();
+          return timeB - timeA;
+        });
+
+        resolve(approved[0]);
+      };
+
+      request.onerror = () => reject(request.error || new Error('Failed to retrieve approved reading'));
+    });
+  }
+
+  /**
+   * Retrieves any existing pending reading awaiting admin approval for a specific water meter.
+   */
+  static async getPendingReadingForMeter(accountNumber: string, meterNumber?: string): Promise<MeterReading | null> {
+    const db = await this.getDB();
+    const cleanAcc = (accountNumber || '').trim().toLowerCase();
+    const cleanMeter = (meterNumber || '').trim().toLowerCase();
+
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('readings', 'readonly');
+      const store = tx.objectStore('readings');
+      const request = store.getAll();
+
+      request.onsuccess = () => {
+        const all: MeterReading[] = request.result || [];
+        const pending = all.filter((r) => {
+          const isPending = r.approvalStatus === 'pending_approval' || (r.status as string) === 'PENDING_APPROVAL' || r.status === 'PENDING_SYNC';
+          if (!isPending) return false;
+          const rAcc = (r.accountNumber || '').trim().toLowerCase();
+          const rMeter = (r.meterSerial || r.meterNumber || '').trim().toLowerCase();
+
+          return (cleanAcc && rAcc === cleanAcc) || (cleanMeter && (rMeter === cleanMeter || rMeter.includes(cleanMeter) || cleanMeter.includes(rMeter)));
+        });
+
+        if (pending.length === 0) {
+          resolve(null);
+          return;
+        }
+
+        pending.sort((a, b) => {
+          const timeA = new Date(`${a.readingDate}T${a.readingTime || '00:00:00'}`).getTime();
+          const timeB = new Date(`${b.readingDate}T${b.readingTime || '00:00:00'}`).getTime();
+          return timeB - timeA;
+        });
+
+        resolve(pending[0]);
+      };
+
+      request.onerror = () => reject(request.error || new Error('Failed to retrieve pending reading'));
     });
   }
 
@@ -410,48 +524,26 @@ export class DatabaseHelper {
       request.onsuccess = () => {
         const rawList: MeterReading[] = request.result || [];
 
-        // Track all accounts that have an approved reading
-        const approvedAccounts = new Set(
-          rawList
-            .filter((r) => r.approvalStatus === 'approved' || r.status === 'APPROVED')
-            .map((r) => (r.accountNumber || '').trim().toLowerCase())
-            .filter(Boolean)
-        );
-
-        // Sort: newest first, approved first
+        // Sort in strict chronological order: newest first
         const sorted = [...rawList].sort((a, b) => {
-          const isAApp = a.approvalStatus === 'approved' || a.status === 'APPROVED';
-          const isBApp = b.approvalStatus === 'approved' || b.status === 'APPROVED';
-          if (isAApp && !isBApp) return -1;
-          if (!isAApp && isBApp) return 1;
-
-          const timeA = new Date(`${a.readingDate}T${a.readingTime || '00:00:00'}`).getTime();
-          const timeB = new Date(`${b.readingDate}T${b.readingTime || '00:00:00'}`).getTime();
+          const timeA = new Date(a.approvedAt || `${a.readingDate}T${a.readingTime || '00:00:00'}`).getTime();
+          const timeB = new Date(b.approvedAt || `${b.readingDate}T${b.readingTime || '00:00:00'}`).getTime();
           return timeB - timeA;
         });
 
+        // Deduplicate exact record matches by ID
+        const seenIds = new Set<string>();
         const deduplicated: MeterReading[] = [];
-        const seenAccountDates = new Set<string>();
-
         sorted.forEach((r) => {
-          const cleanAcc = (r.accountNumber || '').trim().toLowerCase();
-          const isApp = r.approvalStatus === 'approved' || r.status === 'APPROVED';
-
-          // If this reading is pending, but an approved reading exists for this account, ignore redundant pending record
-          if (!isApp && approvedAccounts.has(cleanAcc)) {
-            return;
-          }
-
-          const dedupeKey = `${cleanAcc}_${r.readingDate || ''}_${r.currentReading || ''}`;
-          if (!seenAccountDates.has(dedupeKey)) {
-            seenAccountDates.add(dedupeKey);
+          if (!seenIds.has(r.id)) {
+            seenIds.add(r.id);
             deduplicated.push(r);
           }
         });
 
         resolve(deduplicated);
       };
-      request.onerror = () => reject(request.error);
+      request.onerror = () => reject(request.error || new Error('Failed to fetch readings'));
     });
   }
 
@@ -463,7 +555,7 @@ export class DatabaseHelper {
       const index = store.index('status');
       const request = index.getAll('PENDING_SYNC');
       request.onsuccess = () => resolve(request.result || []);
-      request.onerror = () => reject(request.error);
+      request.onerror = () => reject(request.error || new Error('Failed to fetch pending sync readings'));
     });
   }
 
@@ -679,7 +771,7 @@ export class DatabaseHelper {
       };
 
       tx.oncomplete = () => resolve({ reading: matchedReading, consumer: matchedConsumer });
-      tx.onerror = () => reject(tx.error);
+      tx.onerror = () => reject(tx.error || new Error('Transaction error while updating reading approval status'));
     });
   }
 
@@ -691,7 +783,7 @@ export class DatabaseHelper {
       const store = tx.objectStore('audit_logs');
       store.put(log);
       tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
+      tx.onerror = () => reject(tx.error || new Error('Failed to add audit log'));
     });
   }
 
@@ -706,7 +798,7 @@ export class DatabaseHelper {
         logs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
         resolve(logs);
       };
-      request.onerror = () => reject(request.error);
+      request.onerror = () => reject(request.error || new Error('Failed to get audit logs'));
     });
   }
 
@@ -718,7 +810,7 @@ export class DatabaseHelper {
       const store = tx.objectStore('keyval');
       store.put({ key, value });
       tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
+      tx.onerror = () => reject(tx.error || new Error('Failed to save session item'));
     });
   }
 
@@ -890,7 +982,7 @@ export class DatabaseHelper {
       tx.objectStore('audit_logs').clear();
       tx.objectStore('keyval').clear();
       tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
+      tx.onerror = () => reject(tx.error || new Error('Failed to clear database'));
     });
   }
 }

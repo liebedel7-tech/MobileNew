@@ -240,7 +240,12 @@ class WebSocketServiceClass {
 
           this.listeners.forEach((callback) => {
             try {
-              callback(parsed);
+              const res: any = callback(parsed);
+              if (res && typeof res.catch === 'function') {
+                res.catch((err: any) => {
+                  console.warn('[TWD-WS] Async error in event listener handled:', err);
+                });
+              }
             } catch (err) {
               console.error('[TWD-WS] Error in event listener:', err);
             }
@@ -512,7 +517,10 @@ class WebSocketServiceClass {
     this.updateStats({ status: newStatus });
     this.statusListeners.forEach((listener) => {
       try {
-        listener(newStatus);
+        const res: any = listener(newStatus);
+        if (res && typeof res.catch === 'function') {
+          res.catch(() => {});
+        }
       } catch (e) {
         console.error('[TWD-WS] Error in status listener:', e);
       }
@@ -523,7 +531,10 @@ class WebSocketServiceClass {
     this.stats = { ...this.stats, ...partial, status: this.status };
     this.statsListeners.forEach((listener) => {
       try {
-        listener(this.stats);
+        const res: any = listener(this.stats);
+        if (res && typeof res.catch === 'function') {
+          res.catch(() => {});
+        }
       } catch (e) {
         console.error('[TWD-WS] Error in stats listener:', e);
       }

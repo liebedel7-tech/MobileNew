@@ -547,10 +547,22 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
     }
 
     const currentReading = ocrResult.readingValue;
-    const previousReading = selectedConsumer.previousReading;
 
-    if (currentReading < previousReading) {
-      alert(`Strict Validation: Current reading (${currentReading} m³) cannot be less than previous reading (${previousReading} m³).`);
+    // Retrieve Authoritative Approved Baseline and Existing Pending Record
+    const latestApproved = await DatabaseHelper.getLatestApprovedReading(
+      selectedConsumer.accountNumber,
+      selectedConsumer.meterNumber || selectedConsumer.meterSerial
+    );
+    const existingPending = await DatabaseHelper.getPendingReadingForMeter(
+      selectedConsumer.accountNumber,
+      selectedConsumer.meterNumber || selectedConsumer.meterSerial
+    );
+
+    const previousReading = latestApproved ? latestApproved.currentReading : (selectedConsumer.previousReading || 0);
+    const calc = CalculationService.calculateConsumption(previousReading, currentReading);
+
+    if (!calc.isValid) {
+      alert(calc.error || `Strict Validation: Current reading (${currentReading} m³) cannot be less than previous reading (${previousReading} m³).`);
       return;
     }
 
@@ -565,8 +577,11 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
 
       const location = await LocationService.getCurrentLocation();
 
+      // Re-use existing pending record ID to prevent duplicate pending records
+      const recordId = existingPending?.id || `MR-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
+
       const readingRecord: MeterReading = {
-        id: `MR-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+        id: recordId,
         consumerId: selectedConsumer.id,
         accountNumber: selectedConsumer.accountNumber,
         consumerName: selectedConsumer.name,

@@ -48,17 +48,61 @@ const TARIFF_SCHEDULE: Record<ConsumerCategory, TariffRate> = {
 
 export class CalculationService {
   /**
+   * Calculates consumption taking into account 5-digit mechanical odometer rollover (99999 -> 00000).
+   * Sequential rules:
+   * First reading: Previous 00000, Present 00012, Consumption 12 m³.
+   * Second reading: Previous 00012, Present 00030, Consumption 18 m³.
+   * Third reading: Previous 00030, Present 00045, Consumption 15 m³.
+   * Rollover: Previous 99980, Present 00015 -> (100000 - 99980) + 15 = 35 m³.
+   */
+  static calculateConsumption(
+    previousReading: number,
+    currentReading: number
+  ): { consumption: number; isRollover: boolean; isValid: boolean; error?: string } {
+    const prev = Math.round(Number(previousReading) || 0);
+    const curr = Math.round(Number(currentReading) || 0);
+
+    if (curr >= prev) {
+      return {
+        consumption: curr - prev,
+        isRollover: false,
+        isValid: true,
+      };
+    }
+
+    // currentReading < previousReading: check if 5-digit mechanical rollover occurred
+    // A 5-digit meter rolls over from 99999 to 00000.
+    const rolloverConsumption = (100000 - prev) + curr;
+    if (rolloverConsumption >= 0 && rolloverConsumption <= 50000) {
+      return {
+        consumption: rolloverConsumption,
+        isRollover: true,
+        isValid: true,
+      };
+    }
+
+    const prev5 = String(prev).padStart(5, '0');
+    const curr5 = String(curr).padStart(5, '0');
+    return {
+      consumption: 0,
+      isRollover: false,
+      isValid: false,
+      error: `Strict Rule Violation: Present reading (${curr5} cu.m.) cannot be less than Previous reading (${prev5} cu.m.) without a valid mechanical rollover.`,
+    };
+  }
+
+  /**
    * Validates that Present Reading is a 5-digit whole number (00000 - 99999)
-   * and is not less than Previous Reading.
+   * and is not less than Previous Reading unless a valid rollover occurred.
    * Business Rules:
    * 1. Whole numbers only (no decimal points or commas).
    * 2. Five-digit odometer range: 00000 to 99999.
-   * 3. Present Reading must be >= Previous Reading.
+   * 3. Present Reading must be >= Previous Reading or a valid 5-digit mechanical rollover.
    */
   static validateReading(
     previousReading: number,
     currentReading: number
-  ): { valid: boolean; error?: string } {
+  ): { valid: boolean; error?: string; isRollover?: boolean; consumption?: number } {
     if (isNaN(currentReading) || currentReading === null || currentReading === undefined) {
       return { valid: false, error: 'Please enter a valid meter reading value.' };
     }
@@ -68,15 +112,13 @@ export class CalculationService {
     if (currentReading < 0 || currentReading > 99999) {
       return { valid: false, error: 'Meter readings must be a 5-digit number between 00000 and 99999.' };
     }
-    if (currentReading < previousReading) {
-      const prev5 = String(previousReading).padStart(5, '0');
-      const curr5 = String(currentReading).padStart(5, '0');
-      return {
-        valid: false,
-        error: `Strict Rule Violation: Present reading (${curr5} cu.m.) cannot be less than Previous reading (${prev5} cu.m.). Negative consumption is not permitted.`,
-      };
+
+    const calc = this.calculateConsumption(previousReading, currentReading);
+    if (!calc.isValid) {
+      return { valid: false, error: calc.error };
     }
-    return { valid: true };
+
+    return { valid: true, isRollover: calc.isRollover, consumption: calc.consumption };
   }
 
   /**
@@ -88,7 +130,8 @@ export class CalculationService {
     currentReading: number,
     readingDateString?: string
   ): BillCalculation {
-    const consumption = Math.max(0, currentReading - previousReading);
+    const calc = this.calculateConsumption(previousReading, currentReading);
+    const consumption = calc.consumption;
     const tariff = TARIFF_SCHEDULE[category] || TARIFF_SCHEDULE.Residential;
 
     const breakdown: BillCalculation['breakdown'] = [];

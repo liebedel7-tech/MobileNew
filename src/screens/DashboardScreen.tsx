@@ -5,20 +5,20 @@ import {
   Users, 
   Send, 
   Smartphone, 
-  FileText,
-  ChevronRight,
-  Zap,
-  RefreshCw,
-  Clock,
-  AlertCircle,
-  ShieldCheck,
-  CheckCheck,
-  UserCheck,
-  CloudUpload,
-  Layers,
-  Sliders
+  FileText, 
+  ChevronRight, 
+  Zap, 
+  RefreshCw, 
+  Clock, 
+  AlertCircle, 
+  ShieldCheck, 
+  CloudUpload, 
+  Layers, 
+  Sliders,
+  Activity
 } from 'lucide-react';
 import { Consumer, MeterReading, StaffUser, SyncState, ActiveScreen } from '../types';
+import { formatOdometerReading } from '../constants/routes';
 
 interface DashboardScreenProps {
   user: StaffUser | null;
@@ -52,29 +52,30 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const isReadingRejected = (r: MeterReading) => r.approvalStatus === 'rejected' || r.status === 'REJECTED';
   const isReadingPending = (r: MeterReading) => !isReadingApproved(r) && !isReadingRejected(r);
 
-  // Filter pending and recent readings for field reader tracking
-  const pendingApprovalReadings = readings.filter(isReadingPending);
+  const approvedCount = readings.filter(isReadingApproved).length;
+  const pendingCount = readings.filter(isReadingPending).length;
+  const flaggedCount = readings.filter(isReadingRejected).length;
 
   const recentReadings = [...readings].slice(0, 5);
 
   return (
     <div className="flex-1 p-3.5 sm:p-5 max-w-4xl mx-auto w-full space-y-4 pb-20">
-      {/* FIELD TERMINAL MODULES (Prominently Showcased on Sign In) */}
+      {/* FIELD TERMINAL MODULES (Header Block) */}
       <section className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3.5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-sky-500/10 border border-sky-500/30 text-sky-400 flex items-center justify-center">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-sky-500/10 border border-sky-500/30 text-sky-400 flex items-center justify-center shrink-0">
               <Layers className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-xs sm:text-sm font-black text-white uppercase tracking-wider flex items-center gap-1.5">
+              <h2 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
                 <span>Field Terminal Modules</span>
-                <span className="px-1.5 py-0.2 rounded-full bg-emerald-950 text-emerald-400 text-[9px] font-mono font-bold border border-emerald-800">
+                <span className="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 text-[9px] font-mono font-bold border border-emerald-800">
                   ACTIVE
                 </span>
               </h2>
-              <p className="text-[10.5px] text-slate-400 font-mono">
-                Authorized Reader: {user?.name || 'Authorized Field Staff'} • {user?.assignedRoutes && user.assignedRoutes.length > 0 ? user.assignedRoutes.join(', ') : (user?.zone || 'All Routes')}
+              <p className="text-[10.5px] text-slate-400 font-mono mt-0.5">
+                Authorized Reader: <span className="text-slate-300 font-semibold">{user?.name || 'Field Staff'}</span> · <span className="text-sky-400">{user?.assignedRoutes && user.assignedRoutes.length > 0 ? user.assignedRoutes.join(', ') : (user?.zone || 'All Routes')}</span>
               </p>
             </div>
           </div>
@@ -82,15 +83,15 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           <button
             type="button"
             onClick={() => onNavigate('system_connection')}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-950/90 hover:bg-sky-900 border border-sky-800 text-sky-300 text-[10px] font-mono font-bold transition cursor-pointer"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-950/90 hover:bg-sky-900 border border-sky-800 text-sky-300 text-[10px] font-mono font-bold transition cursor-pointer active:scale-95 shadow-sm"
             title="Open System Connection Gateway"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-            <span>System Path: Connected</span>
+            <span>Gateway: Connected</span>
           </button>
         </div>
 
-        {/* 6 Grid Module Cards */}
+        {/* 6 Responsive Grid Module Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
           {/* Module 1: Optical Odometer Vision Scanner */}
           <button
@@ -144,7 +145,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 Manual Reading Entry
               </span>
               <span className="text-[10px] text-slate-400 block mt-0.5">
-                Direct odometer index logging & remarks
+                Direct index logging & remarks
               </span>
             </div>
           </button>
@@ -213,15 +214,122 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         </div>
       </section>
 
-      {/* Shift Progress Card */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm">
-        <div className="flex items-center justify-between mb-3">
+      {/* READING STATUS SUMMARIES (Standardized Responsive 4-Card Grid) */}
+      <section className="space-y-2.5">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+            <Activity className="w-3.5 h-3.5 text-sky-400" />
+            <span>Reading Status Summaries</span>
+          </h2>
+          <span className="text-[11px] font-mono text-slate-400">
+            Shift Completion: <strong className="text-emerald-400">{percentComplete}%</strong>
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5">
+          {/* Summary Card 1: Assigned Meters */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-4.5 shadow-sm space-y-1.5 hover:border-slate-700/80 transition">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] sm:text-[11px] uppercase font-bold text-slate-400 tracking-wider">
+                Assigned
+              </span>
+              <div className="w-7 h-7 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-400 flex items-center justify-center">
+                <Users className="w-3.5 h-3.5" />
+              </div>
+            </div>
+            <div className="flex items-baseline justify-between">
+              <span className="text-2xl sm:text-3xl font-bold font-mono text-white tracking-tight">
+                {totalAssigned}
+              </span>
+              <span className="text-[11px] font-mono text-slate-400">
+                meters
+              </span>
+            </div>
+            <p className="text-[10.5px] text-slate-400 truncate">
+              {unreadCount} remaining unread
+            </p>
+          </div>
+
+          {/* Summary Card 2: Completed / Read This Month */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-4.5 shadow-sm space-y-1.5 hover:border-slate-700/80 transition">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] sm:text-[11px] uppercase font-bold text-emerald-400 tracking-wider">
+                Completed
+              </span>
+              <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+              </div>
+            </div>
+            <div className="flex items-baseline justify-between">
+              <span className="text-2xl sm:text-3xl font-bold font-mono text-emerald-400 tracking-tight">
+                {readCount}
+              </span>
+              <span className="text-[11px] font-mono text-emerald-500/80">
+                {percentComplete}% rate
+              </span>
+            </div>
+            <p className="text-[10.5px] text-slate-400 truncate">
+              Captured on terminal
+            </p>
+          </div>
+
+          {/* Summary Card 3: Pending Admin Approval */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-4.5 shadow-sm space-y-1.5 hover:border-slate-700/80 transition">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] sm:text-[11px] uppercase font-bold text-amber-400 tracking-wider">
+                Pending Approval
+              </span>
+              <div className="w-7 h-7 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center">
+                <Clock className="w-3.5 h-3.5" />
+              </div>
+            </div>
+            <div className="flex items-baseline justify-between">
+              <span className="text-2xl sm:text-3xl font-bold font-mono text-amber-400 tracking-tight">
+                {pendingCount}
+              </span>
+              <span className="text-[11px] font-mono text-amber-500/80">
+                in review
+              </span>
+            </div>
+            <p className="text-[10.5px] text-slate-400 truncate">
+              Awaiting admin billing
+            </p>
+          </div>
+
+          {/* Summary Card 4: Approved & Billed */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-4.5 shadow-sm space-y-1.5 hover:border-slate-700/80 transition">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] sm:text-[11px] uppercase font-bold text-sky-400 tracking-wider">
+                Approved & Billed
+              </span>
+              <div className="w-7 h-7 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-400 flex items-center justify-center">
+                <ShieldCheck className="w-3.5 h-3.5" />
+              </div>
+            </div>
+            <div className="flex items-baseline justify-between">
+              <span className="text-2xl sm:text-3xl font-bold font-mono text-sky-300 tracking-tight">
+                {approvedCount}
+              </span>
+              <span className="text-[11px] font-mono text-sky-400/80">
+                verified
+              </span>
+            </div>
+            <p className="text-[10.5px] text-slate-400 truncate">
+              Baseline updated
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* SHIFT PROGRESS CARD WITH VISUAL PROGRESS BAR */}
+      <section className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
-            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-              Shift Progress • {user?.assignedRoutes && user.assignedRoutes.length > 0 ? user.assignedRoutes.join(', ') : (user?.zone || 'All Routes')}
+            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+              Shift Route Progress · {user?.assignedRoutes && user.assignedRoutes.length > 0 ? user.assignedRoutes.join(', ') : (user?.zone || 'All Routes')}
             </h2>
             <p className="text-[11px] text-slate-500 font-mono mt-0.5">
-              Assigned Consumer Accounts
+              Assigned coverage route meters
             </p>
           </div>
 
@@ -230,19 +338,19 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </span>
         </div>
 
-        <div className="flex items-end justify-between mb-2">
-          <span className="text-2xl sm:text-3xl font-light text-white tracking-tight">
+        <div className="flex items-end justify-between">
+          <span className="text-xl sm:text-2xl font-bold font-mono text-white tracking-tight">
             {readCount}
-            <span className="text-sm sm:text-base text-slate-500 font-normal"> / {totalAssigned} meters</span>
+            <span className="text-xs sm:text-sm text-slate-500 font-normal"> / {totalAssigned} meters</span>
           </span>
-          <div className="flex items-center gap-3 sm:gap-4 text-right">
+          <div className="flex items-center gap-4 text-right font-mono">
             <div>
-              <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold block">Sent to Admin</span>
-              <span className="text-sm font-semibold text-sky-400 font-mono">{readCount}</span>
+              <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold block">Dispatched</span>
+              <span className="text-sm font-bold text-sky-400">{readCount}</span>
             </div>
             <div>
               <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold block">Remaining</span>
-              <span className="text-sm font-semibold text-slate-200 font-mono">{unreadCount}</span>
+              <span className="text-sm font-bold text-slate-200">{unreadCount}</span>
             </div>
           </div>
         </div>
@@ -254,21 +362,21 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             style={{ width: `${percentComplete}%` }}
           />
         </div>
-      </div>
+      </section>
 
-      {/* Field Submission Status Tracker (Read-Only Status for Reader) */}
+      {/* RECENT METER SUBMISSIONS (Standardized with 3-Column Odometer Grid) */}
       <section className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-sky-500/10 border border-sky-500/30 text-sky-400 flex items-center justify-center">
+            <div className="w-7 h-7 rounded-lg bg-sky-500/10 border border-sky-500/30 text-sky-400 flex items-center justify-center shrink-0">
               <Send className="w-4 h-4" />
             </div>
             <div>
               <h2 className="text-xs font-bold text-white uppercase tracking-wider">
                 Recent Meter Submissions & Status
               </h2>
-              <p className="text-[10px] text-slate-400 font-mono">
-                Dispatched to Central Admin Dashboard • Live status tracking
+              <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                Dispatched to Central Admin Dashboard · Live verification tracking
               </p>
             </div>
           </div>
@@ -276,7 +384,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           <button
             type="button"
             onClick={() => onNavigate('history')}
-            className="text-xs font-bold text-sky-400 hover:text-sky-300 transition flex items-center gap-1"
+            className="text-xs font-bold text-sky-400 hover:text-sky-300 transition flex items-center gap-1 cursor-pointer"
           >
             <span>View All ({readings.length})</span>
             <ChevronRight className="w-3.5 h-3.5" />
@@ -284,7 +392,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         </div>
 
         {recentReadings.length === 0 ? (
-          <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-4 text-center text-slate-400 flex items-center justify-center gap-2">
+          <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-5 text-center text-slate-400 flex items-center justify-center gap-2">
             <Clock className="w-4 h-4 text-slate-500" />
             <span className="text-xs">No meter readings recorded on this terminal yet. Select a consumer to begin.</span>
           </div>
@@ -298,42 +406,84 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               return (
                 <div
                   key={reading.id}
-                  className="bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl p-3 sm:p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition"
+                  className="bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl p-3.5 space-y-2.5 transition shadow-sm"
                 >
-                  <div className="space-y-1 flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-mono text-xs font-bold text-sky-400 bg-sky-950 px-2 py-0.5 rounded border border-sky-800">
+                  {/* Account, Name & Status Badge */}
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="font-mono text-xs font-bold text-sky-400 bg-sky-950/80 px-2.5 py-0.5 rounded border border-sky-800/60 shrink-0">
                         {reading.accountNumber}
                       </span>
-                      <span className="text-xs font-bold text-white truncate">{reading.consumerName}</span>
-                      
-                      {isPending && (
-                        <span className="text-[10px] px-2 py-0.5 bg-amber-950 text-amber-400 border border-amber-800/80 rounded-full font-mono font-bold flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          <span>Pending Admin Approval</span>
-                        </span>
-                      )}
+                      <span className="text-xs font-bold text-white truncate">
+                        {reading.consumerName}
+                      </span>
+                    </div>
+                    
+                    {isPending && (
+                      <span className="text-[10px] px-2 py-0.5 bg-amber-950/80 text-amber-400 border border-amber-800/80 rounded font-mono font-bold flex items-center gap-1 shrink-0">
+                        <Clock className="w-3 h-3" />
+                        <span>Pending Admin Approval</span>
+                      </span>
+                    )}
 
-                      {isApproved && (
-                        <span className="text-[10px] px-2 py-0.5 bg-emerald-950 text-emerald-400 border border-emerald-800/80 rounded-full font-mono font-bold flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" />
-                          <span>Approved by Admin</span>
-                        </span>
-                      )}
+                    {isApproved && (
+                      <span className="text-[10px] px-2 py-0.5 bg-emerald-950/80 text-emerald-400 border border-emerald-800/80 rounded font-mono font-bold flex items-center gap-1 shrink-0">
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span>Approved & Billed</span>
+                      </span>
+                    )}
 
-                      {isRejected && (
-                        <span className="text-[10px] px-2 py-0.5 bg-rose-950 text-rose-400 border border-rose-800/80 rounded-full font-mono font-bold flex items-center gap-1">
-                          <AlertCircle className="w-3 h-3" />
-                          <span>Flagged by Admin</span>
-                        </span>
-                      )}
+                    {isRejected && (
+                      <span className="text-[10px] px-2 py-0.5 bg-rose-950/80 text-rose-400 border border-rose-800/80 rounded font-mono font-bold flex items-center gap-1 shrink-0">
+                        <AlertCircle className="w-3 h-3" />
+                        <span>Flagged / Rejected</span>
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Standardized 3-Column Odometer Breakdown */}
+                  <div className="grid grid-cols-3 gap-2 bg-slate-900/90 rounded-lg p-2.5 border border-slate-800/70 text-center font-mono">
+                    <div>
+                      <span className="text-[9px] uppercase font-bold text-slate-500 tracking-wider block">
+                        PREVIOUS
+                      </span>
+                      <span className="text-xs font-bold text-slate-300 block mt-0.5">
+                        {formatOdometerReading(reading.previousReading)} cu.m.
+                      </span>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-400 font-mono">
-                      <span>Reading: <strong className="text-slate-200">{reading.currentReading} m³</strong></span>
-                      <span>Used: <strong className="text-sky-400">{reading.consumption} m³</strong></span>
-                      <span className="text-[11px] text-slate-500">{reading.readingDate} • {reading.readingTime}</span>
+                    <div>
+                      <span className="text-[9px] uppercase font-bold text-sky-400 tracking-wider block">
+                        PRESENT
+                      </span>
+                      <span className="text-xs font-black text-sky-300 block mt-0.5">
+                        {formatOdometerReading(reading.currentReading)} cu.m.
+                      </span>
                     </div>
+
+                    <div>
+                      <span className="text-[9px] uppercase font-bold text-emerald-400 tracking-wider block">
+                        CONSUMPTION
+                      </span>
+                      <span className="text-xs font-black text-emerald-400 block mt-0.5">
+                        +{reading.consumption} cu.m.
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="text-[10.5px] text-slate-400 flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono">
+                    <span>{reading.readingDate} {reading.readingTime}</span>
+                    <span className="text-slate-600">·</span>
+                    <span>Tag: <strong className="text-slate-300">{reading.meterSerial}</strong></span>
+                    {isApproved && (
+                      <>
+                        <span className="text-slate-600">·</span>
+                        <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                          <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                          <span>Admin Verified</span>
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
               );
@@ -342,14 +492,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         )}
       </section>
 
-      {/* Quick Actions Panel */}
-      <section className="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 sm:p-4 shadow-sm space-y-3">
+      {/* QUICK ACTIONS PANEL (Field Shortcuts) */}
+      <section className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
             <Zap className="w-3.5 h-3.5 text-sky-400" />
-            <span>Field Terminal Actions</span>
+            <span>Field Terminal Shortcuts</span>
           </h2>
-          <span className="text-[10px] text-slate-500 font-mono">Shortcuts</span>
+          <span className="text-[10px] text-slate-500 font-mono">Quick Access</span>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
@@ -357,7 +507,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           <button
             type="button"
             onClick={() => onNavigate('scan_meter')}
-            className="p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-sky-500/50 transition-all flex flex-col items-center justify-center gap-2 group text-center active:scale-[0.98]"
+            className="p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-sky-500/50 transition-all flex flex-col items-center justify-center gap-2 group text-center active:scale-[0.98] cursor-pointer"
           >
             <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/30 text-sky-400 flex items-center justify-center group-hover:scale-110 transition-transform">
               <Camera className="w-5 h-5" />
@@ -374,14 +524,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           <button
             type="button"
             onClick={() => onNavigate('consumers')}
-            className="p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-emerald-500/50 transition-all flex flex-col items-center justify-center gap-2 group text-center active:scale-[0.98]"
+            className="p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-emerald-500/50 transition-all flex flex-col items-center justify-center gap-2 group text-center active:scale-[0.98] cursor-pointer"
           >
             <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center group-hover:scale-110 transition-transform">
               <Users className="w-5 h-5" />
             </div>
             <div>
               <span className="text-xs font-bold text-white block group-hover:text-emerald-300 transition">
-                Consumer's List
+                Consumers List
               </span>
               <span className="text-[10px] text-slate-400">Directory</span>
             </div>
@@ -391,7 +541,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           <button
             type="button"
             onClick={() => onNavigate('batch_submission')}
-            className="p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-amber-500/50 transition-all flex flex-col items-center justify-center gap-2 group text-center active:scale-[0.98] relative"
+            className="p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-amber-500/50 transition-all flex flex-col items-center justify-center gap-2 group text-center active:scale-[0.98] relative cursor-pointer"
           >
             <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center group-hover:scale-110 transition-transform">
               <Send className="w-5 h-5" />
@@ -413,7 +563,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           <button
             type="button"
             onClick={() => onNavigate('history')}
-            className="p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-purple-500/50 transition-all flex flex-col items-center justify-center gap-2 group text-center active:scale-[0.98]"
+            className="p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-purple-500/50 transition-all flex flex-col items-center justify-center gap-2 group text-center active:scale-[0.98] cursor-pointer"
           >
             <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-400 flex items-center justify-center group-hover:scale-110 transition-transform">
               <FileText className="w-5 h-5" />
@@ -428,13 +578,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         </div>
       </section>
 
-      {/* Queued Readings Table / Sector Feed */}
-      <section className="bg-slate-900 border border-slate-800 rounded-2xl flex flex-col overflow-hidden shadow-sm flex-1">
+      {/* QUEUED READINGS TABLE / CONSUMER ROSTER FEED */}
+      <section className="bg-slate-900 border border-slate-800 rounded-2xl flex flex-col overflow-hidden shadow-sm">
         {/* Section Header */}
         <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between gap-3 shrink-0">
           <div>
             <h2 className="font-bold text-white text-base">
-              Consumer's List
+              Consumer Roster
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
               Assigned accounts for meter reading & billing
@@ -442,15 +592,15 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="px-3 py-1 bg-sky-500/10 text-sky-400 rounded-full text-[10px] font-bold uppercase tracking-tighter">
+            <span className="px-2.5 py-1 bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded-lg text-[10px] font-bold font-mono">
               {consumers.length} Accounts
             </span>
           </div>
         </div>
 
         {/* Table Viewport */}
-        <div className="flex-1 overflow-x-auto overflow-y-auto max-h-[600px] data-table-container">
-          <table className="w-full text-left border-collapse data-table bg-slate-950 text-slate-200">
+        <div className="flex-1 overflow-x-auto overflow-y-auto max-h-[500px]">
+          <table className="w-full text-left border-collapse bg-slate-950 text-slate-200">
             <thead className="bg-slate-950/90 text-[10px] uppercase text-slate-400 font-bold sticky top-0 z-10 backdrop-blur-md border-b border-slate-800">
               <tr>
                 <th className="px-4 py-3">Account / Name</th>
@@ -502,14 +652,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
                     {/* Previous Reading */}
                     <td className="px-3 py-3.5 text-sm font-mono text-center">
-                      <span className="text-slate-200 font-bold">{consumer.previousReading}</span>
+                      <span className="text-slate-200 font-bold">{formatOdometerReading(consumer.previousReading)}</span>
                     </td>
 
                     {/* Present Reading */}
                     <td className="px-3 py-3.5 text-sm font-mono text-center">
                       {consumer.isReadThisMonth && consumer.currentMonthReading ? (
                         <span className="text-sky-400 font-bold bg-sky-950/60 px-2.5 py-1 rounded border border-sky-800/60 inline-block">
-                          {consumer.currentMonthReading.currentReading}
+                          {formatOdometerReading(consumer.currentMonthReading.currentReading)}
                         </span>
                       ) : (
                         <span className="text-slate-500 text-xs italic">Pending</span>
@@ -520,7 +670,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     <td className="px-3 py-3.5 text-sm font-mono text-center">
                       {consumer.isReadThisMonth && consumer.currentMonthReading ? (
                         <span className="text-emerald-400 font-black bg-emerald-950/60 px-2.5 py-1 rounded border border-emerald-800/60 inline-block">
-                          {consumer.currentMonthReading.consumption}
+                          +{consumer.currentMonthReading.consumption}
                         </span>
                       ) : (
                         <span className="text-slate-400 text-xs font-mono">
@@ -538,7 +688,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 text-sky-400 text-xs font-bold bg-sky-500/10 border border-sky-500/20 px-2.5 py-1 rounded-md hover:bg-sky-500/20 transition">
-                          <span>Enter Reading</span>
+                          <span>Enter</span>
                           <ChevronRight className="w-3.5 h-3.5" />
                         </span>
                       )}
@@ -553,3 +703,5 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     </div>
   );
 };
+
+export default DashboardScreen;

@@ -151,8 +151,8 @@ export function App() {
     // Subscribe to WebSocket broadcast events
     const unsubscribeWSEvents = WebSocketService.subscribe((event) => {
       if (event.type === 'BATCH_SYNC_PROCESSED') {
-        DatabaseHelper.getAllReadings().then(setReadings);
-        DatabaseHelper.getAllAuditLogs().then(setAuditLogs);
+        DatabaseHelper.getAllReadings().then(setReadings).catch(() => {});
+        DatabaseHelper.getAllAuditLogs().then(setAuditLogs).catch(() => {});
       } else if (event.type === 'METER_STATUS_UPDATED') {
         const payload = event.payload;
         const newStatus = (payload.newStatus || '').toLowerCase();
@@ -165,7 +165,8 @@ export function App() {
             const routes = user?.assignedRoutes || (user?.zone ? [user.zone] : undefined);
             return DatabaseHelper.getConsumersForReader(routes);
           })
-          .then(setConsumers);
+          .then(setConsumers)
+          .catch((err) => console.warn('Meter status sync error:', err));
 
         // 2. Synchronize selectedConsumer if currently open in terminal or camera
         setSelectedConsumer((prev) => {
@@ -208,7 +209,8 @@ export function App() {
             const routes = user?.assignedRoutes || (user?.zone ? [user.zone] : undefined);
             return DatabaseHelper.getConsumersForReader(routes);
           })
-          .then(setConsumers);
+          .then(setConsumers)
+          .catch((err) => console.warn('Consumer status sync error:', err));
 
         // 2. Update selectedConsumer if currently open
         setSelectedConsumer((prev) => {
@@ -240,9 +242,10 @@ export function App() {
         if (event.payload?.consumer) {
           DatabaseHelper.saveConsumers([event.payload.consumer])
             .then(() => DatabaseHelper.getConsumersForReader(routes))
-            .then(setConsumers);
+            .then(setConsumers)
+            .catch((err) => console.warn('Consumer save sync error:', err));
         } else {
-          DatabaseHelper.getConsumersForReader(routes).then(setConsumers);
+          DatabaseHelper.getConsumersForReader(routes).then(setConsumers).catch(() => {});
         }
 
         if (event.type === 'CONSUMER_ACTIVATED_FOR_READER' && event.payload?.consumer) {

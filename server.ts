@@ -1847,6 +1847,72 @@ app.get(['/api/barangays', '/barangays'], (req, res) => {
 });
 
 // Single Reading Submit Endpoint
+// Helper: Retrieves authoritative previous reading from the latest approved reading or initial registered baseline
+function getAuthoritativePreviousReading(accountNumber: string, meterSerial?: string, consumerId?: string, clientPrevious?: number): number {
+  const cleanAcc = (accountNumber || '').trim().toLowerCase();
+  const cleanMeter = (meterSerial || '').trim().toLowerCase();
+  const cleanId = (consumerId || '').trim().toLowerCase();
+
+  // 1. Search serverReadings for latest approved reading for this meter/account
+  const approvedReadings = serverReadings.filter((r: any) => {
+    const isApp = r.approvalStatus === 'approved' || r.status === 'APPROVED';
+    if (!isApp) return false;
+    const rAcc = (r.accountNumber || '').trim().toLowerCase();
+    const rMeter = (r.meterSerial || r.meterNumber || '').trim().toLowerCase();
+    const rId = (r.consumerId || '').trim().toLowerCase();
+
+    return (cleanAcc && rAcc === cleanAcc) ||
+           (cleanMeter && (rMeter === cleanMeter || rMeter.includes(cleanMeter) || cleanMeter.includes(rMeter))) ||
+           (cleanId && rId === cleanId);
+  });
+
+  if (approvedReadings.length > 0) {
+    // Sort newest approved first
+    approvedReadings.sort((a: any, b: any) => {
+      const timeA = new Date(a.approvedAt || `${a.readingDate}T${a.readingTime || '00:00:00'}`).getTime();
+      const timeB = new Date(b.approvedAt || `${b.readingDate}T${b.readingTime || '00:00:00'}`).getTime();
+      return timeB - timeA;
+    });
+    return Number(approvedReadings[0].currentReading || 0);
+  }
+
+  // 2. If client supplied a valid previous reading on first reading before any approved history exists:
+  if (clientPrevious !== undefined && clientPrevious !== null && !isNaN(Number(clientPrevious)) && Number(clientPrevious) > 0) {
+    return Number(clientPrevious);
+  }
+
+  // 3. If no approved reading exists, check registered consumer baseline in seed/registry
+  const consumer = INITIAL_CONSUMERS.find((c: any) => {
+    const cAcc = (c.accountNumber || '').trim().toLowerCase();
+    const cMeter = (c.meterSerial || c.meterNumber || '').trim().toLowerCase();
+    const cId = (c.id || '').trim().toLowerCase();
+    return (cleanAcc && cAcc === cleanAcc) ||
+           (cleanMeter && (cMeter === cleanMeter || cMeter.includes(cleanMeter) || cleanMeter.includes(cMeter))) ||
+           (cleanId && cId === cleanId);
+  });
+
+  if (consumer && consumer.previousReading !== undefined && consumer.previousReading !== null) {
+    return Number(consumer.previousReading);
+  }
+
+  // 4. First-reading policy default baseline: 00000
+  return 0;
+}
+
+// Helper: Computes sequential consumption with 5-digit mechanical rollover support
+function calculateSequentialConsumption(prev: number, curr: number): { consumption: number; isRollover: boolean } {
+  if (curr >= prev) {
+    return { consumption: curr - prev, isRollover: false };
+  }
+  // 5-digit mechanical rollover (e.g. 99980 -> 00015 => (100000 - 99980) + 15 = 35)
+  const rollover = (100000 - prev) + curr;
+  if (rollover >= 0 && rollover <= 50000) {
+    return { consumption: rollover, isRollover: true };
+  }
+  return { consumption: 0, isRollover: false };
+}
+
+// Meter Reading Submission (Queued for Admin Approval)
 app.post(['/api/readings/submit', '/api/sync/push', '/readings/submit', '/sync/push'], (req, res) => {
   try {
     const body = req.body;
@@ -1862,33 +1928,75 @@ app.post(['/api/readings/submit', '/api/sync/push', '/readings/submit', '/sync/p
 
     const saved: any[] = [];
     readingsToProcess.forEach((item: any) => {
-      const prev = Number(item.previousReading || 0);
-      const curr = Number(item.currentReading || item.readingValue || 0);
-      const cons = Math.max(0, curr - prev);
+      const acc = item.accountNumber || item.consumerAccountNumber;
+      const meter = item.meterSerial || item.meterNumber;
+      const cId = item.consumerId || acc;
 
-      const readingEntry = {
-        id: item.id || `RDG-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-        consumerId: item.consumerId || item.accountNumber,
-        accountNumber: item.accountNumber || item.consumerAccountNumber,
-        consumerName: item.consumerName || item.name || 'Account Holder',
-        meterSerial: item.meterSerial || item.meterNumber || 'MTR-STD',
-        meterNumber: item.meterNumber || item.meterSerial || 'MT-001',
-        previousReading: prev,
-        currentReading: curr,
-        consumption: cons,
-        readingDate: item.readingDate || new Date().toISOString().split('T')[0],
-        readerId: item.readerId || 'FIELD-STAFF',
-        readerName: item.readerName || 'Field Reader',
-        route: item.route || item.zone || 'Poblacion',
-        billingPeriod: item.billingPeriod || 'August 2026',
-        approvalStatus: item.approvalStatus || 'pending_approval',
-        status: 'PENDING_APPROVAL',
-        photoUrl: item.photoUrl || item.meterPhotoBase64 || '',
-        coordinates: item.coordinates || item.gpsLocation || { lat: 8.5398, lng: 124.7523 },
-        receivedAt: new Date().toISOString(),
-      };
+      // Authoritative baseline from latest approved reading (or initial 00000 policy)
+      const authoritativePrev = getAuthoritativePreviousReading(acc, meter, cId, Number(item.previousReading));
+      const curr = Number(item.currentReading !== undefined ? item.currentReading : (item.readingValue || 0));
+      const { consumption: cons, isRollover } = calculateSequentialConsumption(authoritativePrev, curr);
 
-      serverReadings.push(readingEntry);
+      // Check for existing pending reading for this water meter to prevent duplicate pending records
+      const cleanAcc = (acc || '').trim().toLowerCase();
+      const cleanMeter = (meter || '').trim().toLowerCase();
+      const existingPendingIndex = serverReadings.findIndex((r: any) => {
+        const isPending = r.approvalStatus === 'pending_approval' || r.status === 'PENDING_APPROVAL' || r.status === 'PENDING_SYNC';
+        if (!isPending) return false;
+        if (item.id && r.id === item.id) return true;
+        const rAcc = (r.accountNumber || '').trim().toLowerCase();
+        const rMeter = (r.meterSerial || r.meterNumber || '').trim().toLowerCase();
+        return (cleanAcc && rAcc === cleanAcc) || (cleanMeter && (rMeter === cleanMeter || rMeter.includes(cleanMeter) || cleanMeter.includes(rMeter)));
+      });
+
+      let readingEntry: any;
+
+      if (existingPendingIndex !== -1) {
+        // Edit/update the existing pending record in place without creating a duplicate record
+        const existing = serverReadings[existingPendingIndex];
+        readingEntry = {
+          ...existing,
+          previousReading: authoritativePrev,
+          currentReading: curr,
+          consumption: cons,
+          isRollover,
+          readingDate: item.readingDate || existing.readingDate || new Date().toISOString().split('T')[0],
+          photoUrl: item.photoUrl || item.meterPhotoBase64 || existing.photoUrl,
+          remarks: item.remarks !== undefined ? item.remarks : existing.remarks,
+          meterCondition: item.meterCondition || existing.meterCondition || 'NORMAL',
+          readerId: item.readerId || existing.readerId || 'FIELD-STAFF',
+          readerName: item.readerName || existing.readerName || 'Field Reader',
+          coordinates: item.coordinates || item.gpsLocation || existing.coordinates,
+          receivedAt: new Date().toISOString(),
+          isUpdatedPending: true,
+        };
+        serverReadings[existingPendingIndex] = readingEntry;
+      } else {
+        readingEntry = {
+          id: item.id || `RDG-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          consumerId: cId,
+          accountNumber: acc,
+          consumerName: item.consumerName || item.name || 'Account Holder',
+          meterSerial: meter || 'MTR-STD',
+          meterNumber: item.meterNumber || meter || 'MT-001',
+          previousReading: authoritativePrev,
+          currentReading: curr,
+          consumption: cons,
+          isRollover,
+          readingDate: item.readingDate || new Date().toISOString().split('T')[0],
+          readerId: item.readerId || 'FIELD-STAFF',
+          readerName: item.readerName || 'Field Reader',
+          route: item.route || item.zone || 'Poblacion',
+          billingPeriod: item.billingPeriod || 'August 2026',
+          approvalStatus: 'pending_approval',
+          status: 'PENDING_APPROVAL',
+          photoUrl: item.photoUrl || item.meterPhotoBase64 || '',
+          coordinates: item.coordinates || item.gpsLocation || { lat: 8.5398, lng: 124.7523 },
+          receivedAt: new Date().toISOString(),
+        };
+        serverReadings.push(readingEntry);
+      }
+
       saved.push(readingEntry);
 
       // Keep consumer in track with previous, present and current readings
@@ -1935,13 +2043,55 @@ app.post(['/api/readings/batch', '/readings/batch'], (req, res) => {
 
     readings.forEach((reading: any) => {
       try {
-        const readingRecord = {
-          ...reading,
-          receivedAt: new Date().toISOString(),
-          serverVerified: true,
-          batchId: batchId || `BATCH-${Date.now()}`,
-        };
-        serverReadings.push(readingRecord);
+        const acc = reading.accountNumber || reading.consumerAccountNumber;
+        const meter = reading.meterSerial || reading.meterNumber;
+        const cId = reading.consumerId || acc;
+
+        const authoritativePrev = getAuthoritativePreviousReading(acc, meter, cId, Number(reading.previousReading));
+        const curr = Number(reading.currentReading !== undefined ? reading.currentReading : (reading.readingValue || 0));
+        const { consumption: cons, isRollover } = calculateSequentialConsumption(authoritativePrev, curr);
+
+        // Check for existing pending reading
+        const cleanAcc = (acc || '').trim().toLowerCase();
+        const cleanMeter = (meter || '').trim().toLowerCase();
+        const existingPendingIndex = serverReadings.findIndex((r: any) => {
+          const isPending = r.approvalStatus === 'pending_approval' || r.status === 'PENDING_APPROVAL' || r.status === 'PENDING_SYNC';
+          if (!isPending) return false;
+          if (reading.id && r.id === reading.id) return true;
+          const rAcc = (r.accountNumber || '').trim().toLowerCase();
+          const rMeter = (r.meterSerial || r.meterNumber || '').trim().toLowerCase();
+          return (cleanAcc && rAcc === cleanAcc) || (cleanMeter && (rMeter === cleanMeter || rMeter.includes(cleanMeter) || cleanMeter.includes(rMeter)));
+        });
+
+        let readingRecord: any;
+        if (existingPendingIndex !== -1) {
+          readingRecord = {
+            ...serverReadings[existingPendingIndex],
+            previousReading: authoritativePrev,
+            currentReading: curr,
+            consumption: cons,
+            isRollover,
+            photoUrl: reading.photoUrl || serverReadings[existingPendingIndex].photoUrl,
+            remarks: reading.remarks !== undefined ? reading.remarks : serverReadings[existingPendingIndex].remarks,
+            receivedAt: new Date().toISOString(),
+            serverVerified: true,
+            batchId: batchId || `BATCH-${Date.now()}`,
+          };
+          serverReadings[existingPendingIndex] = readingRecord;
+        } else {
+          readingRecord = {
+            ...reading,
+            previousReading: authoritativePrev,
+            currentReading: curr,
+            consumption: cons,
+            isRollover,
+            receivedAt: new Date().toISOString(),
+            serverVerified: true,
+            batchId: batchId || `BATCH-${Date.now()}`,
+          };
+          serverReadings.push(readingRecord);
+        }
+
         processed.push(reading.id || reading.accountNumber);
 
         // Keep consumer on track

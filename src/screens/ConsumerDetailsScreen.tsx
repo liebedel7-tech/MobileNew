@@ -250,7 +250,7 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
                 PREVIOUS BASELINE
               </span>
               <span className="text-xs sm:text-sm font-bold text-slate-200 block mt-0.5">
-                {formatOdometerReading(consumer.previousReading)} cu.m.
+                {formatOdometerReading(consumer.currentMonthReading.previousReading ?? consumer.previousReading)} cu.m.
               </span>
             </div>
 
