@@ -39,10 +39,47 @@ import { ArchitectureSecurityScreen } from './screens/ArchitectureSecurityScreen
 import { AppErrorBoundary, ScreenErrorBoundary } from './components/ErrorBoundary';
 
 export function App() {
-  const [currentUser, setCurrentUser] = useState<StaffUser | null>(null);
+  // Restore persistent meter reader session if user exited without logging out
+  const [currentUser, setCurrentUser] = useState<StaffUser | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const saved = localStorage.getItem('twd_active_user') || localStorage.getItem('wdt_reader_user');
+      if (saved) {
+        const user = JSON.parse(saved);
+        if (user && user.id && user.name) {
+          // If deactivated / terminated, reject
+          if (user.status === 'terminated' || user.status === 'rejected') {
+            localStorage.removeItem('twd_active_user');
+            localStorage.removeItem('wdt_reader_user');
+            return null;
+          }
+          return user;
+        }
+      }
+    } catch (e) {
+      console.warn('Error restoring persisted session:', e);
+    }
+    return null;
+  });
   
-  // Guarantee landing page is always the starting screen
-  const [activeScreen, setActiveScreen] = useState<ActiveScreen>('landing');
+  // Starting screen: if user is already logged in, resume on dashboard/last active screen; otherwise landing
+  const [activeScreen, setActiveScreen] = useState<ActiveScreen>(() => {
+    if (typeof window === 'undefined') return 'landing';
+    try {
+      const savedUser = localStorage.getItem('twd_active_user') || localStorage.getItem('wdt_reader_user');
+      if (savedUser) {
+        const user = JSON.parse(savedUser);
+        if (user && user.id && user.status !== 'terminated' && user.status !== 'rejected') {
+          const savedScreen = localStorage.getItem('twd_active_screen_v1');
+          if (savedScreen && savedScreen !== 'landing' && savedScreen !== 'login') {
+            return savedScreen as ActiveScreen;
+          }
+          return 'dashboard';
+        }
+      }
+    } catch {}
+    return 'landing';
+  });
 
   const [consumers, setConsumers] = useState<Consumer[]>([]);
   const [readings, setReadings] = useState<MeterReading[]>([]);
@@ -68,12 +105,14 @@ export function App() {
   const [isBootSplash, setIsBootSplash] = useState<boolean>(true);
   const [loginInitialMode, setLoginInitialMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
 
-  // Clear any stale legacy hash from previous sessions so landing is always shown on boot
+  // Clear any stale legacy hash from previous sessions only if not logged in
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.location.hash && window.location.hash !== '#landing') {
-      window.location.hash = 'landing';
+    if (typeof window !== 'undefined') {
+      if (!currentUser && window.location.hash !== '#landing' && window.location.hash !== '') {
+        window.location.hash = 'landing';
+      }
     }
-  }, []);
+  }, [currentUser]);
 
   // Listen for native Android WebAPK beforeinstallprompt event
   useEffect(() => {
@@ -95,7 +134,7 @@ export function App() {
     confidence?: number;
   }>({});
 
-  const currentUserRef = useRef<StaffUser | null>(null);
+  const currentUserRef = useRef<StaffUser | null>(currentUser);
 
   useEffect(() => {
     currentUserRef.current = currentUser;
@@ -121,6 +160,10 @@ export function App() {
 
       // Start Sync engine
       SyncService.init();
+      if (user) {
+        SyncService.setActiveReader(user);
+        SyncService.setActiveRoutes(routes || ['Poblacion']);
+      }
       SyncService.startAutoSync();
 
       // Initialize Real-time WebSocket engine
@@ -406,6 +449,12 @@ export function App() {
   ) => {
     if (activeScreen === targetScreen && !customProcess) return;
 
+    if (currentUser && targetScreen !== 'login' && targetScreen !== 'landing') {
+      try {
+        localStorage.setItem('twd_active_screen_v1', targetScreen);
+      } catch {}
+    }
+
     // 1. Emit real-time WebSocket packet to central server & peers
     WebSocketService.notifyModuleNavigation(activeScreen, targetScreen, currentUser, {
       previousScreen: activeScreen,
@@ -428,6 +477,11 @@ export function App() {
   const handleFinishLoadingProcess = () => {
     if (loadingProcess?.targetModule) {
       setActiveScreen(loadingProcess.targetModule);
+      if (currentUser && loadingProcess.targetModule !== 'login' && loadingProcess.targetModule !== 'landing') {
+        try {
+          localStorage.setItem('twd_active_screen_v1', loadingProcess.targetModule);
+        } catch {}
+      }
     }
     setLoadingProcess(null);
   };
@@ -436,6 +490,15 @@ export function App() {
   const handleLogin = async (user: StaffUser) => {
     currentUserRef.current = user;
     setCurrentUser(user);
+
+    // Persist session so user remains logged in when exiting app without signing out
+    try {
+      localStorage.setItem('twd_active_user', JSON.stringify(user));
+      localStorage.setItem('wdt_reader_user', JSON.stringify(user));
+      localStorage.setItem('twd_active_screen_v1', 'dashboard');
+    } catch (e) {
+      console.warn('Failed to persist user session:', e);
+    }
     
     // Configure background sync & database queries strictly for reader's coverage zones
     const routes = user.assignedRoutes || (user.zone ? [user.zone] : ['Poblacion']);
@@ -482,6 +545,13 @@ export function App() {
   };
 
   const handleLogout = async () => {
+    // Explicit sign out clears persistent session
+    try {
+      localStorage.removeItem('twd_active_user');
+      localStorage.removeItem('wdt_reader_user');
+      localStorage.removeItem('twd_active_screen_v1');
+    } catch {}
+
     if (currentUser) {
       await LoggerService.logAction(
         'STAFF_LOGOUT',
@@ -991,6 +1061,10 @@ export function App() {
                 currentUser={currentUser}
                 onNavigate={navigateTo}
                 onSwitchUser={(user) => {
+                  try {
+                    localStorage.setItem('twd_active_user', JSON.stringify(user));
+                    localStorage.setItem('wdt_reader_user', JSON.stringify(user));
+                  } catch {}
                   setCurrentUser(user);
                   SyncService.setActiveReader(user);
                   reloadData();

@@ -642,12 +642,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   <button
                     type="button"
                     tabIndex={-1}
-                    onClick={() => setShowPin(!showPin)}
-                    className="absolute inset-y-0 right-0 w-10 flex items-center justify-center text-slate-400 hover:text-sky-400 active:text-sky-300 transition cursor-pointer touch-manipulation focus:outline-none"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setShowPin((prev) => !prev);
+                    }}
+                    className="absolute inset-y-0 right-0 w-10 flex items-center justify-center text-slate-400 hover:text-sky-400 active:text-sky-300 transition cursor-pointer touch-manipulation focus:outline-none z-10 select-none"
                     aria-label={showPin ? "Hide password" : "Show password"}
                     title={showPin ? "Hide password" : "Show password"}
                   >
-                    {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showPin ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                   </button>
                 </div>
               </div>
@@ -754,12 +759,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     <button
                       type="button"
                       tabIndex={-1}
-                      onClick={() => setShowRegPin(!showRegPin)}
-                      className="absolute inset-y-0 right-0 w-10 flex items-center justify-center text-slate-400 hover:text-sky-400 active:text-sky-300 transition cursor-pointer touch-manipulation focus:outline-none"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setShowRegPin((prev) => !prev);
+                      }}
+                      className="absolute inset-y-0 right-0 w-10 flex items-center justify-center text-slate-400 hover:text-sky-400 active:text-sky-300 transition cursor-pointer touch-manipulation focus:outline-none z-10 select-none"
                       aria-label={showRegPin ? "Hide password" : "Show password"}
                       title={showRegPin ? "Hide password" : "Show password"}
                     >
-                      {showRegPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {showRegPin ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>

@@ -1072,12 +1072,17 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
                       <button
                         type="button"
                         tabIndex={-1}
-                        onClick={() => setShowNewPin(!showNewPin)}
-                        className="absolute inset-y-0 right-0 w-10 flex items-center justify-center text-slate-400 hover:text-sky-400 active:text-sky-300 transition cursor-pointer touch-manipulation focus:outline-none"
-                        aria-label={showNewPin ? "Hide PIN" : "Show PIN"}
-                        title={showNewPin ? "Hide PIN" : "Show PIN"}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setShowNewPin((prev) => !prev);
+                        }}
+                        className="absolute inset-y-0 right-0 w-10 flex items-center justify-center text-slate-400 hover:text-sky-400 active:text-sky-300 transition cursor-pointer touch-manipulation focus:outline-none z-10 select-none"
+                        aria-label={showNewPin ? "Hide password" : "Show password"}
+                        title={showNewPin ? "Hide password" : "Show password"}
                       >
-                        {showNewPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        {showNewPin ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                       </button>
                     </div>
                   </div>

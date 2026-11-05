@@ -15,7 +15,8 @@ import {
   ShieldAlert,
   Wrench,
   AlertTriangle,
-  Lock
+  Lock,
+  X
 } from 'lucide-react';
 import { Consumer, ActiveScreen, StaffUser } from '../types';
 import { 
@@ -81,13 +82,16 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
 
   // Filtered Consumers
   const filteredConsumers = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
     return baseConsumerPool.filter((c) => {
       const matchSearch =
-        (c.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (c.accountNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (c.meterSerial || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (c.meterNumber && c.meterNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (c.address || '').toLowerCase().includes(searchTerm.toLowerCase());
+        !query ||
+        (c.name || '').toLowerCase().includes(query) ||
+        (c.accountNumber || '').toLowerCase().includes(query) ||
+        (c.meterSerial || '').toLowerCase().includes(query) ||
+        (c.meterNumber && c.meterNumber.toLowerCase().includes(query)) ||
+        (c.address || '').toLowerCase().includes(query) ||
+        (c.barangay || '').toLowerCase().includes(query);
 
       const matchBarangay = selectedBarangay === 'ALL' || c.barangay === selectedBarangay;
       const matchCategory = categoryFilter === 'ALL' || c.category === categoryFilter;
@@ -105,49 +109,93 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
 
   return (
     <div className="p-3.5 sm:p-5 max-w-5xl mx-auto w-full space-y-3.5 pb-20">
-      {/* Top Header Navigation */}
-      <div className="flex items-center justify-between gap-2">
-        <button
-          type="button"
-          onClick={() => onNavigate('dashboard')}
-          className="flex items-center gap-1.5 text-xs font-semibold text-sky-400 hover:text-sky-300 transition active:scale-95"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Dashboard</span>
-        </button>
-        <span className="text-xs font-mono text-slate-400">
-          Showing <strong className="text-white">{filteredConsumers.length}</strong> of {consumers.length}
-        </span>
+      {/* Top Header & Real-Time Search Bar (Sticky at Top) */}
+      <div className="sticky top-0 z-20 bg-slate-950/95 backdrop-blur-md pt-1 pb-3 -mx-3.5 sm:-mx-5 px-3.5 sm:px-5 border-b border-slate-800/80 space-y-2.5 shadow-md">
+        {/* Navigation & Summary Counters */}
+        <div className="flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => onNavigate('dashboard')}
+            className="flex items-center gap-1.5 text-xs font-bold text-sky-400 hover:text-sky-300 transition active:scale-95 cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Dashboard</span>
+          </button>
+          <div className="flex items-center gap-2">
+            {currentUser && (
+              <span className="hidden sm:inline-flex text-[10px] font-mono px-2 py-0.5 rounded bg-sky-950/80 border border-sky-800/60 text-sky-300 font-semibold truncate max-w-[200px]">
+                {currentUser.assignedRoutes && currentUser.assignedRoutes.length > 0 ? currentUser.assignedRoutes.join(', ') : (currentUser.zone || 'All Routes')}
+              </span>
+            )}
+            <span className="text-xs font-mono text-slate-400">
+              Showing <strong className="text-white font-bold">{filteredConsumers.length}</strong> of {consumers.length}
+            </span>
+          </div>
+        </div>
+
+        {/* Real-time Field Search Bar */}
+        <div className="relative">
+          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-sky-400">
+            <Search className="w-4 h-4" />
+          </div>
+          <input
+            type="search"
+            inputMode="search"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck="false"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search by name or account number..."
+            className="w-full h-11 bg-slate-900 border border-slate-700/80 focus:border-sky-500 rounded-xl pl-10 pr-10 text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-sky-500 transition shadow-inner font-sans tracking-wide"
+          />
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => setSearchTerm('')}
+              className="absolute inset-y-0 right-0 w-10 flex items-center justify-center text-slate-400 hover:text-white transition cursor-pointer touch-manipulation focus:outline-none"
+              title="Clear search"
+              aria-label="Clear search query"
+            >
+              <div className="w-5 h-5 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center">
+                <X className="w-3.5 h-3.5" />
+              </div>
+            </button>
+          )}
+        </div>
+
+        {/* Real-time Active Filter Pill */}
+        {searchTerm.trim() && (
+          <div className="flex items-center justify-between text-[11px] bg-sky-950/60 border border-sky-800/60 px-3 py-1.5 rounded-lg text-sky-200 animate-in fade-in">
+            <span className="truncate">
+              Filtering for <strong className="text-white font-mono">"{searchTerm.trim()}"</strong> — {filteredConsumers.length} {filteredConsumers.length === 1 ? 'consumer' : 'consumers'} found
+            </span>
+            <button
+              type="button"
+              onClick={() => setSearchTerm('')}
+              className="ml-2 text-sky-400 hover:text-sky-200 font-bold shrink-0 underline text-[10.5px] cursor-pointer"
+            >
+              Reset
+            </button>
+          </div>
+        )}
       </div>
 
-      <div className="flex items-center justify-between flex-wrap gap-2">
+      {/* Directory Title */}
+      <div className="flex items-center justify-between flex-wrap gap-2 pt-1">
         <div>
           <h2 className="text-lg font-bold text-white tracking-tight">
             Consumer Directory
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            Field meter reading assignment & sequence
+            Field meter reading assignment &amp; sequence
           </p>
         </div>
         {currentUser && (
-          <span className="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-sky-950/80 border border-sky-800/80 text-sky-300 font-semibold">
-            Assigned: {currentUser.assignedRoutes && currentUser.assignedRoutes.length > 0 ? currentUser.assignedRoutes.join(', ') : (currentUser.zone || 'All Routes')}
+          <span className="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-sky-950/80 border border-sky-800/80 text-sky-300 font-semibold sm:hidden">
+            {currentUser.assignedRoutes && currentUser.assignedRoutes.length > 0 ? currentUser.assignedRoutes.join(', ') : (currentUser.zone || 'All Routes')}
           </span>
         )}
-      </div>
-
-      {/* Search Input */}
-      <div className="relative">
-        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-          <Search className="w-4 h-4" />
-        </div>
-        <input
-          type="text"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Search by Account No, Name, Meter Serial or Address..."
-          className="w-full h-10 bg-slate-900 border border-slate-700/80 rounded-xl pl-9 pr-4 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 transition shadow-inner font-sans"
-        />
       </div>
 
       {/* Filter Tabs / Pills */}
@@ -241,12 +289,26 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
       {/* Consumers List */}
       <div className="space-y-2.5 pt-2">
         {filteredConsumers.length === 0 ? (
-          <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-8 text-center text-slate-400 space-y-2">
+          <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-8 text-center text-slate-400 space-y-3">
             <AlertCircle className="w-8 h-8 mx-auto text-slate-500" />
             <div className="font-bold text-sm text-slate-300">No Consumers Found</div>
             <p className="text-xs text-slate-500">
-              No matching records found for "{searchTerm}" in {selectedBarangay}.
+              {searchTerm.trim()
+                ? `No matching records found for "${searchTerm.trim()}".`
+                : selectedBarangay !== 'ALL'
+                ? `No consumers in Brgy. ${selectedBarangay} match the active filters.`
+                : 'No consumers match the active status filters.'}
             </p>
+            {searchTerm.trim() && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition shadow-sm cursor-pointer active:scale-95"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>Clear Search Filter</span>
+              </button>
+            )}
           </div>
         ) : (
           filteredConsumers.map((consumer) => {

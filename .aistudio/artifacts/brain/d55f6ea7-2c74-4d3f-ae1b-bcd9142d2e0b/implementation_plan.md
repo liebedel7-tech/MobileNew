@@ -91,3 +91,33 @@ When the Administrator approves or accepts meter readings:
    - **Adaptive Font Tracking**: When masked, uses `font-mono tracking-widest` for clean dot spacing; when revealed, smoothly transitions to `font-mono tracking-normal` so alphanumeric characters are legible and not awkwardly spaced.
    - **Tab State Reset**: Automatically resets `showPin` and `showRegPin` when switching between Sign In and Register tabs in `LoginScreen`.
 
+---
+
+## 8. Real-Time Consumer Directory Search Bar
+- **Sticky Top Bar Placement**: Mounted at the top of `ConsumersScreen` with sticky backdrop blur so field readers always have immediate access to the search bar while scrolling through consumer records.
+- **Instant Real-Time Filtering**:
+  - Filters immediately on keystroke against **Consumer Name** (`c.name`), **Account Number** (`c.accountNumber`), **Meter Serial / Tag** (`c.meterSerial`, `c.meterNumber`), and **Address / Barangay**.
+  - Trims and normalizes query tokens to gracefully handle mobile predictive text or trailing spaces.
+- **One-Tap Quick Reset**:
+  - Dedicated right-aligned clear (`✕`) button appears as soon as text is typed.
+  - Active filter feedback pill displays current match count (`Filtering for "..." — X consumers found`) with an instant reset button.
+  - Informative empty-state view with an action button to clear search if no records match the criteria.
+
+---
+
+## 9. Persistent Field Reader Session & IndexedDB Consumer Sync Resilience
+1. **Persistent Authentication & Auto-Login on App Re-entry**:
+   - **Problem**: When a meter reader exited or closed the mobile app / PWA without explicitly logging out, `currentUser` was lost from memory (`useState(null)`), forcing the reader back to the landing or login screen on next open.
+   - **Solution**:
+     - `currentUser` and `activeScreen` are now automatically restored on boot from persistent storage (`localStorage.getItem('twd_active_user')`).
+     - If a valid active session is present upon app opening, the app bypasses the landing screen and resumes directly on the reader's `dashboard` (or last active screen) with their assigned coverage routes, consumers, and readings loaded immediately.
+     - The persistent session is strictly cleared only when the user explicitly clicks **"Sign Out"** / **"Log Out"** (`handleLogout`) or if their account is terminated by Central Admin.
+
+2. **Resolution of DatabaseHelper "Transaction error while saving consumers"**:
+   - **Root Cause**: The IndexedDB `consumers` object store index `accountNumber` was configured with `{ unique: true }`. When central server consumers, applicants without issued account numbers (`accountNumber: ""`), or updates with differing ID conventions were saved, IndexedDB aborted the entire transaction with a `ConstraintError`.
+   - **Solution**:
+     - Upgraded database version to `DB_VERSION = 2` and modified `onupgradeneeded` to recreate `accountNumber` with `{ unique: false }`.
+     - In `DatabaseHelper.saveConsumers`: Deduplicated incoming consumer batches by account number and ID before persisting.
+     - Queried existing records to preserve local deterministic IDs when matching account numbers are present, ensuring `store.put` performs updates instead of causing primary key conflicts.
+     - Wrapped individual operations and gracefully handled transaction events so background sync operations never throw unhandled rejections.
+

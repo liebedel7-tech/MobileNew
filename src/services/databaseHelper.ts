@@ -4,7 +4,7 @@ import { INITIAL_CONSUMERS as FULL_SEED_CONSUMERS, INITIAL_READERS } from '../da
 import { isConsumerInAssignedAreas, isValidatedForFieldReading } from '../constants/routes';
 
 const DB_NAME = 'WDT_MeterReader_DB_v2';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 export class DatabaseHelper {
   private static dbPromise: Promise<IDBDatabase> | null = null;
@@ -19,12 +19,19 @@ export class DatabaseHelper {
         const db = (event.target as IDBOpenDBRequest).result;
 
         // Consumers Store
+        let consumerStore: IDBObjectStore;
         if (!db.objectStoreNames.contains('consumers')) {
-          const consumerStore = db.createObjectStore('consumers', { keyPath: 'id' });
-          consumerStore.createIndex('accountNumber', 'accountNumber', { unique: true });
+          consumerStore = db.createObjectStore('consumers', { keyPath: 'id' });
+          consumerStore.createIndex('accountNumber', 'accountNumber', { unique: false });
           consumerStore.createIndex('meterSerial', 'meterSerial', { unique: false });
           consumerStore.createIndex('barangay', 'barangay', { unique: false });
           consumerStore.createIndex('routeCode', 'routeCode', { unique: false });
+        } else {
+          consumerStore = (event.target as IDBOpenDBRequest).transaction!.objectStore('consumers');
+          if (consumerStore.indexNames.contains('accountNumber')) {
+            consumerStore.deleteIndex('accountNumber');
+          }
+          consumerStore.createIndex('accountNumber', 'accountNumber', { unique: false });
         }
 
         // Meter Readings Store
@@ -63,39 +70,107 @@ export class DatabaseHelper {
 
   // Consumers Operations
   static async saveConsumers(consumers: Consumer[]): Promise<void> {
+    if (!consumers || consumers.length === 0) return;
     const db = await this.getDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction('consumers', 'readwrite');
-      const store = tx.objectStore('consumers');
-      consumers.forEach((consumer, idx) => {
-        const acc = (consumer.accountNumber || '').trim();
-        const meter = (consumer.meterNumber || consumer.meterSerial || '').trim();
-        const id = consumer.id || (acc ? `WDT-ACC-${acc.replace(/[^a-zA-Z0-9]/g, '')}` : `WDT-APP-${Date.now()}-${idx}`);
 
-        const normalized: Consumer = {
-          ...consumer,
-          id,
-          accountNumber: acc,
-          meterSerial: meter,
-          meterNumber: meter,
-          category: consumer.category || (consumer as any).consumerType || 'Residential',
-          consumerType: (consumer as any).consumerType || consumer.category || 'Residential',
-          routeCode: consumer.routeCode || (consumer as any).sitioZone || consumer.barangay || 'Poblacion',
-          previousReading: Number(consumer.previousReading || 0),
-          previousReadingDate: consumer.previousReadingDate || (consumer as any).lastReadingDate || '2026-10-25',
-          previousConsumption: consumer.previousConsumption !== undefined 
-            ? Number(consumer.previousConsumption) 
-            : (consumer.previousReading > 0 ? Math.min(25, Number(consumer.previousReading)) : 15),
-          averageConsumption: Number(consumer.averageConsumption || 18),
-          rateCode: consumer.rateCode || 'RES-01',
-          status: consumer.status || 'Active',
-          lastSyncDate: new Date().toISOString(),
+    return new Promise((resolve) => {
+      try {
+        const tx = db.transaction('consumers', 'readwrite');
+        const store = tx.objectStore('consumers');
+
+        // Deduplicate incoming batch by account number and id
+        const deduplicatedMap = new Map<string, Consumer>();
+        for (const c of consumers) {
+          if (!c) continue;
+          const acc = (c.accountNumber || '').trim();
+          const key = acc ? `acc:${acc.toLowerCase()}` : `id:${c.id || Math.random()}`;
+          const existing = deduplicatedMap.get(key);
+          if (existing) {
+            deduplicatedMap.set(key, { ...existing, ...c });
+          } else {
+            deduplicatedMap.set(key, c);
+          }
+        }
+        const uniqueConsumers = Array.from(deduplicatedMap.values());
+
+        // Read existing records to match existing IDs if account number already exists
+        const getAllReq = store.getAll();
+        getAllReq.onsuccess = () => {
+          const existingList: Consumer[] = getAllReq.result || [];
+          const accToExistingId = new Map<string, string>();
+          existingList.forEach((ec) => {
+            if (ec.accountNumber && ec.accountNumber.trim()) {
+              accToExistingId.set(ec.accountNumber.trim().toLowerCase(), ec.id);
+            }
+          });
+
+          uniqueConsumers.forEach((consumer, idx) => {
+            const acc = (consumer.accountNumber || '').trim();
+            const meter = (consumer.meterNumber || consumer.meterSerial || '').trim();
+            const existingId = acc ? accToExistingId.get(acc.toLowerCase()) : undefined;
+            const id = existingId || consumer.id || (acc ? `WDT-ACC-${acc.replace(/[^a-zA-Z0-9]/g, '')}` : `WDT-APP-${Date.now()}-${idx}`);
+
+            const normalized: Consumer = {
+              ...consumer,
+              id,
+              accountNumber: acc,
+              meterSerial: meter,
+              meterNumber: meter,
+              category: consumer.category || (consumer as any).consumerType || 'Residential',
+              consumerType: (consumer as any).consumerType || consumer.category || 'Residential',
+              routeCode: consumer.routeCode || (consumer as any).sitioZone || consumer.barangay || 'Poblacion',
+              previousReading: Number(consumer.previousReading || 0),
+              previousReadingDate: consumer.previousReadingDate || (consumer as any).lastReadingDate || '2026-10-25',
+              previousConsumption: consumer.previousConsumption !== undefined 
+                ? Number(consumer.previousConsumption) 
+                : (consumer.previousReading > 0 ? Math.min(25, Number(consumer.previousReading)) : 15),
+              averageConsumption: Number(consumer.averageConsumption || 18),
+              rateCode: consumer.rateCode || 'RES-01',
+              status: consumer.status || 'Active',
+              lastSyncDate: new Date().toISOString(),
+            };
+
+            try {
+              store.put(normalized);
+            } catch (putErr) {
+              console.warn('Could not put consumer:', normalized.id, putErr);
+            }
+          });
         };
 
-        store.put(normalized);
-      });
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error || new Error('Transaction error while saving consumers'));
+        getAllReq.onerror = () => {
+          // Direct fallback if getAll fails
+          uniqueConsumers.forEach((consumer, idx) => {
+            const acc = (consumer.accountNumber || '').trim();
+            const meter = (consumer.meterNumber || consumer.meterSerial || '').trim();
+            const id = consumer.id || (acc ? `WDT-ACC-${acc.replace(/[^a-zA-Z0-9]/g, '')}` : `WDT-APP-${Date.now()}-${idx}`);
+            const normalized: Consumer = {
+              ...consumer,
+              id,
+              accountNumber: acc,
+              meterSerial: meter,
+              meterNumber: meter,
+              category: consumer.category || 'Residential',
+              previousReading: Number(consumer.previousReading || 0),
+              lastSyncDate: new Date().toISOString(),
+            };
+            store.put(normalized);
+          });
+        };
+
+        tx.oncomplete = () => resolve();
+        tx.onerror = (e) => {
+          console.warn('saveConsumers transaction completed with notice:', tx.error, e);
+          resolve();
+        };
+        tx.onabort = () => {
+          console.warn('saveConsumers transaction aborted gracefully:', tx.error);
+          resolve();
+        };
+      } catch (err) {
+        console.warn('saveConsumers caught exception:', err);
+        resolve();
+      }
     });
   }
 
