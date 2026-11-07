@@ -3,7 +3,8 @@
   "short_name": "WDT Reader",
   "description": "Official Mobile Field Meter Reading, Tiered Billing & Offline Synchronization System for Tagoloan Water District",
   "start_url": "/",
-  "id": "/?source=pwa",
+  "scope": "/",
+  "id": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#020617",
@@ -11,10 +12,28 @@
   "categories": ["utilities", "business", "productivity"],
   "icons": [
     {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
       "src": "/icon.svg",
       "sizes": "192x192 512x512",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ],
   "shortcuts": [
@@ -23,14 +42,14 @@
       "short_name": "Scan Meter",
       "description": "Quickly scan water meter with camera OCR",
       "url": "/?action=scan_meter",
-      "icons": [{ "src": "/icon.svg", "sizes": "192x192" }]
+      "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192" }]
     },
     {
       "name": "Batch Sync",
       "short_name": "Sync",
       "description": "Upload field readings batch to central server",
       "url": "/?action=batch_submission",
-      "icons": [{ "src": "/icon.svg", "sizes": "192x192" }]
+      "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192" }]
     }
   ]
 }
