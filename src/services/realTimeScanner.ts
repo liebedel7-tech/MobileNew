@@ -251,35 +251,38 @@ export class RealTimeScanner {
     const vh = videoElement.videoHeight;
     const canvas = this.getCanvas();
     
-    canvas.width = 400;
-    canvas.height = 160;
+    canvas.width = 440;
+    canvas.height = 180;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return null;
 
-    // Crop center 50% where the rolling odometer reticle is located
-    const cropX = Math.floor(vw * 0.2);
-    const cropY = Math.floor(vh * 0.35);
-    const cropW = Math.floor(vw * 0.6);
-    const cropH = Math.floor(vh * 0.3);
+    // Crop center area where the rolling mechanical odometer wheels sit
+    const cropX = Math.floor(vw * 0.18);
+    const cropY = Math.floor(vh * 0.32);
+    const cropW = Math.floor(vw * 0.64);
+    const cropH = Math.floor(vh * 0.36);
 
     ctx.drawImage(videoElement, cropX, cropY, cropW, cropH, 0, 0, canvas.width, canvas.height);
 
-    // --- STEP 1: Native Text Detector ---
+    // --- STEP 1: Native Text Detector (Fast on Chromium / Android) ---
     const detector = this.getTextDetector();
     if (detector) {
       try {
         const detectedTexts = await detector.detect(canvas);
         if (detectedTexts && detectedTexts.length > 0) {
           for (const item of detectedTexts) {
-            const rawDigits = cleanOdometerInput(item.rawValue || '');
-            if (rawDigits.length >= 3 && rawDigits.length <= 5) {
-              const numVal = Math.min(99999, Math.max(0, parseInt(rawDigits, 10)));
+            const rawVal = item.rawValue || '';
+            // Match consecutive digits or spaced digits like "0 0 3 4 5"
+            const match5 = rawVal.match(/\b\d{4,5}\b/) || rawVal.match(/(\d\s*){4,5}/);
+            const digitsOnly = match5 ? match5[0].replace(/\D/g, '') : cleanOdometerInput(rawVal);
+            if (digitsOnly.length >= 4 && digitsOnly.length <= 5) {
+              const numVal = Math.min(99999, Math.max(0, parseInt(digitsOnly, 10)));
               const formatted = formatOdometerReading(numVal);
               return {
                 readingValue: numVal,
                 formatted5Digits: formatted,
                 digits: formatted.split(''),
-                confidence: 0.96,
+                confidence: digitsOnly.length === 5 ? 0.96 : 0.88,
                 source: 'native_dial_detector',
               };
             }
@@ -300,15 +303,18 @@ export class RealTimeScanner {
           const result = await worker.recognize(canvas);
           this.isWorkerBusy = false;
           const text = result?.data?.text || '';
-          const rawDigits = cleanOdometerInput(text);
-          if (rawDigits.length >= 3 && rawDigits.length <= 5) {
-            const numVal = Math.min(99999, Math.max(0, parseInt(rawDigits, 10)));
+          
+          // Look for 4 to 5 digit sequences on the dials
+          const match = text.match(/\b\d{4,5}\b/) || text.match(/(\d\s*){4,5}/);
+          const digitsOnly = match ? match[0].replace(/\D/g, '') : cleanOdometerInput(text);
+          if (digitsOnly.length >= 4 && digitsOnly.length <= 5) {
+            const numVal = Math.min(99999, Math.max(0, parseInt(digitsOnly, 10)));
             const formatted = formatOdometerReading(numVal);
             return {
               readingValue: numVal,
               formatted5Digits: formatted,
               digits: formatted.split(''),
-              confidence: 0.93,
+              confidence: digitsOnly.length === 5 ? 0.94 : 0.86,
               source: 'tesseract_dial_ocr',
             };
           }
@@ -318,9 +324,9 @@ export class RealTimeScanner {
       }
     }
 
-    // --- STEP 3: Server Optical Stream ---
+    // --- STEP 3: Server Optical Stream (Debounced for real-time responsiveness) ---
     const now = Date.now();
-    if (!this.isServerScanBusy && now - this.lastServerScanTime > 1400) {
+    if (!this.isServerScanBusy && now - this.lastServerScanTime > 1200) {
       this.lastServerScanTime = now;
       this.isServerScanBusy = true;
       try {
@@ -346,7 +352,7 @@ export class RealTimeScanner {
               readingValue: numVal,
               formatted5Digits: formatted,
               digits: formatted.split(''),
-              confidence: data.confidence || 0.94,
+              confidence: data.confidence || 0.95,
               source: 'live_stream_dial_ocr',
             };
           }

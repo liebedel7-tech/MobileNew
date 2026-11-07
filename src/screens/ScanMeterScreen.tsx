@@ -99,6 +99,7 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
   const [liveReadingDigits, setLiveReadingDigits] = useState<string[] | null>(null);
   const [liveReadingValue, setLiveReadingValue] = useState<number | null>(null);
   const [liveConfidence, setLiveConfidence] = useState<number>(0.92);
+  const [isReadingClear, setIsReadingClear] = useState<boolean>(false);
 
   // OCR & Final Reading State
   const [ocrResult, setOcrResult] = useState<OCRResult | null>(null);
@@ -318,10 +319,14 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
             setLiveReadingDigits(dialResult.digits);
             setLiveReadingValue(dialResult.readingValue);
             setLiveConfidence(dialResult.confidence);
+
+            // Determine if the reading is clear and valid
+            const isClear = dialResult.confidence >= 0.88 && dialResult.readingValue >= selectedConsumer.previousReading;
+            setIsReadingClear(isClear);
             playMatchFeedback();
 
-            // Automatic Hands-Free Reading Lock: Auto-capture and open verification card
-            if (!autoLockTimer && videoRef.current) {
+            // When camera clearly identifies numbers, lock automatically so user doesn't need to type
+            if (isClear && !autoLockTimer && videoRef.current) {
               autoLockTimer = setTimeout(() => {
                 if (videoRef.current && selectedConsumer) {
                   const formatted5 = dialResult.formatted5Digits;
@@ -332,17 +337,19 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
                     status: 'SUCCESS',
                     readingValue: dialResult.readingValue,
                     odometerFormatted: formatted5,
-                    confidence: dialResult.confidence || 0.95,
+                    confidence: dialResult.confidence || 0.96,
                     digits: dialResult.digits,
                     meterSerialDetected: selectedConsumer.meterSerial || selectedConsumer.meterNumber,
                     meterCondition: 'Normal',
                     potentialLeak: false,
                     source: 'live_realtime_autolock',
-                    message: `Auto-captured: ${formatted5} cu.m.`,
+                    message: `Auto-identified: ${formatted5} cu.m. (no typing needed)`,
                   });
                 }
-              }, 600);
+              }, 450);
             }
+          } else {
+            setIsReadingClear(false);
           }
         }
       } catch (e) {
@@ -350,7 +357,7 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
       } finally {
         isScanning = false;
       }
-    }, 450);
+    }, 400);
 
     return () => {
       clearInterval(interval);
@@ -904,12 +911,6 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
               isProcessing={isProcessing}
               cameraActive={cameraActive}
               mode={selectedConsumer ? 'meter' : 'tag'}
-              guideTitle={selectedConsumer ? 'ALIGN 5-DIGIT METER DIAL' : 'AIM AT METER TAG NUMBER'}
-              guideSubtitle={
-                selectedConsumer 
-                  ? `Reading for ${selectedConsumer.name}` 
-                  : 'Real-time identifying tag in route'
-              }
               isAutoScanning={liveAutoScanActive}
               liveTagDetected={liveTagDetected}
               liveReadingDigits={liveReadingDigits}
@@ -917,7 +918,7 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
               liveConfidence={liveConfidence}
               zoom={zoomLevel}
               onSetZoom={handleSetZoom}
-              previousReading={selectedConsumer?.previousReading}
+              isReadingClear={isReadingClear}
             />
           )}
 
@@ -1060,7 +1061,7 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
               </div>
             )}
 
-            {/* Shutter Button & Manual Entry Option */}
+            {/* Shutter Button & Direct Manual Typing Option */}
             <div className="flex items-center gap-2 pt-1">
               <button
                 type="button"
@@ -1068,19 +1069,27 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
                 disabled={isProcessing}
                 className={`flex-1 font-bold py-2.5 rounded-xl shadow flex items-center justify-center gap-1.5 text-xs uppercase tracking-wider transition active:scale-95 cursor-pointer disabled:opacity-50 ${
                   selectedConsumer
-                    ? 'bg-sky-600 hover:bg-sky-500 text-white shadow-sky-600/30'
+                    ? isReadingClear
+                      ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/30 font-black'
+                      : 'bg-sky-600 hover:bg-sky-500 text-white shadow-sky-600/30'
                     : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30'
                 }`}
               >
                 {isProcessing ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>{selectedConsumer ? 'Reading 5 Dials...' : 'Extracting Tag Number...'}</span>
+                    <span>Analyzing...</span>
                   </>
                 ) : (
                   <>
                     <Camera className="w-4 h-4" />
-                    <span>{selectedConsumer ? 'Capture 5-Digit Reading' : 'Capture & Identify Tag #'}</span>
+                    <span>
+                      {selectedConsumer
+                        ? isReadingClear
+                          ? 'Capture Clear Reading'
+                          : 'Capture Dial'
+                        : 'Identify Tag #'}
+                    </span>
                   </>
                 )}
               </button>
@@ -1089,8 +1098,9 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
                 type="button"
                 onClick={() => onNavigate(selectedConsumer ? 'reading_entry' : 'consumers')}
                 className="px-3 py-2.5 bg-slate-900 border border-slate-700 text-slate-300 hover:text-white rounded-xl text-xs font-semibold"
+                title="Type reading manually if dial is unclear"
               >
-                Manual
+                Type Manually
               </button>
             </div>
           </div>
