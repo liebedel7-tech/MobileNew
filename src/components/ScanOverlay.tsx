@@ -5,7 +5,8 @@ import {
   Tag, 
   Target, 
   CheckCircle2, 
-  Eye
+  Eye,
+  Keyboard
 } from 'lucide-react';
 import { formatOdometerReading } from '../constants/routes';
 
@@ -13,6 +14,7 @@ interface ScanOverlayProps {
   onCapture: () => void;
   onToggleTorch?: () => void;
   onFlipCamera?: () => void;
+  onTypeReading?: () => void;
   torchOn?: boolean;
   isProcessing?: boolean;
   cameraActive?: boolean;
@@ -25,60 +27,86 @@ interface ScanOverlayProps {
   zoom?: number;
   onSetZoom?: (zoom: number) => void;
   isReadingClear?: boolean;
+  clearConfidenceCount?: number;
 }
 
 export const ScanOverlay: React.FC<ScanOverlayProps> = ({
   onCapture,
   onToggleTorch,
   onFlipCamera,
+  onTypeReading,
   torchOn = false,
   isProcessing = false,
   mode = 'meter',
   liveTagDetected,
   liveReadingDigits,
   liveReadingValue,
-  liveConfidence,
+  liveConfidence = 0,
   zoom = 1,
   onSetZoom,
   isReadingClear = false,
+  clearConfidenceCount = 0,
 }) => {
   const displayDigits = liveReadingValue !== null && liveReadingValue !== undefined
     ? formatOdometerReading(liveReadingValue).split('')
     : (liveReadingDigits && liveReadingDigits.length === 5 ? liveReadingDigits : null);
   const isDigitsIdentified = displayDigits && displayDigits.length === 5;
+  const pct = Math.round(liveConfidence * 100);
 
   return (
-    <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-3 z-20 overflow-hidden">
-      {/* 🔝 MINIMAL TOP HUD: Mode Badge & Live Status */}
-      <div className="flex items-center justify-between pointer-events-auto">
-        <div className="inline-flex items-center gap-1.5 bg-slate-950/80 backdrop-blur-md border border-slate-700/70 rounded-full px-2.5 py-1 shadow-md">
+    <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-3 z-20 overflow-hidden select-none">
+      {/* 🔝 MINIMAL TOP HUD: Mode Badge, Real-time Confidence, and Quick Type Button */}
+      <div className="flex items-center justify-between pointer-events-auto gap-2">
+        {/* Mode Tag */}
+        <div className="inline-flex items-center gap-1.5 bg-slate-950/85 backdrop-blur-md border border-slate-700/80 rounded-full px-2.5 py-1 shadow-md">
           {mode === 'tag' ? (
             <Tag className="w-3 h-3 text-emerald-400" />
           ) : (
             <Target className="w-3 h-3 text-sky-400" />
           )}
-          <span className="text-[10px] font-bold text-white uppercase tracking-wide">
-            {mode === 'tag' ? 'Scan Tag #' : 'Scan Odometer'}
+          <span className="text-[10px] font-bold text-white uppercase tracking-wider">
+            {mode === 'tag' ? 'Scan Tag #' : 'Odometer Scan'}
           </span>
         </div>
 
-        {/* Status Pill: Clear vs Scanning */}
+        {/* Status Pill: Clear vs Identifying */}
         {mode === 'meter' && (
-          <div className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-bold border backdrop-blur-md flex items-center gap-1.5 transition-all ${
-            isReadingClear
-              ? 'bg-emerald-950/90 text-emerald-300 border-emerald-500/80 shadow-[0_0_12px_rgba(52,211,153,0.3)]'
-              : isDigitsIdentified
-              ? 'bg-sky-950/80 text-sky-300 border-sky-500/60'
-              : 'bg-slate-950/80 text-slate-400 border-slate-800'
-          }`}>
-            <span className={`w-1.5 h-1.5 rounded-full ${isReadingClear ? 'bg-emerald-400 animate-ping' : isDigitsIdentified ? 'bg-sky-400' : 'bg-amber-400 animate-pulse'}`} />
-            <span>
-              {isReadingClear 
-                ? 'CLEAR (AUTO-LOCK)' 
-                : isDigitsIdentified 
-                ? 'IDENTIFYING...' 
-                : 'ALIGN DIALS'}
-            </span>
+          <div className="flex items-center gap-1.5">
+            <div className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-bold border backdrop-blur-md flex items-center gap-1.5 transition-all shadow-md ${
+              isReadingClear
+                ? 'bg-emerald-950/90 text-emerald-300 border-emerald-400 ring-2 ring-emerald-400/30'
+                : isDigitsIdentified
+                ? 'bg-sky-950/80 text-sky-300 border-sky-500/70'
+                : 'bg-slate-950/80 text-slate-400 border-slate-800'
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${
+                isReadingClear 
+                  ? 'bg-emerald-400 animate-ping' 
+                  : isDigitsIdentified 
+                  ? 'bg-sky-400 animate-pulse' 
+                  : 'bg-amber-400'
+              }`} />
+              <span>
+                {isReadingClear 
+                  ? `CLEAR (${pct}%)` 
+                  : isDigitsIdentified 
+                  ? `ANALYZING (${pct}%)` 
+                  : 'ALIGN DIALS'}
+              </span>
+            </div>
+
+            {/* In-Overlay Direct Manual Type Button (Always accessible) */}
+            {onTypeReading && (
+              <button
+                type="button"
+                onClick={onTypeReading}
+                className="px-2.5 py-1 rounded-full bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-sky-300 hover:text-white text-[10px] font-bold font-mono flex items-center gap-1 transition active:scale-95 cursor-pointer shadow-md"
+                title="Switch directly to manual typing"
+              >
+                <Keyboard className="w-3 h-3 text-sky-400" />
+                <span>Type</span>
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -135,7 +163,7 @@ export const ScanOverlay: React.FC<ScanOverlayProps> = ({
                       className={`w-9 sm:w-10 h-14 rounded-lg flex items-center justify-center font-mono font-black text-xl sm:text-2xl transition-all shadow-sm ${
                         digit !== null
                           ? isReadingClear
-                            ? 'bg-emerald-400 text-slate-950 border border-emerald-200 scale-105'
+                            ? 'bg-emerald-400 text-slate-950 border-2 border-emerald-200 scale-105 shadow-[0_0_12px_rgba(52,211,153,0.5)]'
                             : 'bg-white text-slate-950 border border-sky-400'
                           : 'bg-slate-900/90 border border-slate-700 text-slate-500'
                       }`}
@@ -146,19 +174,33 @@ export const ScanOverlay: React.FC<ScanOverlayProps> = ({
                 })}
               </div>
 
-              {/* Laser Line */}
+              {/* Laser Scanning Line */}
               <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 h-0.5 bg-gradient-to-r from-transparent via-sky-400 to-transparent opacity-60" />
             </div>
 
+            {/* Confidence-Weighted Auto-Capture Progress Bar (When clear reading is locking) */}
+            {isReadingClear && clearConfidenceCount > 0 && (
+              <div className="w-full max-w-[240px] mt-1.5 bg-slate-950/80 rounded-full h-1 overflow-hidden border border-emerald-500/50">
+                <div 
+                  className="bg-emerald-400 h-full transition-all duration-200"
+                  style={{ width: `${Math.min(100, (clearConfidenceCount / 2) * 100)}%` }}
+                />
+              </div>
+            )}
+
             {/* Bottom Identified Value (Clean Pill) */}
             {liveReadingValue !== null && liveReadingValue !== undefined && (
-              <div className="mt-2 flex items-center gap-1.5 bg-slate-950/90 border border-sky-500/80 rounded-full px-3 py-1 shadow-lg">
-                <Eye className="w-3.5 h-3.5 text-sky-400" />
-                <span className="font-mono text-xs font-black text-sky-300">
+              <div className={`mt-2 flex items-center gap-1.5 backdrop-blur-md rounded-full px-3 py-1 shadow-lg transition-all ${
+                isReadingClear
+                  ? 'bg-emerald-950/95 border border-emerald-400 text-emerald-300 ring-2 ring-emerald-400/30'
+                  : 'bg-slate-950/90 border border-sky-500/80 text-sky-300'
+              }`}>
+                <Eye className={`w-3.5 h-3.5 ${isReadingClear ? 'text-emerald-400' : 'text-sky-400'}`} />
+                <span className="font-mono text-xs font-black">
                   {formatOdometerReading(liveReadingValue)} m³
                 </span>
-                <span className="text-[10px] text-emerald-400 font-mono font-bold ml-1">
-                  ({((liveConfidence || 0.95) * 100).toFixed(0)}%)
+                <span className={`text-[10px] font-mono font-bold ml-1 ${isReadingClear ? 'text-emerald-300' : 'text-sky-400'}`}>
+                  ({pct}%)
                 </span>
               </div>
             )}

@@ -25,7 +25,8 @@ import {
   Sliders,
   CheckSquare,
   ShieldAlert,
-  PowerOff
+  PowerOff,
+  Keyboard
 } from 'lucide-react';
 import { Consumer, ActiveScreen, MeterReading, StaffUser } from '../types';
 import { 
@@ -100,6 +101,7 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
   const [liveReadingValue, setLiveReadingValue] = useState<number | null>(null);
   const [liveConfidence, setLiveConfidence] = useState<number>(0.92);
   const [isReadingClear, setIsReadingClear] = useState<boolean>(false);
+  const [clearConfidenceCount, setClearConfidenceCount] = useState<number>(0);
 
   // OCR & Final Reading State
   const [ocrResult, setOcrResult] = useState<OCRResult | null>(null);
@@ -320,36 +322,49 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
             setLiveReadingValue(dialResult.readingValue);
             setLiveConfidence(dialResult.confidence);
 
-            // Determine if the reading is clear and valid
-            const isClear = dialResult.confidence >= 0.88 && dialResult.readingValue >= selectedConsumer.previousReading;
-            setIsReadingClear(isClear);
-            playMatchFeedback();
+            // Confidence-weighted validation:
+            // High confidence (>= 0.88), exactly 5 valid digits, and current reading >= previous baseline
+            const meetsConfidenceThreshold = dialResult.confidence >= 0.88;
+            const isValidSequence = dialResult.readingValue >= selectedConsumer.previousReading;
+            const isClear = meetsConfidenceThreshold && isValidSequence;
 
-            // When camera clearly identifies numbers, lock automatically so user doesn't need to type
-            if (isClear && !autoLockTimer && videoRef.current) {
-              autoLockTimer = setTimeout(() => {
-                if (videoRef.current && selectedConsumer) {
-                  const formatted5 = dialResult.formatted5Digits;
-                  const photo = OCRService.captureFrameFromVideo(videoRef.current);
-                  setCapturedPhoto(photo);
-                  setOcrResult({
-                    success: true,
-                    status: 'SUCCESS',
-                    readingValue: dialResult.readingValue,
-                    odometerFormatted: formatted5,
-                    confidence: dialResult.confidence || 0.96,
-                    digits: dialResult.digits,
-                    meterSerialDetected: selectedConsumer.meterSerial || selectedConsumer.meterNumber,
-                    meterCondition: 'Normal',
-                    potentialLeak: false,
-                    source: 'live_realtime_autolock',
-                    message: `Auto-identified: ${formatted5} cu.m. (no typing needed)`,
-                  });
+            setIsReadingClear(isClear);
+
+            if (isClear) {
+              setClearConfidenceCount((prev) => {
+                const nextCount = prev + 1;
+                // Once confidence is sustained (2 consecutive clear frames), trigger auto-capture
+                if (nextCount >= 2 && !autoLockTimer && videoRef.current) {
+                  playMatchFeedback();
+                  autoLockTimer = setTimeout(() => {
+                    if (videoRef.current && selectedConsumer) {
+                      const formatted5 = dialResult.formatted5Digits;
+                      const photo = OCRService.captureFrameFromVideo(videoRef.current);
+                      setCapturedPhoto(photo);
+                      setOcrResult({
+                        success: true,
+                        status: 'SUCCESS',
+                        readingValue: dialResult.readingValue,
+                        odometerFormatted: formatted5,
+                        confidence: dialResult.confidence || 0.96,
+                        digits: dialResult.digits,
+                        meterSerialDetected: selectedConsumer.meterSerial || selectedConsumer.meterNumber,
+                        meterCondition: 'Normal',
+                        potentialLeak: false,
+                        source: 'live_realtime_autolock',
+                        message: `Auto-identified: ${formatted5} cu.m. (Confidence: ${Math.round((dialResult.confidence || 0.95) * 100)}%)`,
+                      });
+                    }
+                  }, 300);
                 }
-              }, 450);
+                return nextCount;
+              });
+            } else {
+              setClearConfidenceCount(0);
             }
           } else {
             setIsReadingClear(false);
+            setClearConfidenceCount(0);
           }
         }
       } catch (e) {
@@ -357,7 +372,7 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
       } finally {
         isScanning = false;
       }
-    }, 400);
+    }, 380);
 
     return () => {
       clearInterval(interval);
@@ -665,6 +680,8 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
     setLiveDetectedConsumer(null);
     setLiveReadingDigits(null);
     setLiveReadingValue(null);
+    setIsReadingClear(false);
+    setClearConfidenceCount(0);
     setLastSubmittedReading(null);
     setTagStatusMessage(null);
     setDeactivationBlock(null);
@@ -907,6 +924,7 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
               onCapture={handleCaptureButton}
               onToggleTorch={handleToggleTorch}
               onFlipCamera={handleFlipCamera}
+              onTypeReading={() => onNavigate(selectedConsumer ? 'reading_entry' : 'consumers')}
               torchOn={torchOn}
               isProcessing={isProcessing}
               cameraActive={cameraActive}
@@ -919,6 +937,7 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
               zoom={zoomLevel}
               onSetZoom={handleSetZoom}
               isReadingClear={isReadingClear}
+              clearConfidenceCount={clearConfidenceCount}
             />
           )}
 
@@ -1097,10 +1116,11 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
               <button
                 type="button"
                 onClick={() => onNavigate(selectedConsumer ? 'reading_entry' : 'consumers')}
-                className="px-3 py-2.5 bg-slate-900 border border-slate-700 text-slate-300 hover:text-white rounded-xl text-xs font-semibold"
-                title="Type reading manually if dial is unclear"
+                className="px-3.5 py-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-sky-400 hover:text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow"
+                title="Type reading manually if dial is damaged, moisture-filled, or unclear"
               >
-                Type Manually
+                <Keyboard className="w-4 h-4 text-sky-400" />
+                <span>Type Reading</span>
               </button>
             </div>
           </div>
