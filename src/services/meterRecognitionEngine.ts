@@ -17,7 +17,7 @@ export interface TagCandidate {
 
 export interface RecognitionResult {
   success: boolean;
-  status: 'SUCCESS' | 'REJECTED_NO_5_DIGITS' | 'REJECTED_AMBIGUOUS_MULTIPLE' | 'REJECTED_BLURRY' | 'FAIL_SAFE_MANUAL_REQUIRED';
+  status: 'SUCCESS' | 'REJECTED_NO_5_DIGITS' | 'REJECTED_INVALID_READING' | 'REJECTED_AMBIGUOUS_MULTIPLE' | 'REJECTED_BLURRY' | 'FAIL_SAFE_MANUAL_REQUIRED';
   odometerReading: number | null; // e.g. 368
   odometerFormatted: string | null; // Strictly 5 characters: "00368"
   tagIdentified: string | null; // e.g. "TWD-01042" or "MTR-8849201"

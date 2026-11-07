@@ -289,6 +289,14 @@ export class RealTimeScanner {
             if (/^\d{5}$/.test(cleanDigits)) {
               const numVal = parseInt(cleanDigits, 10);
               if (!isNaN(numVal) && numVal >= 0 && numVal <= 99999) {
+                // STRICT CHECK: Reject if candidate is less than previous reading without valid rollover
+                if (previousReading > 0) {
+                  const isNormal = numVal >= previousReading;
+                  const isRollover = previousReading >= 90000 && numVal < 10000;
+                  if (!isNormal && !isRollover) {
+                    continue; // Skip invalid reading! Do not accept random smaller numbers!
+                  }
+                }
                 const formatted = formatOdometerReading(numVal);
                 return {
                   readingValue: numVal,
@@ -330,6 +338,14 @@ export class RealTimeScanner {
               if (/^\d{5}$/.test(cleanDigits)) {
                 const numVal = parseInt(cleanDigits, 10);
                 if (!isNaN(numVal) && numVal >= 0 && numVal <= 99999) {
+                  // STRICT CHECK: Reject if candidate is less than previous reading without valid rollover
+                  if (previousReading > 0) {
+                    const isNormal = numVal >= previousReading;
+                    const isRollover = previousReading >= 90000 && numVal < 10000;
+                    if (!isNormal && !isRollover) {
+                      continue; // Skip invalid reading! Do not accept random smaller numbers!
+                    }
+                  }
                   const formatted = formatOdometerReading(numVal);
                   return {
                     readingValue: numVal,
@@ -374,6 +390,15 @@ export class RealTimeScanner {
               const cleanDigits = rawDigits.replace(/\s+/g, '').slice(0, 5);
               if (/^\d{1,5}$/.test(cleanDigits)) {
                 const numVal = Math.min(99999, Math.max(0, parseInt(cleanDigits, 10)));
+                // STRICT CHECK: Reject if candidate is less than previous reading without valid rollover
+                if (previousReading > 0) {
+                  const isNormal = numVal >= previousReading;
+                  const isRollover = previousReading >= 90000 && numVal < 10000;
+                  if (!isNormal && !isRollover) {
+                    this.isServerScanBusy = false;
+                    return null; // Reject!
+                  }
+                }
                 const formatted = formatOdometerReading(numVal);
                 this.isServerScanBusy = false;
                 return {

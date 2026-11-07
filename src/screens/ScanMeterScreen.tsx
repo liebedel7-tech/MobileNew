@@ -318,21 +318,35 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
             selectedConsumer.previousReading
           );
           if (dialResult && dialResult.digits && dialResult.digits.length === 5) {
+            const prev = selectedConsumer.previousReading || 0;
+            const isNormal = dialResult.readingValue >= prev;
+            const isRollover = prev >= 90000 && dialResult.readingValue < 10000;
+            const isValidSequence = prev === 0 || isNormal || isRollover;
+
+            // STRICT PROTECTION: If detected numbers are smaller than previous baseline without rollover,
+            // reject immediately! Do not throw random smaller numbers into the live display or field.
+            if (!isValidSequence) {
+              setLiveReadingDigits(null);
+              setLiveReadingValue(null);
+              setIsReadingClear(false);
+              setClearConfidenceCount(0);
+              return;
+            }
+
             setLiveReadingDigits(dialResult.digits);
             setLiveReadingValue(dialResult.readingValue);
             setLiveConfidence(dialResult.confidence);
 
             // Confidence-weighted validation:
-            // High confidence strictly exceeding 90% (> 0.90), strictly 5 valid digits, and current reading >= previous baseline
+            // High confidence strictly exceeding 90% (> 0.90), strictly 5 valid digits, and verified sequence
             const meetsConfidenceThreshold = dialResult.confidence > 0.90;
-            const isValidSequence = dialResult.readingValue >= selectedConsumer.previousReading;
             const isClear = meetsConfidenceThreshold && isValidSequence && dialResult.digits.length === 5;
 
             setIsReadingClear(isClear);
 
             if (isClear) {
-              setClearConfidenceCount((prev) => {
-                const nextCount = prev + 1;
+              setClearConfidenceCount((prevCount) => {
+                const nextCount = prevCount + 1;
                 // Once confidence > 90% is sustained (2 consecutive clear frames), trigger auto-capture
                 if (nextCount >= 2 && !autoLockTimer && videoRef.current) {
                   playMatchFeedback();
@@ -446,6 +460,27 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
 
   const handleAcceptRealTimeReading = () => {
     if (liveReadingValue !== null && selectedConsumer) {
+      const prev = selectedConsumer.previousReading || 0;
+      const isNormal = liveReadingValue >= prev;
+      const isRollover = prev >= 90000 && liveReadingValue < 10000;
+      if (prev > 0 && !isNormal && !isRollover) {
+        // Prevent accepting invalid / smaller numbers
+        setOcrResult({
+          success: false,
+          status: 'REJECTED_INVALID_READING',
+          readingValue: 0,
+          odometerFormatted: '-----',
+          digits: ['-', '-', '-', '-', '-'],
+          confidence: 0,
+          meterSerialDetected: selectedConsumer.meterSerial || selectedConsumer.meterNumber,
+          meterCondition: 'Invalid Reading',
+          potentialLeak: false,
+          source: 'validation_error',
+          message: `Invalid Reading Error: Detected value (${formatOdometerReading(liveReadingValue)} cu.m.) cannot be less than previous record (${formatOdometerReading(prev)} cu.m.). Please frame dials properly or type reading manually.`,
+        });
+        return;
+      }
+
       const formatted5 = String(liveReadingValue).padStart(5, '0');
       const photo = videoRef.current ? OCRService.captureFrameFromVideo(videoRef.current) : '';
       setCapturedPhoto(photo);
@@ -535,7 +570,31 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
           selectedConsumer?.meterSerial || selectedConsumer?.meterNumber
         );
 
-        // Set genuine result (either success with detected digits or rejection with clear reason)
+        // Strict Validation: If result detected a number but it is smaller than previousReading without rollover,
+        // it is an INVALID reading. DO NOT fill random numbers into the input field! It must be an ERROR!
+        if (result.success && result.readingValue !== null && selectedConsumer) {
+          const prev = selectedConsumer.previousReading || 0;
+          const isNormal = result.readingValue >= prev;
+          const isRollover = prev >= 90000 && result.readingValue < 10000;
+          if (prev > 0 && !isNormal && !isRollover) {
+            setOcrResult({
+              success: false,
+              status: 'REJECTED_INVALID_READING',
+              readingValue: 0,
+              odometerFormatted: '-----',
+              digits: ['-', '-', '-', '-', '-'],
+              confidence: 0,
+              meterSerialDetected: selectedConsumer?.meterSerial || '',
+              meterCondition: 'Invalid Reading',
+              potentialLeak: false,
+              source: 'validation_error',
+              message: `Invalid Reading Error: Detected dial reading (${formatOdometerReading(result.readingValue)} cu.m.) cannot be smaller than the previous record (${formatOdometerReading(prev)} cu.m.). The system will not populate random numbers. Please retake photo with clear alignment or type the reading manually.`,
+            });
+            return;
+          }
+        }
+
+        // Set genuine result (either success with valid detected digits or rejection with clear error)
         setOcrResult(result);
         if (result.success && result.readingValue !== null) {
           playMatchFeedback();
@@ -1139,14 +1198,20 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
                 {ocrResult.success ? (
                   <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                 ) : (
-                  <AlertTriangle className="w-4 h-4 text-amber-400" />
+                  <XCircle className="w-4 h-4 text-rose-400" />
                 )}
                 <div>
                   <h3 className="font-bold text-xs text-white">
-                    {ocrResult.success ? '5-Digit Meter Reading Detected' : 'Meter Digits Unclear'}
+                    {ocrResult.success 
+                      ? '5-Digit Meter Reading Detected' 
+                      : ocrResult.status === 'REJECTED_INVALID_READING'
+                      ? 'Invalid Reading Error'
+                      : 'Meter Reading Error'}
                   </h3>
                   <span className="text-[9px] text-slate-400 font-mono">
-                    {ocrResult.success ? `Confidence: ${(ocrResult.confidence * 100).toFixed(0)}%` : 'Retake photo or adjust lighting'}
+                    {ocrResult.success 
+                      ? `Confidence: ${(ocrResult.confidence * 100).toFixed(0)}%` 
+                      : 'Random numbers rejected — manual entry required'}
                   </span>
                 </div>
               </div>
@@ -1302,10 +1367,36 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
                 )}
               </div>
             ) : (
-              <div className="space-y-1.5">
-                <div className="bg-amber-950/40 p-1.5 rounded-lg border border-amber-800/80 text-amber-300 text-xs">
-                  {ocrResult.message || 'Position camera steadily facing the 5 mechanical digit wheels.'}
+              <div className="space-y-2">
+                <div className="bg-rose-950/80 border border-rose-500/80 p-3 rounded-xl shadow-lg space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-rose-900 border border-rose-400 flex items-center justify-center text-rose-300 shrink-0">
+                      <XCircle className="w-4 h-4 text-rose-300" />
+                    </div>
+                    <div>
+                      <h4 className="font-black text-xs text-white uppercase tracking-wider">
+                        {ocrResult.status === 'REJECTED_INVALID_READING'
+                          ? 'Invalid Reading Rejected'
+                          : 'Digits Unclear or Rejected'}
+                      </h4>
+                      <span className="text-[9.5px] text-rose-300 font-mono">
+                        Camera did not fill random numbers
+                      </span>
+                    </div>
+                  </div>
+
+                  <p className="text-[11px] text-rose-200 font-medium leading-relaxed bg-rose-950/60 p-2 rounded-lg border border-rose-900/80 font-mono">
+                    {ocrResult.message || 'Position camera steadily facing the 5 mechanical digit wheels.'}
+                  </p>
+
+                  {selectedConsumer && (
+                    <div className="flex items-center justify-between text-[10px] font-mono text-slate-300 pt-1 border-t border-rose-900/60">
+                      <span>Previous Record: <strong className="text-white">{formatOdometerReading(selectedConsumer.previousReading)} m³</strong></span>
+                      <span className="text-rose-400 font-bold">Must be ≥ Previous</span>
+                    </div>
+                  )}
                 </div>
+
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -1314,16 +1405,18 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
                       setCapturedPhoto(null);
                       startCamera(facingMode);
                     }}
-                    className="py-1.5 bg-slate-800 text-white text-xs font-bold rounded-lg"
+                    className="py-2.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer shadow"
                   >
-                    Retake
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Retake Photo</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => onNavigate(selectedConsumer ? 'reading_entry' : 'consumers')}
-                    className="py-1.5 bg-sky-600 text-white text-xs font-bold rounded-lg"
+                    className="py-2.5 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer shadow"
                   >
-                    Enter Manually
+                    <Keyboard className="w-3.5 h-3.5" />
+                    <span>Enter Manually</span>
                   </button>
                 </div>
               </div>

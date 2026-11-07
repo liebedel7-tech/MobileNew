@@ -2408,12 +2408,12 @@ STRICT METER ODOMETER REQUIREMENTS:
 2. If text contains letters (such as brand names, model names like "LXSG", "ISO", or serials) or special characters (like "/", "-", "#"), DO NOT confuse them with the odometer counter wheels. Focus strictly on the horizontal row of 5 rolling numeric wheels.
 3. If the reading wheels have extra characters, letters, or cannot be resolved to an unambiguous 5-digit number, return status "REJECTED_NO_5_DIGITS" and readingValue null.
 4. Water meter readings are WHOLE NUMBERS ONLY (00000 to 99999). NEVER include decimal points, commas, or letters in the reading. Ignore any separate red sub-dials or rotating needle pointers.
-${previousReading !== undefined && previousReading !== null ? `5. The previous logged reading for this meter is ${previousReading} cu.m. The present reading must normally be >= ${previousReading} cu.m.` : ''}
+${previousReading !== undefined && previousReading !== null ? `5. The previous logged reading for this meter is ${previousReading} cu.m. The present reading must be >= ${previousReading} cu.m. (or valid 99999 rollover). If detected number is less than ${previousReading} cu.m., it is INVALID: return status "REJECTED_INVALID_READING" and readingValue null. DO NOT GUESS OR INVENT RANDOM NUMBERS.` : ''}
 6. If the 5 digits are not clearly legible or are obstructed, DO NOT GUESS. Return status "REJECTED_NO_5_DIGITS".
 
 Return strict JSON ONLY:
 {
-  "status": "SUCCESS" | "REJECTED_NO_5_DIGITS",
+  "status": "SUCCESS" | "REJECTED_NO_5_DIGITS" | "REJECTED_INVALID_READING",
   "readingValue": integer between 0 and 99999 | null,
   "odometerFormatted": "5-digit string from 00000 to 99999 (e.g. 00368)" | null,
   "digits": ["0", "0", "3", "6", "8"] | [],
@@ -2507,6 +2507,30 @@ Return strict JSON ONLY:
       const numVal = Math.min(99999, Math.max(0, parseInt(cleanDigits, 10) || 0));
       const formatted = String(numVal).padStart(5, '0');
       const digitsArray = formatted.split('');
+
+      // STRICT VALIDATION AGAINST PREVIOUS BASELINE:
+      // If previousReading > 0 and numVal is smaller without valid rollover, reject with explicit error!
+      // Do not accept random/arbitrary numbers that would pollute the reading.
+      const prev = Number(previousReading) || 0;
+      if (prev > 0) {
+        const isNormal = numVal >= prev;
+        const isRollover = prev >= 90000 && numVal < 10000;
+        if (!isNormal && !isRollover) {
+          return res.json({
+            success: false,
+            status: 'REJECTED_INVALID_READING',
+            readingValue: null,
+            odometerFormatted: null,
+            digits: [],
+            confidence: 0,
+            meterSerialDetected: meterSerial || null,
+            meterCondition: 'Invalid Reading',
+            potentialLeak: false,
+            message: `Invalid Reading Error: Detected number (${formatted} cu.m.) cannot be less than previous record (${String(prev).padStart(5, '0')} cu.m.). Please frame dials clearly or type reading manually.`,
+            source: 'camera_vision_ocr_gemini',
+          });
+        }
+      }
 
       return res.json({
         success: true,

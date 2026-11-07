@@ -3,7 +3,7 @@ import { universalApiFetch, getApiEndpoint } from './apiConfig';
 
 export interface OCRResult {
   success: boolean;
-  status: 'SUCCESS' | 'REJECTED_NO_5_DIGITS' | 'REJECTED_AMBIGUOUS_MULTIPLE' | 'REJECTED_BLURRY' | 'FAIL_SAFE_MANUAL_REQUIRED';
+  status: 'SUCCESS' | 'REJECTED_NO_5_DIGITS' | 'REJECTED_INVALID_READING' | 'REJECTED_AMBIGUOUS_MULTIPLE' | 'REJECTED_BLURRY' | 'FAIL_SAFE_MANUAL_REQUIRED';
   readingValue: number;
   odometerFormatted: string;
   confidence: number;
