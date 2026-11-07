@@ -2401,17 +2401,15 @@ Return strict JSON ONLY:
   "notes": "explanation of text/numbers found on the meter badge or casing"
 }`;
     } else {
-      prompt = `You are a precise optical character recognition (OCR) engine for mechanical water meters.
-TASK: Read the exact numbers on the 5 mechanical rolling odometer counter wheels (index register in cubic meters cu.m.).
-STRICT REQUIREMENTS:
-1. Water meter readings are WHOLE NUMBERS ONLY. They do NOT contain decimal points or commas.
-2. The readings MUST be treated as five-digit odometer-style numbers, from 00000 to 99999.
-3. Locate the horizontal row of 5 rolling digit wheels (representing whole cubic meters: 10k, 1k, 100, 10, 1).
-4. Read each digit strictly from LEFT to RIGHT.
-5. Ignore any red decimal sub-dials, pointers, or liters indicators. Read ONLY the 5 whole number cubic meter digits (00000 to 99999).
-6. NEVER include decimal points or commas in the output.
-${previousReading !== undefined && previousReading !== null ? `7. The previous logged reading for this meter is ${previousReading} cu.m. The present reading must normally be >= ${previousReading} cu.m.` : ''}
-8. If the mechanical odometer digits are not clearly legible or not in frame, DO NOT GUESS. Return status "REJECTED_NO_5_DIGITS" and readingValue null.
+      prompt = `You are a strict, high-precision optical character recognition (OCR) engine for mechanical water meters.
+TASK: Identify the 5 mechanical rolling odometer counter wheels (index register in cubic meters cu.m.).
+STRICT METER ODOMETER REQUIREMENTS:
+1. Water meter odometers present strictly 5 mechanical digits (00000 to 99999) with NO letters, names, or special characters.
+2. If text contains letters (such as brand names, model names like "LXSG", "ISO", or serials) or special characters (like "/", "-", "#"), DO NOT confuse them with the odometer counter wheels. Focus strictly on the horizontal row of 5 rolling numeric wheels.
+3. If the reading wheels have extra characters, letters, or cannot be resolved to an unambiguous 5-digit number, return status "REJECTED_NO_5_DIGITS" and readingValue null.
+4. Water meter readings are WHOLE NUMBERS ONLY (00000 to 99999). NEVER include decimal points, commas, or letters in the reading. Ignore any separate red sub-dials or rotating needle pointers.
+${previousReading !== undefined && previousReading !== null ? `5. The previous logged reading for this meter is ${previousReading} cu.m. The present reading must normally be >= ${previousReading} cu.m.` : ''}
+6. If the 5 digits are not clearly legible or are obstructed, DO NOT GUESS. Return status "REJECTED_NO_5_DIGITS".
 
 Return strict JSON ONLY:
 {

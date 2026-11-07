@@ -237,7 +237,9 @@ export class RealTimeScanner {
 
   /**
    * Real-time frame extraction for mechanical dial reading.
-   * Isolates the odometer window and extracts 5 digits.
+   * Isolates the odometer window and strictly extracts 5 mechanical whole digits.
+   * If any letters, symbols, brand names, or special characters are detected mixed into the reading,
+   * the reading is invalidated (rejected).
    */
   static async scanFrameForDialReading(
     videoElement: HTMLVideoElement,
@@ -271,20 +273,31 @@ export class RealTimeScanner {
         const detectedTexts = await detector.detect(canvas);
         if (detectedTexts && detectedTexts.length > 0) {
           for (const item of detectedTexts) {
-            const rawVal = item.rawValue || '';
-            // Match consecutive digits or spaced digits like "0 0 3 4 5"
-            const match5 = rawVal.match(/\b\d{4,5}\b/) || rawVal.match(/(\d\s*){4,5}/);
-            const digitsOnly = match5 ? match5[0].replace(/\D/g, '') : cleanOdometerInput(rawVal);
-            if (digitsOnly.length >= 4 && digitsOnly.length <= 5) {
-              const numVal = Math.min(99999, Math.max(0, parseInt(digitsOnly, 10)));
-              const formatted = formatOdometerReading(numVal);
-              return {
-                readingValue: numVal,
-                formatted5Digits: formatted,
-                digits: formatted.split(''),
-                confidence: digitsOnly.length === 5 ? 0.96 : 0.88,
-                source: 'native_dial_detector',
-              };
+            const rawVal = (item.rawValue || '').trim();
+            if (!rawVal) continue;
+
+            // STRICT ODOMETER CHECK:
+            // 1. Water meter odometers have 5 rolling numeric wheels with NO letters, names, or special symbols.
+            // If any letters or special characters are detected mixed in (e.g. LXSG, ISO, -, /, #), invalidate.
+            if (/[a-zA-Z#$\-_/\\~`!@%^&*+=()[\]{}|:;"'<>,.?]/.test(rawVal)) {
+              continue; // Invalidate: contains non-odometer characters
+            }
+
+            // Remove whitespace between wheels (e.g. "0 0 3 4 5" -> "00345")
+            const cleanDigits = rawVal.replace(/\s+/g, '');
+            // Must be strictly 5 digits with no extra characters
+            if (/^\d{5}$/.test(cleanDigits)) {
+              const numVal = parseInt(cleanDigits, 10);
+              if (!isNaN(numVal) && numVal >= 0 && numVal <= 99999) {
+                const formatted = formatOdometerReading(numVal);
+                return {
+                  readingValue: numVal,
+                  formatted5Digits: formatted,
+                  digits: formatted.split(''),
+                  confidence: 0.96, // Exceeds 90%
+                  source: 'native_dial_detector',
+                };
+              }
             }
           }
         }
@@ -304,19 +317,30 @@ export class RealTimeScanner {
           this.isWorkerBusy = false;
           const text = result?.data?.text || '';
           
-          // Look for 4 to 5 digit sequences on the dials
-          const match = text.match(/\b\d{4,5}\b/) || text.match(/(\d\s*){4,5}/);
-          const digitsOnly = match ? match[0].replace(/\D/g, '') : cleanOdometerInput(text);
-          if (digitsOnly.length >= 4 && digitsOnly.length <= 5) {
-            const numVal = Math.min(99999, Math.max(0, parseInt(digitsOnly, 10)));
-            const formatted = formatOdometerReading(numVal);
-            return {
-              readingValue: numVal,
-              formatted5Digits: formatted,
-              digits: formatted.split(''),
-              confidence: digitsOnly.length === 5 ? 0.94 : 0.86,
-              source: 'tesseract_dial_ocr',
-            };
+          if (text) {
+            const lines = text.split(/\r?\n/).map((l: string) => l.trim()).filter(Boolean);
+            for (const line of lines) {
+              // STRICT ODOMETER CHECK:
+              // If line has letters, brand names, or symbols, reject as non-odometer text
+              if (/[a-zA-Z#$\-_/\\~`!@%^&*+=()[\]{}|:;"'<>,.?]/.test(line)) {
+                continue;
+              }
+
+              const cleanDigits = line.replace(/\s+/g, '');
+              if (/^\d{5}$/.test(cleanDigits)) {
+                const numVal = parseInt(cleanDigits, 10);
+                if (!isNaN(numVal) && numVal >= 0 && numVal <= 99999) {
+                  const formatted = formatOdometerReading(numVal);
+                  return {
+                    readingValue: numVal,
+                    formatted5Digits: formatted,
+                    digits: formatted.split(''),
+                    confidence: 0.94, // Exceeds 90%
+                    source: 'tesseract_dial_ocr',
+                  };
+                }
+              }
+            }
           }
         }
       } catch {
@@ -344,17 +368,23 @@ export class RealTimeScanner {
         if (response.ok) {
           const data = await response.json();
           if (data && data.success && data.readingValue !== null && data.readingValue !== undefined) {
-            const cleanDigits = cleanOdometerInput(String(data.readingValue));
-            const numVal = Math.min(99999, Math.max(0, parseInt(cleanDigits, 10)));
-            const formatted = formatOdometerReading(numVal);
-            this.isServerScanBusy = false;
-            return {
-              readingValue: numVal,
-              formatted5Digits: formatted,
-              digits: formatted.split(''),
-              confidence: data.confidence || 0.95,
-              source: 'live_stream_dial_ocr',
-            };
+            const rawDigits = String(data.readingValue).trim();
+            // Validate that returned value represents strictly whole 5 numbers
+            if (!/[a-zA-Z#$\-_/\\~`!@%^&*+=()[\]{}|:;"'<>,.?]/.test(rawDigits)) {
+              const cleanDigits = rawDigits.replace(/\s+/g, '').slice(0, 5);
+              if (/^\d{1,5}$/.test(cleanDigits)) {
+                const numVal = Math.min(99999, Math.max(0, parseInt(cleanDigits, 10)));
+                const formatted = formatOdometerReading(numVal);
+                this.isServerScanBusy = false;
+                return {
+                  readingValue: numVal,
+                  formatted5Digits: formatted,
+                  digits: formatted.split(''),
+                  confidence: data.confidence || 0.95, // Exceeds 90%
+                  source: 'live_stream_dial_ocr',
+                };
+              }
+            }
           }
         }
       } catch {

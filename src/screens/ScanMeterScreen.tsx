@@ -323,17 +323,17 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
             setLiveConfidence(dialResult.confidence);
 
             // Confidence-weighted validation:
-            // High confidence (>= 0.88), exactly 5 valid digits, and current reading >= previous baseline
-            const meetsConfidenceThreshold = dialResult.confidence >= 0.88;
+            // High confidence strictly exceeding 90% (> 0.90), strictly 5 valid digits, and current reading >= previous baseline
+            const meetsConfidenceThreshold = dialResult.confidence > 0.90;
             const isValidSequence = dialResult.readingValue >= selectedConsumer.previousReading;
-            const isClear = meetsConfidenceThreshold && isValidSequence;
+            const isClear = meetsConfidenceThreshold && isValidSequence && dialResult.digits.length === 5;
 
             setIsReadingClear(isClear);
 
             if (isClear) {
               setClearConfidenceCount((prev) => {
                 const nextCount = prev + 1;
-                // Once confidence is sustained (2 consecutive clear frames), trigger auto-capture
+                // Once confidence > 90% is sustained (2 consecutive clear frames), trigger auto-capture
                 if (nextCount >= 2 && !autoLockTimer && videoRef.current) {
                   playMatchFeedback();
                   autoLockTimer = setTimeout(() => {
@@ -729,8 +729,8 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
               {scanStep === 'SUBMITTED' 
                 ? 'SENT TO ADMIN' 
                 : scanStep === 'SCAN_METER' 
-                ? 'STEP 2: SCAN DIAL' 
-                : 'STEP 1: IDENTIFY TAG'}
+                ? 'ODOMETER SCAN' 
+                : 'TAG SCAN'}
             </span>
           </div>
 
@@ -995,19 +995,19 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
           )}
         </div>
 
-        {/* ⚡ REAL-TIME LIVE OCR DETECTION HUD (Shows exactly what numbers are identified in real-time) */}
+        {/* ⚡ MINIMALIST REAL-TIME OCR HUD (Clean, compact, no extra verbose clutter) */}
         {!ocrResult && !capturedPhoto && scanStep !== 'SUBMITTED' && (
-          <div className="w-full space-y-2">
+          <div className="w-full space-y-1.5">
             {/* Stage 1: Live Tag Detected Banner */}
             {scanStep === 'IDENTIFY_TAG' && liveTagDetected && (
-              <div className="bg-emerald-950/90 border border-emerald-500/80 p-2.5 rounded-xl shadow-lg flex items-center justify-between animate-in zoom-in-95">
+              <div className="bg-emerald-950/90 border border-emerald-500/80 p-2 rounded-xl shadow-lg flex items-center justify-between animate-in zoom-in-95">
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-400 flex items-center justify-center text-emerald-300 shrink-0">
-                    <Sparkles className="w-4 h-4 text-emerald-400" />
+                  <div className="w-6 h-6 rounded-lg bg-emerald-500/20 border border-emerald-400 flex items-center justify-center text-emerald-300 shrink-0">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
                   </div>
-                  <div className="min-w-0">
-                    <span className="text-[9.5px] font-mono text-emerald-400 font-bold block">
-                      ⚡ REAL-TIME TAG DETECTED
+                  <div className="min-w-0 font-mono">
+                    <span className="text-[9px] text-emerald-400 font-bold block uppercase tracking-wider">
+                      Auto-Detected Tag
                     </span>
                     <span className="text-xs font-black text-white truncate block">
                       {liveTagDetected} {liveDetectedConsumer ? `• ${liveDetectedConsumer.name}` : ''}
@@ -1018,111 +1018,43 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
                 <button
                   type="button"
                   onClick={handleAcceptRealTimeTag}
-                  className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-lg text-xs shadow flex items-center gap-1 active:scale-95 transition cursor-pointer shrink-0"
+                  className="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-lg text-xs shadow flex items-center gap-1 active:scale-95 transition cursor-pointer shrink-0"
                 >
-                  <Check className="w-3.5 h-3.5" />
+                  <Check className="w-3 h-3" />
                   <span>Select</span>
                 </button>
               </div>
             )}
 
-            {/* Stage 2: Live 5-Digit Dial Reading Banner */}
+            {/* Stage 2: Minimalist Single-Line Dial Reading HUD */}
             {scanStep === 'SCAN_METER' && selectedConsumer && (
-              <div className="bg-slate-900 border border-sky-500/70 p-2.5 rounded-xl shadow-lg space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-sky-400 animate-pulse" />
-                    <span className="text-[10px] font-mono text-sky-300 font-bold uppercase">
-                      Real-Time Dial Reading
-                    </span>
-                  </div>
-                  <span className="text-[9.5px] text-emerald-400 font-mono font-bold bg-emerald-950/80 px-1.5 py-0.2 rounded border border-emerald-800/60">
-                    Confidence: {((liveConfidence || 0.9) * 100).toFixed(0)}%
+              <div className="w-full bg-slate-900/90 border border-slate-800 px-3 py-2 rounded-xl text-xs font-mono flex items-center justify-between shadow-md">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-[10.5px] text-slate-400">
+                    Prev: <strong className="text-white font-bold">{formatOdometerReading(selectedConsumer.previousReading)}</strong> m³
                   </span>
-                </div>
-
-                <div className="flex items-center justify-between bg-slate-950 p-2 rounded-lg border border-slate-800">
-                  <div>
-                    <span className="text-[9px] text-slate-400 font-mono block">PREVIOUS RECORD</span>
-                    <span className="text-xs font-bold text-slate-200 font-mono">
-                      {formatOdometerReading(selectedConsumer.previousReading)} cu.m.
-                    </span>
-                  </div>
-
-                  <div className="text-right">
-                    <span className="text-[9px] text-sky-400 font-mono block">LIVE IDENTIFIED</span>
-                    <span className="text-sm font-black text-sky-300 font-mono">
-                      {liveReadingValue !== null ? `${formatOdometerReading(liveReadingValue)} cu.m.` : 'Aim at wheels...'}
-                    </span>
-                  </div>
-
                   {liveReadingValue !== null && (
-                    <div className="text-right border-l border-slate-800 pl-2">
-                      <span className="text-[9px] text-emerald-400 font-mono block">CONSUMPTION</span>
-                      <span className="text-xs font-black text-emerald-400 font-mono">
-                        +{Math.max(0, liveReadingValue - selectedConsumer.previousReading)} cu.m.
-                      </span>
-                    </div>
+                    <span className="text-[10.5px] text-sky-400">
+                      Live: <strong className="text-sky-300 font-bold">{formatOdometerReading(liveReadingValue)}</strong> m³
+                    </span>
                   )}
                 </div>
-
-                {/* Quick 1-Tap Lock Button for Live Reading */}
-                {liveReadingValue !== null && (
-                  <button
-                    type="button"
-                    onClick={handleAcceptRealTimeReading}
-                    className="w-full bg-gradient-to-r from-sky-500 to-teal-500 text-slate-950 font-black py-2 rounded-lg text-xs uppercase tracking-wider shadow flex items-center justify-center gap-1.5 active:scale-95 transition cursor-pointer"
-                  >
-                    <CheckSquare className="w-3.5 h-3.5" />
-                    <span>Confirm Live Reading ({formatOdometerReading(liveReadingValue)} cu.m.)</span>
-                  </button>
-                )}
+                <div className="flex items-center gap-1.5">
+                  {liveReadingValue !== null && liveReadingValue >= selectedConsumer.previousReading && (
+                    <span className="text-[10px] font-black text-emerald-400 bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-800/60">
+                      +{liveReadingValue - selectedConsumer.previousReading} m³
+                    </span>
+                  )}
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+                    isReadingClear
+                      ? 'bg-emerald-950 text-emerald-300 border-emerald-500 shadow-[0_0_8px_rgba(52,211,153,0.3)]'
+                      : 'bg-slate-950 text-slate-400 border-slate-700'
+                  }`}>
+                    {((liveConfidence || 0.9) * 100).toFixed(0)}%
+                  </span>
+                </div>
               </div>
             )}
-
-            {/* Shutter Button & Direct Manual Typing Option */}
-            <div className="flex items-center gap-2 pt-1">
-              <button
-                type="button"
-                onClick={handleCaptureButton}
-                disabled={isProcessing}
-                className={`flex-1 font-bold py-2.5 rounded-xl shadow flex items-center justify-center gap-1.5 text-xs uppercase tracking-wider transition active:scale-95 cursor-pointer disabled:opacity-50 ${
-                  selectedConsumer
-                    ? isReadingClear
-                      ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/30 font-black'
-                      : 'bg-sky-600 hover:bg-sky-500 text-white shadow-sky-600/30'
-                    : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30'
-                }`}
-              >
-                {isProcessing ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Analyzing...</span>
-                  </>
-                ) : (
-                  <>
-                    <Camera className="w-4 h-4" />
-                    <span>
-                      {selectedConsumer
-                        ? isReadingClear
-                          ? 'Capture Clear Reading'
-                          : 'Capture Dial'
-                        : 'Identify Tag #'}
-                    </span>
-                  </>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onNavigate(selectedConsumer ? 'reading_entry' : 'consumers')}
-                className="px-3.5 py-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-sky-400 hover:text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow"
-                title="Type reading manually if dial is damaged, moisture-filled, or unclear"
-              >
-                <Keyboard className="w-4 h-4 text-sky-400" />
-                <span>Type Reading</span>
-              </button>
-            </div>
           </div>
         )}
 
@@ -1398,6 +1330,98 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
             )}
           </div>
         )}
+      </div>
+
+      {/* 📌 PERSISTENT BOTTOM FOOTER (Always visible across all states) */}
+      <div className="z-30 px-3 py-2.5 bg-slate-950/95 backdrop-blur-md border-t border-slate-800 shrink-0 w-full pointer-events-auto">
+        <div className="max-w-md mx-auto flex items-center gap-2">
+          {/* Contextual Primary Action Button */}
+          {!ocrResult && scanStep !== 'SUBMITTED' ? (
+            <button
+              type="button"
+              onClick={handleCaptureButton}
+              disabled={isProcessing}
+              className={`flex-1 font-bold py-2.5 rounded-xl shadow flex items-center justify-center gap-1.5 text-xs uppercase tracking-wider transition active:scale-95 cursor-pointer disabled:opacity-50 ${
+                selectedConsumer
+                  ? isReadingClear
+                    ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/30 font-black'
+                    : 'bg-sky-600 hover:bg-sky-500 text-white shadow-sky-600/30'
+                  : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30'
+              }`}
+            >
+              {isProcessing ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>Analyzing...</span>
+                </>
+              ) : (
+                <>
+                  <Camera className="w-4 h-4" />
+                  <span>
+                    {selectedConsumer
+                      ? isReadingClear
+                        ? 'Capture Clear Reading'
+                        : 'Capture Dial'
+                      : 'Identify Tag #'}
+                  </span>
+                </>
+              )}
+            </button>
+          ) : ocrResult && scanStep !== 'SUBMITTED' ? (
+            selectedConsumer && ocrResult.readingValue >= selectedConsumer.previousReading ? (
+              <button
+                type="button"
+                onClick={handleSendToAdmin}
+                disabled={isSendingToAdmin}
+                className="flex-1 bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-500 text-slate-950 font-black py-2.5 rounded-xl shadow flex items-center justify-center gap-2 text-xs uppercase tracking-wider transition active:scale-95 cursor-pointer disabled:opacity-50"
+              >
+                {isSendingToAdmin ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-slate-950" />
+                    <span>Transmitting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-3.5 h-3.5 text-slate-950" />
+                    <span>Send to Admin</span>
+                  </>
+                )}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setOcrResult(null);
+                  setCapturedPhoto(null);
+                  startCamera(facingMode);
+                }}
+                className="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-bold py-2.5 rounded-xl shadow text-xs uppercase tracking-wider transition active:scale-95 cursor-pointer"
+              >
+                <span>Retake Photo</span>
+              </button>
+            )
+          ) : (
+            <button
+              type="button"
+              onClick={handleScanNextConsumer}
+              className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black py-2.5 rounded-xl shadow flex items-center justify-center gap-1.5 text-xs uppercase tracking-wider transition active:scale-95 cursor-pointer"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Scan Next Meter</span>
+            </button>
+          )}
+
+          {/* Persistent Fallback Action: Type Reading Manually */}
+          <button
+            type="button"
+            onClick={() => onNavigate(selectedConsumer ? 'reading_entry' : 'consumers')}
+            className="px-3 py-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-sky-400 hover:text-white rounded-xl text-xs font-bold font-mono flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer shadow shrink-0"
+            title="Type reading manually if dial is damaged, moisture-filled, or unclear"
+          >
+            <Keyboard className="w-4 h-4 text-sky-400 shrink-0" />
+            <span>Type Reading Manually</span>
+          </button>
+        </div>
       </div>
     </div>
   );
