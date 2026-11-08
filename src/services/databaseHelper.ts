@@ -200,7 +200,18 @@ export class DatabaseHelper {
       return timeB - timeA;
     });
 
-    return rawConsumers.map((consumer) => {
+    // Deduplicate consumers by accountNumber to guarantee no duplicate name display in mobile
+    const seenAccounts = new Set<string>();
+    const uniqueConsumers: Consumer[] = [];
+    rawConsumers.forEach((c) => {
+      const accKey = (c.accountNumber || '').trim().toLowerCase() || (c.id || '').trim().toLowerCase();
+      if (!seenAccounts.has(accKey)) {
+        seenAccounts.add(accKey);
+        uniqueConsumers.push(c);
+      }
+    });
+
+    return uniqueConsumers.map((consumer) => {
       const latestReading = sortedReadings.find(
         (r) => r.consumerId === consumer.id || r.accountNumber === consumer.accountNumber
       );
@@ -444,22 +455,34 @@ export class DatabaseHelper {
         const cleanAcc = (reading.accountNumber || '').trim().toLowerCase();
         const cleanMeter = (reading.meterSerial || reading.meterNumber || '').trim().toLowerCase();
 
-        // Check if an unapproved pending reading already exists for this water meter
-        const existingPending = all.find((r) => {
-          const isPending = r.approvalStatus === 'pending_approval' || (r.status as string) === 'PENDING_APPROVAL' || r.status === 'PENDING_SYNC';
-          if (!isPending) return false;
+        // Check if a reading already exists for this water meter or account
+        const existing = all.find((r) => {
           if (r.id === reading.id) return true;
           const rAcc = (r.accountNumber || '').trim().toLowerCase();
           const rMeter = (r.meterSerial || r.meterNumber || '').trim().toLowerCase();
           return (cleanAcc && rAcc === cleanAcc) || (cleanMeter && rMeter === cleanMeter);
         });
 
-        // If a pending record exists, reuse its ID to edit/update in place rather than duplicate
-        const targetReading: MeterReading = existingPending && existingPending.id !== reading.id
-          ? { ...reading, id: existingPending.id }
+        // Always reuse existing reading ID to edit/update in place without duplicating records
+        const targetReading: MeterReading = existing
+          ? { ...existing, ...reading, id: existing.id }
           : reading;
 
         readingStore.put(targetReading);
+
+        // Purge any stale duplicate records in IndexedDB for this account
+        if (cleanAcc) {
+          all.forEach((r) => {
+            if (r.id !== targetReading.id) {
+              const rAcc = (r.accountNumber || '').trim().toLowerCase();
+              if (rAcc === cleanAcc) {
+                try {
+                  readingStore.delete(r.id);
+                } catch {}
+              }
+            }
+          });
+        }
 
         // Update consumer's status for this month
         const consumerReq = consumerStore.get(targetReading.consumerId);
@@ -606,12 +629,13 @@ export class DatabaseHelper {
           return timeB - timeA;
         });
 
-        // Deduplicate exact record matches by ID
-        const seenIds = new Set<string>();
+        // Deduplicate records by account number to guarantee only ONE reading entry per consumer (newest first)
+        const seenAccounts = new Set<string>();
         const deduplicated: MeterReading[] = [];
         sorted.forEach((r) => {
-          if (!seenIds.has(r.id)) {
-            seenIds.add(r.id);
+          const accKey = (r.accountNumber || '').trim().toLowerCase() || (r.consumerId || '').trim().toLowerCase() || r.id;
+          if (!seenAccounts.has(accKey)) {
+            seenAccounts.add(accKey);
             deduplicated.push(r);
           }
         });
@@ -620,6 +644,17 @@ export class DatabaseHelper {
       };
       request.onerror = () => reject(request.error || new Error('Failed to fetch readings'));
     });
+  }
+
+  /**
+   * Checks whether a consumer has a reading currently awaiting Admin approval.
+   * If true, mobile cannot read or send another reading until admin approves this reading.
+   */
+  static async hasPendingApprovalReading(accountNumber: string, meterNumber?: string): Promise<{ hasPending: boolean; reading: MeterReading | null }> {
+    const pending = await this.getPendingReadingForMeter(accountNumber, meterNumber);
+    if (!pending) return { hasPending: false, reading: null };
+    const isApproved = pending.approvalStatus === 'approved' || pending.status === 'APPROVED';
+    return { hasPending: !isApproved, reading: isApproved ? null : pending };
   }
 
   static async getPendingReadings(): Promise<MeterReading[]> {

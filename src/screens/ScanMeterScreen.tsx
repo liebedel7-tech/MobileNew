@@ -92,6 +92,13 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
     reason: string;
     tag: string;
   } | null>(null);
+
+  const [pendingApprovalBlock, setPendingApprovalBlock] = useState<{
+    consumer: Consumer;
+    pendingReading: MeterReading;
+  } | null>(null);
+
+  const [latestApprovedReading, setLatestApprovedReading] = useState<MeterReading | null>(null);
   
   // Real-Time Optical Identification States
   const [liveAutoScanActive, setLiveAutoScanActive] = useState(true);
@@ -120,6 +127,35 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
       setAllConsumers(list);
     });
   }, [currentUser]);
+
+  // Verify if selected consumer has a reading pending admin approval or an approved baseline
+  useEffect(() => {
+    let isMounted = true;
+    if (selectedConsumer) {
+      Promise.all([
+        DatabaseHelper.getPendingReadingForMeter(selectedConsumer.accountNumber, selectedConsumer.meterNumber || selectedConsumer.meterSerial),
+        DatabaseHelper.getLatestApprovedReading(selectedConsumer.accountNumber, selectedConsumer.meterNumber || selectedConsumer.meterSerial),
+      ]).then(([pending, approved]) => {
+        if (!isMounted) return;
+        setLatestApprovedReading(approved);
+        const isPending = pending && pending.approvalStatus !== 'approved' && pending.status !== 'APPROVED';
+        if (isPending) {
+          setPendingApprovalBlock({
+            consumer: selectedConsumer,
+            pendingReading: pending,
+          });
+        } else {
+          setPendingApprovalBlock(null);
+        }
+      });
+    } else {
+      setPendingApprovalBlock(null);
+      setLatestApprovedReading(null);
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedConsumer]);
 
   // Audio / Haptic feedback for smart tag or reading match
   const playMatchFeedback = useCallback(() => {
@@ -258,7 +294,26 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
       return;
     }
 
+    // ENFORCE PENDING APPROVAL GATE:
+    // If the present reading has not yet been approved by Admin, mobile cannot read or send another reading!
+    if (
+      matchedConsumer.isReadThisMonth && 
+      matchedConsumer.currentMonthReading && 
+      matchedConsumer.currentMonthReading.approvalStatus !== 'approved' && 
+      matchedConsumer.currentMonthReading.status !== 'APPROVED'
+    ) {
+      setPendingApprovalBlock({
+        consumer: matchedConsumer,
+        pendingReading: matchedConsumer.currentMonthReading,
+      });
+      setTagStatusMessage(`⚠️ Reading Pending Admin Approval: #${matchedConsumer.accountNumber}`);
+      setLiveTagDetected(null);
+      setLiveDetectedConsumer(null);
+      return;
+    }
+
     setDeactivationBlock(null);
+    setPendingApprovalBlock(null);
     setSelectedConsumer(matchedConsumer);
     setIdentifiedTagNumber(tagStr);
     setScanStep('SCAN_METER');
@@ -278,7 +333,7 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
 
   // ⚡ REAL-TIME OPTICAL SCANNER LOOP (Runs continuously while camera is active)
   useEffect(() => {
-    if (!cameraActive || isProcessing || ocrResult || scanStep === 'SUBMITTED' || !liveAutoScanActive) {
+    if (!cameraActive || isProcessing || ocrResult || scanStep === 'SUBMITTED' || !liveAutoScanActive || deactivationBlock || pendingApprovalBlock) {
       return;
     }
 
@@ -312,13 +367,13 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
             }
           }
         } else if (scanStep === 'SCAN_METER' && selectedConsumer) {
-          // Real-time Stage 2: Identify 5-digit mechanical dial numbers
+          // Real-time Stage 2: Identify 5-digit mechanical dial numbers using latest approved baseline
+          const prev = latestApprovedReading ? latestApprovedReading.currentReading : (selectedConsumer.previousReading || 0);
           const dialResult = await RealTimeScanner.scanFrameForDialReading(
             videoRef.current,
-            selectedConsumer.previousReading
+            prev
           );
           if (dialResult && dialResult.digits && dialResult.digits.length === 5) {
-            const prev = selectedConsumer.previousReading || 0;
             const isNormal = dialResult.readingValue >= prev;
             const isRollover = prev >= 90000 && dialResult.readingValue < 10000;
             const isValidSequence = prev === 0 || isNormal || isRollover;
@@ -638,6 +693,13 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
       selectedConsumer.accountNumber,
       selectedConsumer.meterNumber || selectedConsumer.meterSerial
     );
+
+    const isPendingUnapproved = existingPending && existingPending.approvalStatus !== 'approved' && existingPending.status !== 'APPROVED';
+    if (isPendingUnapproved) {
+      alert(`Reading Pending Admin Approval: A reading (${existingPending.currentReading} cu.m.) has already been submitted for Account #${selectedConsumer.accountNumber} and is awaiting central admin verification. You cannot submit another reading until it is approved.`);
+      setPendingApprovalBlock({ consumer: selectedConsumer, pendingReading: existingPending });
+      return;
+    }
 
     const previousReading = latestApproved ? latestApproved.currentReading : (selectedConsumer.previousReading || 0);
     const calc = CalculationService.calculateConsumption(previousReading, currentReading);
@@ -1048,6 +1110,77 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
                   className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 rounded-lg text-xs font-semibold transition active:scale-95"
                 >
                   Directory
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ⚠️ PENDING APPROVAL BLOCK OVERLAY */}
+          {pendingApprovalBlock && (
+            <div className="absolute inset-2 z-40 bg-slate-950/95 border-2 border-amber-500 rounded-xl p-3.5 shadow-2xl backdrop-blur-md text-white flex flex-col justify-between animate-in zoom-in-95">
+              <div className="space-y-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-amber-900/80 border border-amber-400 flex items-center justify-center text-amber-300 shrink-0">
+                    <Clock className="w-5 h-5 text-amber-300" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[9px] font-black uppercase tracking-wider bg-amber-900 text-amber-200 px-2 py-0.5 rounded border border-amber-700">
+                      Reading Pending Admin Approval
+                    </span>
+                    <h4 className="font-extrabold text-xs text-white truncate mt-0.5">
+                      {pendingApprovalBlock.consumer.name}
+                    </h4>
+                  </div>
+                </div>
+
+                <div className="bg-amber-950/60 p-2.5 rounded-lg border border-amber-900/80 space-y-1.5 font-mono">
+                  <div className="flex items-center justify-between text-[10px] text-amber-300">
+                    <span>Acc: <strong>{pendingApprovalBlock.consumer.accountNumber}</strong></span>
+                    <span>Tag: <strong>{pendingApprovalBlock.consumer.meterNumber || pendingApprovalBlock.consumer.meterSerial}</strong></span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1 bg-slate-950/80 p-2 rounded border border-amber-800/60 text-center text-[10px]">
+                    <div>
+                      <span className="text-slate-500 block text-[8px] uppercase">PREV</span>
+                      <strong className="text-slate-300 block">{formatOdometerReading(pendingApprovalBlock.pendingReading.previousReading)}</strong>
+                    </div>
+                    <div>
+                      <span className="text-amber-400 block text-[8px] uppercase">PRESENT</span>
+                      <strong className="text-amber-300 block">{formatOdometerReading(pendingApprovalBlock.pendingReading.currentReading)}</strong>
+                    </div>
+                    <div>
+                      <span className="text-emerald-400 block text-[8px] uppercase">CONSUMED</span>
+                      <strong className="text-emerald-400 block">+{pendingApprovalBlock.pendingReading.consumption}</strong>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-amber-200/90 leading-snug">
+                    Logged: {pendingApprovalBlock.pendingReading.readingDate} {pendingApprovalBlock.pendingReading.readingTime || ''}
+                  </p>
+                </div>
+
+                <p className="text-[10.5px] text-slate-300 leading-tight">
+                  A present reading has already been recorded and is awaiting central admin verification. Under Tagoloan Water District policy, you cannot scan or send another reading until the admin approves this reading. Once approved, this present reading will become the baseline for the next reading.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => onNavigate('history')}
+                  className="flex-1 py-1.5 bg-amber-600 hover:bg-amber-500 text-slate-950 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 active:scale-95 shadow-sm"
+                >
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>View in Reading Logs</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPendingApprovalBlock(null);
+                    setSelectedConsumer(null);
+                    setScanStep('IDENTIFY_TAG');
+                  }}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold transition"
+                >
+                  Dismiss
                 </button>
               </div>
             </div>

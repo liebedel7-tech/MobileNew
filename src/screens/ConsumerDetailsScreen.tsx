@@ -10,7 +10,8 @@ import {
   History, 
   ShieldAlert, 
   Lock,
-  AlertCircle
+  AlertCircle,
+  ChevronRight
 } from 'lucide-react';
 import { Consumer, MeterReading, StaffUser, ActiveScreen } from '../types';
 import { 
@@ -46,6 +47,12 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
   const isReadingApproved = (r: MeterReading) => r.approvalStatus === 'approved' || r.status === 'APPROVED';
   const isReadingRejected = (r: MeterReading) => r.approvalStatus === 'rejected' || r.status === 'REJECTED';
   const isReadingPending = (r: MeterReading) => !isReadingApproved(r) && !isReadingRejected(r);
+
+  const pendingReading = consumer.currentMonthReading && isReadingPending(consumer.currentMonthReading)
+    ? consumer.currentMonthReading
+    : consumerReadings.find(isReadingPending);
+
+  const isPendingApproval = !!pendingReading;
 
   return (
     <div className="p-3.5 sm:p-5 max-w-4xl mx-auto w-full space-y-3.5 pb-20">
@@ -106,7 +113,37 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
 
         {/* Primary Action Buttons Bar */}
         <div>
-          {isReadyForReading ? (
+          {!isReadyForReading ? (
+            <div className="p-3 bg-rose-950/50 text-rose-300 border border-rose-800/80 rounded-xl text-xs font-semibold flex items-center gap-2">
+              <Lock className="w-4 h-4 text-rose-400 shrink-0" />
+              <span>Reading Prohibited: Account or Water Meter has been deactivated by Admin.</span>
+            </div>
+          ) : isPendingApproval ? (
+            <div className="p-3.5 bg-amber-950/60 border border-amber-600/70 rounded-2xl text-xs space-y-2.5 shadow-sm text-amber-200">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 font-bold text-amber-300">
+                  <Clock className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span>Reading Pending Admin Approval</span>
+                </div>
+                <span className="text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-md">
+                  Awaiting Verification
+                </span>
+              </div>
+              <p className="text-[11.5px] leading-relaxed text-amber-200/90">
+                A present reading of <strong className="text-white font-mono">{formatOdometerReading(pendingReading?.currentReading)} cu.m.</strong> was logged on {pendingReading?.readingDate} {pendingReading?.readingTime || ''} and is awaiting central admin verification. Under Tagoloan Water District policy, you cannot read or send another reading until the admin approves this reading. Once approved, this present reading will become the baseline for the next reading.
+              </p>
+              <div className="pt-1 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => onNavigate('history')}
+                  className="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold border border-amber-500/40 flex items-center gap-1.5 transition text-xs cursor-pointer active:scale-95 shadow-sm"
+                >
+                  <span>View in Reading Logs</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          ) : (
             <div className="grid grid-cols-2 gap-2.5">
               <button
                 type="button"
@@ -125,11 +162,6 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
                 <FileText className="w-4 h-4" />
                 <span>Enter Reading</span>
               </button>
-            </div>
-          ) : (
-            <div className="p-3 bg-rose-950/50 text-rose-300 border border-rose-800/80 rounded-xl text-xs font-semibold flex items-center gap-2">
-              <Lock className="w-4 h-4 text-rose-400 shrink-0" />
-              <span>Reading Prohibited: Account or Water Meter has been deactivated by Admin.</span>
             </div>
           )}
         </div>
@@ -357,7 +389,7 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
                       }`}
                     >
                       {isApproved
-                        ? 'Approved & Billed'
+                        ? 'Approved'
                         : isRejected
                         ? 'Flagged / Rejected'
                         : 'Pending Admin Approval'}

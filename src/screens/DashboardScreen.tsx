@@ -43,8 +43,22 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   onSyncTrigger,
   onOpenApkModal,
 }) => {
-  const totalAssigned = consumers.length;
-  const readCount = consumers.filter((c: Consumer) => c.isReadThisMonth).length;
+  // Deduplicate consumers by accountNumber to guarantee strictly one name display in the consumer roster
+  const deduplicatedConsumers = React.useMemo(() => {
+    const seen = new Set<string>();
+    const list: Consumer[] = [];
+    for (const c of consumers) {
+      const key = (c.accountNumber || '').trim().toLowerCase() || c.id;
+      if (!seen.has(key)) {
+        seen.add(key);
+        list.push(c);
+      }
+    }
+    return list;
+  }, [consumers]);
+
+  const totalAssigned = deduplicatedConsumers.length;
+  const readCount = deduplicatedConsumers.filter((c: Consumer) => c.isReadThisMonth).length;
   const unreadCount = Math.max(0, totalAssigned - readCount);
   const percentComplete = totalAssigned > 0 ? Math.round((readCount / totalAssigned) * 100) : 0;
 
@@ -52,11 +66,31 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const isReadingRejected = (r: MeterReading) => r.approvalStatus === 'rejected' || r.status === 'REJECTED';
   const isReadingPending = (r: MeterReading) => !isReadingApproved(r) && !isReadingRejected(r);
 
-  const approvedCount = readings.filter(isReadingApproved).length;
-  const pendingCount = readings.filter(isReadingPending).length;
-  const flaggedCount = readings.filter(isReadingRejected).length;
+  // Deduplicate readings by accountNumber so each consumer appears strictly once in reading summaries and recent list
+  const deduplicatedReadings = React.useMemo(() => {
+    const sorted = [...readings].sort((a, b) => {
+      const timeA = new Date(a.approvedAt || `${a.readingDate}T${a.readingTime || '00:00:00'}`).getTime();
+      const timeB = new Date(b.approvedAt || `${b.readingDate}T${b.readingTime || '00:00:00'}`).getTime();
+      return timeB - timeA;
+    });
 
-  const recentReadings = [...readings].slice(0, 5);
+    const seen = new Set<string>();
+    const list: MeterReading[] = [];
+    for (const r of sorted) {
+      const key = (r.accountNumber || '').trim().toLowerCase() || (r.consumerId || '').trim().toLowerCase() || r.id;
+      if (!seen.has(key)) {
+        seen.add(key);
+        list.push(r);
+      }
+    }
+    return list;
+  }, [readings]);
+
+  const approvedCount = deduplicatedReadings.filter(isReadingApproved).length;
+  const pendingCount = deduplicatedReadings.filter(isReadingPending).length;
+  const flaggedCount = deduplicatedReadings.filter(isReadingRejected).length;
+
+  const recentReadings = deduplicatedReadings.slice(0, 5);
 
   return (
     <div className="flex-1 p-3.5 sm:p-5 max-w-4xl mx-auto w-full space-y-4 pb-20">
@@ -296,11 +330,11 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             </p>
           </div>
 
-          {/* Summary Card 4: Approved & Billed */}
+          {/* Summary Card 4: Approved */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-4.5 shadow-sm space-y-1.5 hover:border-slate-700/80 transition">
             <div className="flex items-center justify-between">
               <span className="text-[10px] sm:text-[11px] uppercase font-bold text-sky-400 tracking-wider">
-                Approved & Billed
+                Approved
               </span>
               <div className="w-7 h-7 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-400 flex items-center justify-center">
                 <ShieldCheck className="w-3.5 h-3.5" />
@@ -429,7 +463,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     {isApproved && (
                       <span className="text-[10px] px-2 py-0.5 bg-emerald-950/80 text-emerald-400 border border-emerald-800/80 rounded font-mono font-bold flex items-center gap-1 shrink-0">
                         <CheckCircle2 className="w-3 h-3" />
-                        <span>Approved & Billed</span>
+                        <span>Approved</span>
                       </span>
                     )}
 
@@ -612,14 +646,19 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/80 text-slate-200">
-              {consumers.map((consumer: Consumer, index: number) => {
-                const isNext = !consumer.isReadThisMonth && index === consumers.findIndex((c: Consumer) => !c.isReadThisMonth);
+              {deduplicatedConsumers.map((consumer: Consumer, index: number) => {
+                const isNext = !consumer.isReadThisMonth && index === deduplicatedConsumers.findIndex((c: Consumer) => !c.isReadThisMonth);
+                const isApprovedReading = consumer.currentMonthReading && (consumer.currentMonthReading.approvalStatus === 'approved' || consumer.currentMonthReading.status === 'APPROVED');
+                const isPendingReading = consumer.isReadThisMonth && !isApprovedReading && consumer.currentMonthReading?.approvalStatus !== 'rejected';
                 
                 return (
                   <tr
                     key={consumer.id}
                     onClick={() => {
-                      if (onStartReading) {
+                      if (isPendingReading) {
+                        // When pending approval, open consumer details (cannot take another reading)
+                        if (onSelectConsumer) onSelectConsumer(consumer);
+                      } else if (onStartReading && !consumer.isReadThisMonth) {
                         onStartReading(consumer);
                       } else if (onSelectConsumer) {
                         onSelectConsumer(consumer);
@@ -681,10 +720,15 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
                     {/* Status / Action Button */}
                     <td className="px-4 py-3.5 text-right">
-                      {consumer.isReadThisMonth ? (
+                      {isApprovedReading ? (
                         <span className="inline-flex items-center gap-1 text-emerald-400 text-xs font-bold bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-md">
                           <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Logged</span>
+                          <span>Approved</span>
+                        </span>
+                      ) : isPendingReading ? (
+                        <span className="inline-flex items-center gap-1 text-amber-400 text-xs font-bold bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-md" title="Awaiting admin approval. Cannot re-read.">
+                          <Clock className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Pending Approval</span>
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 text-sky-400 text-xs font-bold bg-sky-500/10 border border-sky-500/20 px-2.5 py-1 rounded-md hover:bg-sky-500/20 transition">

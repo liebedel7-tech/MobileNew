@@ -64,12 +64,32 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
   const isReadingRejected = (r: MeterReading) => r.approvalStatus === 'rejected' || r.status === 'REJECTED';
   const isReadingPending = (r: MeterReading) => !isReadingApproved(r) && !isReadingRejected(r);
 
-  const pendingCount = readings.filter(isReadingPending).length;
-  const approvedCount = readings.filter(isReadingApproved).length;
-  const rejectedCount = readings.filter(isReadingRejected).length;
+  // Deduplicate readings by account number so each consumer name appears strictly once (latest reading)
+  const deduplicatedReadings = useMemo(() => {
+    const sorted = [...readings].sort((a, b) => {
+      const timeA = new Date(a.approvedAt || `${a.readingDate}T${a.readingTime || '00:00:00'}`).getTime();
+      const timeB = new Date(b.approvedAt || `${b.readingDate}T${b.readingTime || '00:00:00'}`).getTime();
+      return timeB - timeA;
+    });
+
+    const seen = new Set<string>();
+    const list: MeterReading[] = [];
+    for (const r of sorted) {
+      const key = (r.accountNumber || '').trim().toLowerCase() || (r.consumerId || '').trim().toLowerCase() || r.id;
+      if (!seen.has(key)) {
+        seen.add(key);
+        list.push(r);
+      }
+    }
+    return list;
+  }, [readings]);
+
+  const pendingCount = deduplicatedReadings.filter(isReadingPending).length;
+  const approvedCount = deduplicatedReadings.filter(isReadingApproved).length;
+  const rejectedCount = deduplicatedReadings.filter(isReadingRejected).length;
 
   const filteredReadings = useMemo(() => {
-    return readings.filter((r) => {
+    return deduplicatedReadings.filter((r) => {
       const matchSearch =
         (r.consumerName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (r.accountNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -87,7 +107,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
 
       return matchSearch && matchApproval;
     });
-  }, [readings, searchTerm, filterApproval]);
+  }, [deduplicatedReadings, searchTerm, filterApproval]);
 
   return (
     <div className="p-3.5 sm:p-5 max-w-4xl mx-auto w-full space-y-3.5 pb-20">
@@ -115,7 +135,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
           </button>
 
           <span className="text-xs font-mono text-slate-400">
-            Total: <strong className="text-white">{readings.length}</strong>
+            Total: <strong className="text-white">{deduplicatedReadings.length}</strong>
           </span>
         </div>
       </div>
@@ -151,7 +171,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
               : 'text-slate-400 hover:text-white'
           }`}
         >
-          All ({readings.length})
+          All ({deduplicatedReadings.length})
         </button>
 
         <button
@@ -245,7 +265,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                   {isApproved && (
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 flex items-center gap-1">
                       <CheckCircle2 className="w-3 h-3" />
-                      <span>Approved & Billed</span>
+                      <span>Approved</span>
                     </span>
                   )}
 

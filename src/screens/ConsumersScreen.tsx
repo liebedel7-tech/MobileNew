@@ -58,11 +58,21 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
 
   // Use full route dataset if DEACTIVATED or ALL tab is active, otherwise use validated consumers
   const baseConsumerPool = useMemo(() => {
-    if (filterStatus === 'DEACTIVATED' || filterStatus === 'ALL') {
-      return allRouteConsumers.length > 0 ? allRouteConsumers : consumers;
+    const raw = (filterStatus === 'DEACTIVATED' || filterStatus === 'ALL')
+      ? (allRouteConsumers.length > 0 ? allRouteConsumers : consumers)
+      : consumers.filter(isValidatedForFieldReading);
+
+    // Deduplicate by accountNumber to guarantee strictly one name display per consumer account
+    const seen = new Set<string>();
+    const unique: Consumer[] = [];
+    for (const c of raw) {
+      const key = (c.accountNumber || '').trim().toLowerCase() || c.id;
+      if (!seen.has(key)) {
+        seen.add(key);
+        unique.push(c);
+      }
     }
-    // Default: Strictly active validated consumers ready for field readings
-    return consumers.filter(isValidatedForFieldReading);
+    return unique;
   }, [consumers, allRouteConsumers, filterStatus]);
 
   // Extract unique barangays in Tagoloan, ensuring all official barangays (including Rosario) are available
@@ -468,19 +478,35 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
                         <Lock className="w-3.5 h-3.5 text-rose-400" />
                         <span>Locked</span>
                       </div>
+                    ) : (consumer.isReadThisMonth && consumer.currentMonthReading?.approvalStatus !== 'approved' && consumer.currentMonthReading?.status !== 'APPROVED' && consumer.currentMonthReading?.approvalStatus !== 'rejected') ? (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelectConsumer(consumer);
+                        }}
+                        className="px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-950/80 hover:bg-amber-900 text-amber-300 border border-amber-800 transition flex items-center gap-1 shadow-sm cursor-pointer"
+                        title="Reading pending admin approval. Cannot re-read."
+                      >
+                        <Clock className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Pending Approval</span>
+                      </button>
                     ) : (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          onStartReading(consumer);
+                          if (consumer.isReadThisMonth) {
+                            onSelectConsumer(consumer);
+                          } else {
+                            onStartReading(consumer);
+                          }
                         }}
                         className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-sm ${
                           consumer.isReadThisMonth
-                            ? 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                            ? 'bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 border border-emerald-800'
                             : 'bg-sky-600 hover:bg-sky-500 text-white'
                         }`}
                       >
-                        <span>{consumer.isReadThisMonth ? 'Re-read' : 'Enter Reading'}</span>
+                        <span>{consumer.isReadThisMonth ? 'View Details' : 'Enter Reading'}</span>
                         <ChevronRight className="w-3.5 h-3.5" />
                       </button>
                     )}

@@ -508,7 +508,7 @@ export const AdminMeterStatusModal: React.FC<AdminMeterStatusModalProps> = ({
                       readingsFilter === 'approved' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'
                     }`}
                   >
-                    Approved & Billed
+                    Approved
                   </button>
                   <button
                     onClick={() => setReadingsFilter('all')}

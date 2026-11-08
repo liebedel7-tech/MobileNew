@@ -282,9 +282,20 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
   const isReadyForReading = isValidatedForFieldReading(consumer);
   const deactivationReason = getConsumerDeactivationReason(consumer);
 
+  const isPendingUnapproved = Boolean(
+    pendingRecord &&
+    pendingRecord.approvalStatus !== 'approved' &&
+    pendingRecord.status !== 'APPROVED'
+  );
+
   // Handle Save Locally & Dispatch to Admin
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isPendingUnapproved) {
+      alert(`Reading Pending Admin Approval: A reading (${pendingRecord?.currentReading} cu.m.) has already been recorded for Account #${consumer.accountNumber} and is awaiting central admin verification. You cannot submit another reading until it is approved.`);
+      return;
+    }
 
     if (!isReadyForReading) {
       alert(`Cannot Submit: This account or water meter is deactivated by Admin.\n\nReason: ${deactivationReason}`);
@@ -739,27 +750,44 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
       </div>
 
       {/* ⚠️ Single Pending Record Enforced Notice */}
-      {pendingRecord && (
-        <div className="bg-amber-950/50 border border-amber-600/60 rounded-2xl p-4 shadow-lg space-y-2.5">
+      {isPendingUnapproved && pendingRecord && (
+        <div className="bg-amber-950/60 border border-amber-600/70 rounded-2xl p-4 shadow-lg space-y-3">
           <div className="flex items-start gap-3">
             <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 shrink-0 mt-0.5">
               <Clock className="w-5 h-5" />
             </div>
-            <div className="space-y-1 flex-1">
+            <div className="space-y-1.5 flex-1">
               <div className="flex flex-wrap items-center justify-between gap-1">
                 <span className="font-bold text-amber-300 text-sm">
-                  Reading Awaiting Admin Approval
+                  Reading Pending Admin Approval — Cannot Read or Send New Reading
                 </span>
                 <span className="text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-md">
-                  Single Pending Limit Enforced
+                  Awaiting Verification
                 </span>
               </div>
               <p className="text-xs text-amber-200/90 leading-relaxed">
-                A reading for this water meter is currently pending admin approval (Recorded dial: <strong className="text-white font-mono">{formatOdometerReading(pendingRecord.currentReading)} cu.m.</strong> on {pendingRecord.readingDate}).
+                A present reading of <strong className="text-white font-mono">{formatOdometerReading(pendingRecord.currentReading)} cu.m.</strong> was logged on {pendingRecord.readingDate} {pendingRecord.readingTime || ''} and is currently awaiting central admin verification.
               </p>
-              <div className="text-[11px] text-amber-300/80 bg-amber-950/80 p-2 rounded-lg border border-amber-800/60 flex items-center gap-1.5">
-                <span className="font-bold">Notice:</span>
-                <span>To prevent duplicate pending records, submitting new dial figures will update this existing pending record in place.</span>
+              <div className="text-[11px] text-amber-300/90 bg-amber-950/80 p-2.5 rounded-xl border border-amber-800/60 space-y-1">
+                <p className="font-bold text-amber-200">District Policy Gate:</p>
+                <p>Under Tagoloan Water District policy, field readers cannot take or send another reading for this account until the admin approves this reading. Once approved, this present reading will become the baseline for subsequent readings.</p>
+              </div>
+              <div className="pt-2 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => onNavigate('history')}
+                  className="px-3.5 py-2 bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold rounded-xl text-xs flex items-center gap-1.5 transition active:scale-95 shadow-sm cursor-pointer"
+                >
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>View in Reading Logs</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onNavigate('consumers')}
+                  className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-xl text-xs transition active:scale-95 cursor-pointer"
+                >
+                  Back to Directory
+                </button>
               </div>
             </div>
           </div>
@@ -972,7 +1000,12 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
         </div>
 
         {/* Action Confirm & Send Button */}
-        {!isReadyForReading ? (
+        {isPendingUnapproved ? (
+          <div className="w-full font-black py-4 rounded-2xl bg-amber-950/70 border border-amber-800 text-amber-300 flex items-center justify-center gap-2 text-sm uppercase tracking-wider cursor-not-allowed">
+            <Clock className="w-4 h-4 text-amber-400" />
+            <span>Reading Pending Admin Approval (Cannot Re-Read)</span>
+          </div>
+        ) : !isReadyForReading ? (
           <div className="w-full font-black py-4 rounded-2xl bg-rose-950/70 border border-rose-800 text-rose-300 flex items-center justify-center gap-2 text-sm uppercase tracking-wider cursor-not-allowed">
             <Lock className="w-4 h-4 text-rose-400" />
             <span>Reading Prohibited (Deactivated by Admin)</span>
@@ -998,10 +1031,7 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
               <>
                 <Send className="w-4 h-4 text-slate-950" />
                 <span>
-                  {isSaving
-                    ? (pendingRecord ? 'Updating Pending Reading...' : 'Recording & Sending to Admin...')
-                    : (pendingRecord ? 'Update Pending Record in Admin' : 'Confirm & Send to Admin')
-                  }
+                  {isSaving ? 'Recording & Sending to Admin...' : 'Confirm & Send to Admin'}
                 </span>
               </>
             )}
