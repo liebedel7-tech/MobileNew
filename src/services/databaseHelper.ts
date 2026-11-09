@@ -1,6 +1,7 @@
 import { Consumer, MeterReading, AuditLog, AppConfig, StaffUser, ReaderAccount, ReaderStatus, ConnectionStatus, WaterMeterStatus } from '../types';
 import { universalApiFetch, getApiEndpoint } from './apiConfig';
 import { INITIAL_CONSUMERS as FULL_SEED_CONSUMERS, INITIAL_READERS } from '../data/seedData';
+import { SEED_HISTORICAL_READINGS } from '../data/seedReadings';
 import { isConsumerInAssignedAreas, isValidatedForFieldReading } from '../constants/routes';
 
 const DB_NAME = 'WDT_MeterReader_DB_v2';
@@ -212,15 +213,41 @@ export class DatabaseHelper {
     });
 
     return uniqueConsumers.map((consumer) => {
-      const latestReading = sortedReadings.find(
-        (r) => r.consumerId === consumer.id || r.accountNumber === consumer.accountNumber
-      );
+      // Find active current-cycle reading (pending or newly entered reading)
+      const currentReading = sortedReadings.find((r) => {
+        const matchesAccount =
+          r.consumerId === consumer.id ||
+          (Boolean(r.accountNumber) &&
+            Boolean(consumer.accountNumber) &&
+            r.accountNumber.trim().toLowerCase() === consumer.accountNumber.trim().toLowerCase());
+        if (!matchesAccount) return false;
 
-      if (latestReading) {
+        // Is it a pending reading awaiting admin approval?
+        const isPending =
+          r.approvalStatus === 'pending_approval' ||
+          r.status === 'PENDING_SYNC';
+        if (isPending) return true;
+
+        // If it is an approved reading, it is the present reading for this consumer ONLY if:
+        // 1. consumer was explicitly marked isReadThisMonth in this session/device, OR
+        // 2. reading's currentReading is strictly greater than the consumer's initial previousReading baseline
+        if (consumer.isReadThisMonth && (r.status === 'APPROVED' || r.approvalStatus === 'approved')) {
+          return true;
+        }
+
+        // If the reading's currentReading equals consumer.previousReading, that reading was the previous cycle baseline!
+        if (r.currentReading === consumer.previousReading && (r.status === 'APPROVED' || r.approvalStatus === 'approved')) {
+          return false;
+        }
+
+        return false;
+      });
+
+      if (currentReading) {
         return {
           ...consumer,
           isReadThisMonth: true,
-          currentMonthReading: latestReading,
+          currentMonthReading: currentReading,
         };
       }
 
@@ -455,9 +482,13 @@ export class DatabaseHelper {
         const cleanAcc = (reading.accountNumber || '').trim().toLowerCase();
         const cleanMeter = (reading.meterSerial || reading.meterNumber || '').trim().toLowerCase();
 
-        // Check if a reading already exists for this water meter or account
+        // Check if an unapproved pending reading already exists for this water meter or account
         const existing = all.find((r) => {
           if (r.id === reading.id) return true;
+          const isPending =
+            r.approvalStatus === 'pending_approval' ||
+            r.status === 'PENDING_SYNC';
+          if (!isPending) return false;
           const rAcc = (r.accountNumber || '').trim().toLowerCase();
           const rMeter = (r.meterSerial || r.meterNumber || '').trim().toLowerCase();
           return (cleanAcc && rAcc === cleanAcc) || (cleanMeter && rMeter === cleanMeter);
@@ -470,12 +501,15 @@ export class DatabaseHelper {
 
         readingStore.put(targetReading);
 
-        // Purge any stale duplicate records in IndexedDB for this account
+        // Purge only stale unapproved duplicate records in IndexedDB for this account, NEVER delete historical approved records!
         if (cleanAcc) {
           all.forEach((r) => {
             if (r.id !== targetReading.id) {
+              const isPending =
+                r.approvalStatus === 'pending_approval' ||
+                r.status === 'PENDING_SYNC';
               const rAcc = (r.accountNumber || '').trim().toLowerCase();
-              if (rAcc === cleanAcc) {
+              if (isPending && rAcc === cleanAcc) {
                 try {
                   readingStore.delete(r.id);
                 } catch {}
@@ -524,6 +558,29 @@ export class DatabaseHelper {
       };
 
       tx.onerror = () => reject(tx.error || new Error('Transaction error while saving reading'));
+    });
+  }
+
+  /**
+   * Batch stores meter readings (e.g. historical seed readings or synchronized readings) into IndexedDB.
+   */
+  static async saveReadingsBatch(readings: MeterReading[]): Promise<void> {
+    if (!readings || readings.length === 0) return;
+    const db = await this.getDB();
+    return new Promise((resolve) => {
+      try {
+        const tx = db.transaction('readings', 'readwrite');
+        const store = tx.objectStore('readings');
+        readings.forEach((r) => {
+          try {
+            store.put(r);
+          } catch {}
+        });
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+      } catch {
+        resolve();
+      }
     });
   }
 
@@ -1063,6 +1120,12 @@ export class DatabaseHelper {
         if (missing.length > 0) {
           await this.saveConsumers(missing);
         }
+      }
+
+      // Ensure historical readings ledger is seeded for all consumers
+      const existingReadings = await this.getAllReadings();
+      if (!existingReadings || existingReadings.length === 0) {
+        await this.saveReadingsBatch(SEED_HISTORICAL_READINGS);
       }
 
       try {

@@ -16,10 +16,17 @@ import {
   Layers, 
   Sliders,
   Activity,
-  History
+  History,
+  Lock,
+  PowerOff
 } from 'lucide-react';
 import { Consumer, MeterReading, StaffUser, SyncState, ActiveScreen } from '../types';
-import { formatOdometerReading } from '../constants/routes';
+import { 
+  formatOdometerReading, 
+  isValidatedForFieldReading, 
+  isConsumerDisconnected, 
+  isConsumerUnverified 
+} from '../constants/routes';
 
 interface DashboardScreenProps {
   user: StaffUser | null;
@@ -648,26 +655,43 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             </thead>
             <tbody className="divide-y divide-slate-800/80 text-slate-200">
               {deduplicatedConsumers.map((consumer: Consumer, index: number) => {
-                const isNext = !consumer.isReadThisMonth && index === deduplicatedConsumers.findIndex((c: Consumer) => !c.isReadThisMonth);
+                const isReadyForReading = isValidatedForFieldReading(consumer);
+                const isDisconnected = isConsumerDisconnected(consumer);
+                const isUnverified = isConsumerUnverified(consumer);
+                const isNext = isReadyForReading && !consumer.isReadThisMonth && index === deduplicatedConsumers.findIndex((c: Consumer) => isValidatedForFieldReading(c) && !c.isReadThisMonth);
                 const isApprovedReading = consumer.currentMonthReading && (consumer.currentMonthReading.approvalStatus === 'approved' || consumer.currentMonthReading.status === 'APPROVED');
                 const isPendingReading = consumer.isReadThisMonth && !isApprovedReading && consumer.currentMonthReading?.approvalStatus !== 'rejected';
                 
+                const displayedPrevious =
+                  consumer.isReadThisMonth && consumer.currentMonthReading?.previousReading !== undefined
+                    ? consumer.currentMonthReading.previousReading
+                    : consumer.previousReading;
+
                 return (
                   <tr
                     key={consumer.id}
                     onClick={() => {
-                      if (isPendingReading) {
-                        // When pending approval, open consumer details (cannot take another reading)
-                        if (onSelectConsumer) onSelectConsumer(consumer);
-                      } else if (onStartReading && !consumer.isReadThisMonth) {
-                        onStartReading(consumer);
-                      } else if (onSelectConsumer) {
+                      if (!isReadyForReading) return; // Disconnected or unverified accounts are not clickable
+                      if (onSelectConsumer) {
                         onSelectConsumer(consumer);
                       }
                     }}
-                    className={`transition-colors cursor-pointer hover:bg-slate-800/70 border-b border-slate-800/60 ${
-                      isNext ? 'bg-sky-950/20 font-medium' : consumer.isReadThisMonth ? 'opacity-85' : 'bg-slate-900/40'
+                    className={`transition-colors border-b border-slate-800/60 ${
+                      !isReadyForReading
+                        ? 'bg-slate-950/40 opacity-60 cursor-not-allowed select-none'
+                        : isNext
+                        ? 'bg-sky-950/20 font-medium cursor-pointer hover:bg-slate-800/70'
+                        : consumer.isReadThisMonth
+                        ? 'opacity-85 cursor-pointer hover:bg-slate-800/70'
+                        : 'bg-slate-900/40 cursor-pointer hover:bg-slate-800/70'
                     }`}
+                    title={
+                      !isReadyForReading
+                        ? isDisconnected
+                          ? 'Service Disconnected by Central Admin'
+                          : 'Pending Admin ID Issuance'
+                        : `Click to view ${consumer.name}'s past readings ledger`
+                    }
                   >
                     {/* Account & Name */}
                     <td className="px-4 py-3.5">
@@ -692,7 +716,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
                     {/* Previous Reading */}
                     <td className="px-3 py-3.5 text-sm font-mono text-center">
-                      <span className="text-slate-200 font-bold">{formatOdometerReading(consumer.previousReading)}</span>
+                      <span className="text-slate-200 font-bold">{formatOdometerReading(displayedPrevious)}</span>
                     </td>
 
                     {/* Present Reading */}
@@ -713,15 +737,18 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                           +{consumer.currentMonthReading.consumption}
                         </span>
                       ) : (
-                        <span className="text-slate-400 text-xs font-mono">
-                          {consumer.previousConsumption ? `${consumer.previousConsumption} (Prev)` : '—'}
-                        </span>
+                        <span className="text-slate-400 text-xs font-mono">—</span>
                       )}
                     </td>
 
                     {/* Status / Action Button */}
                     <td className="px-4 py-3.5 text-right">
-                      {isApprovedReading ? (
+                      {!isReadyForReading ? (
+                        <span className="inline-flex items-center gap-1 text-rose-300 text-xs font-bold bg-rose-950/80 border border-rose-800/80 px-2.5 py-1 rounded-md">
+                          <Lock className="w-3 h-3 text-rose-400" />
+                          <span>{isDisconnected ? 'Disconnected' : 'Unverified'}</span>
+                        </span>
+                      ) : isApprovedReading ? (
                         <span className="inline-flex items-center gap-1 text-emerald-400 text-xs font-bold bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-md">
                           <CheckCircle2 className="w-3.5 h-3.5" />
                           <span>Approved</span>
@@ -732,10 +759,17 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                           <span>Pending Approval</span>
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 text-sky-400 text-xs font-bold bg-sky-500/10 border border-sky-500/20 px-2.5 py-1 rounded-md hover:bg-sky-500/20 transition">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onStartReading) onStartReading(consumer);
+                          }}
+                          className="inline-flex items-center gap-1 text-sky-300 text-xs font-bold bg-sky-600 hover:bg-sky-500 px-3 py-1 rounded-lg transition active:scale-95 cursor-pointer shadow-sm text-white"
+                        >
                           <span>Enter</span>
                           <ChevronRight className="w-3.5 h-3.5" />
-                        </span>
+                        </button>
                       )}
                     </td>
                   </tr>

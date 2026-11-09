@@ -274,30 +274,52 @@ export function isConsumerAccountIssued(c: any): boolean {
   return hasValidAccount && hasValidMeter;
 }
 
+export function isConsumerDisconnected(c: any): boolean {
+  if (!c) return false;
+  const status = String(c.status || '').trim().toLowerCase();
+  const meterStatus = String(c.meterStatus || c.waterMeterStatus || '').trim().toLowerCase();
+  return (
+    status === 'disconnected' ||
+    status === 'disconnection notice' ||
+    status === 'disconnection_notice' ||
+    status === 'inactive' ||
+    status === 'deactivated' ||
+    status === 'blocked' ||
+    meterStatus === 'disconnected' ||
+    meterStatus === 'inactive' ||
+    meterStatus === 'deactivated'
+  );
+}
+
+export function isConsumerUnverified(c: any): boolean {
+  if (!c) return true;
+  if (!isConsumerAccountIssued(c)) return true;
+  if (c.verified === false || c.isVerified === false) return true;
+  const status = String(c.status || '').trim().toLowerCase();
+  return (
+    status === 'pending' ||
+    status === 'pending_approval' ||
+    status === 'pending_installation' ||
+    status === 'installation_not_scheduled'
+  );
+}
+
 export function isValidatedForFieldReading(c: any): boolean {
   if (!c) return false;
   
-  // 1. Must satisfy Admin ID Issuance Gate (Issued Account # and Tag Number / Meter Serial)
-  if (!isConsumerAccountIssued(c)) {
+  // 1. Must satisfy Admin ID Issuance & Verification Gate
+  if (isConsumerUnverified(c)) {
     return false;
   }
 
-  // 2. Check Consumer Account Status: must not be a pending applicant or installation
-  const status = (c.status || '').toString().trim().toLowerCase();
-  const PENDING_STATUSES = new Set([
-    'pending_approval',
-    'pending',
-    'pending_installation',
-    'installation_not_scheduled',
-  ]);
-
-  if (PENDING_STATUSES.has(status)) {
+  // 2. Check Consumer Account Status: disconnected or inactive accounts are NOT available for field reading
+  if (isConsumerDisconnected(c)) {
     return false;
   }
 
   // 3. Physical meter operational status: if marked damaged or under maintenance, reader cannot read
   const meterStatus = (c.meterStatus || c.waterMeterStatus || '').toString().trim().toLowerCase();
-  if (meterStatus === 'damaged' || meterStatus === 'maintenance' || meterStatus === 'under_maintenance') {
+  if (meterStatus === 'damaged' || meterStatus === 'maintenance' || meterStatus === 'under_maintenance' || meterStatus === 'faulty') {
     return false;
   }
 

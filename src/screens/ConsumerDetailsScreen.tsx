@@ -36,10 +36,22 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
   onScanMeter,
   onNavigate,
 }) => {
-  // Consumer's readings
-  const consumerReadings = readings.filter(
-    (r) => r.consumerId === consumer.id || r.accountNumber === consumer.accountNumber
-  );
+  // Consumer's readings sorted newest first
+  const consumerReadings = (readings || [])
+    .filter((r) => {
+      const matchId = Boolean(r.consumerId && consumer.id && r.consumerId.toLowerCase() === consumer.id.toLowerCase());
+      const matchAcc = Boolean(
+        r.accountNumber &&
+          consumer.accountNumber &&
+          r.accountNumber.trim().toLowerCase() === consumer.accountNumber.trim().toLowerCase()
+      );
+      return matchId || matchAcc;
+    })
+    .sort((a, b) => {
+      const timeA = new Date(`${a.readingDate}T${a.readingTime?.replace(/\s*(AM|PM)/i, '') || '00:00:00'}`).getTime();
+      const timeB = new Date(`${b.readingDate}T${b.readingTime?.replace(/\s*(AM|PM)/i, '') || '00:00:00'}`).getTime();
+      return timeB - timeA;
+    });
 
   const isReadyForReading = isValidatedForFieldReading(consumer);
   const deactivationReason = getConsumerDeactivationReason(consumer);
@@ -357,74 +369,94 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
 
         {consumerReadings.length === 0 ? (
           <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-6 text-center text-slate-400 text-xs space-y-1">
-            <div className="font-bold text-slate-300">Initial Cycle Baseline Active</div>
-            <p className="text-[11px] text-slate-500">
-              Previous baseline index: <strong className="text-slate-300 font-mono">{formatOdometerReading(consumer.previousReading)} cu.m.</strong> ({consumer.previousReadingDate}).
-              Historical records will accumulate as readings are logged.
+            <div className="font-bold text-slate-300 text-sm">Initial Cycle Baseline Active</div>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Previous baseline index: <strong className="text-slate-200 font-mono">{formatOdometerReading(consumer.previousReading)} cu.m.</strong> ({consumer.previousReadingDate}).
+              Historical records from past months will be displayed here as cycles conclude.
             </p>
           </div>
         ) : (
-          <div className="space-y-2.5">
+          <div className="space-y-3">
             {consumerReadings.map((reading) => {
               const isApproved = isReadingApproved(reading);
               const isRejected = isReadingRejected(reading);
               const isPending = isReadingPending(reading);
+              const billAmount = reading.billCalculation?.totalAmountDue
+                ? reading.billCalculation.totalAmountDue.toFixed(2)
+                : (reading.consumption * 28).toFixed(2);
 
               return (
                 <div
                   key={reading.id}
-                  className="bg-slate-950 border border-slate-800/80 rounded-xl p-3 sm:p-3.5 space-y-2 hover:border-slate-700 transition"
+                  className="bg-slate-950 border border-slate-800 rounded-xl p-3.5 space-y-2.5 hover:border-slate-700 transition shadow-sm"
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-bold text-white font-mono">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <span className="text-xs sm:text-sm font-bold text-white font-mono">
                       {reading.readingDate} {reading.readingTime}
                     </span>
                     <span
-                      className={`text-[9.5px] font-bold px-2 py-0.5 rounded ${
+                      className={`text-xs font-bold px-2.5 py-0.5 rounded-lg flex items-center gap-1 ${
                         isApproved
-                          ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                          ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
                           : isRejected
-                          ? 'bg-rose-950 text-rose-400 border border-rose-800'
-                          : 'bg-amber-950 text-amber-400 border border-amber-800'
+                          ? 'bg-rose-950 text-rose-300 border border-rose-800'
+                          : 'bg-amber-950 text-amber-300 border border-amber-800'
                       }`}
                     >
-                      {isApproved
-                        ? 'Approved'
-                        : isRejected
-                        ? 'Flagged / Rejected'
-                        : 'Pending Admin Approval'}
+                      {isApproved ? (
+                        <>
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>Approved</span>
+                        </>
+                      ) : isRejected ? (
+                        <>
+                          <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
+                          <span>Flagged / Rejected</span>
+                        </>
+                      ) : (
+                        <>
+                          <Clock className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Pending Admin Approval</span>
+                        </>
+                      )}
                     </span>
                   </div>
 
-                  {/* 3-Column Progression Grid */}
-                  <div className="bg-slate-900/90 rounded-lg p-2 border border-slate-800/80 grid grid-cols-3 gap-2 text-center font-mono">
+                  {/* 4-Column Progression Grid with Previous, Present, Consumption, and Billed Amount */}
+                  <div className="bg-slate-900/90 rounded-xl p-2.5 border border-slate-800/80 grid grid-cols-2 sm:grid-cols-4 gap-2 text-center font-mono">
                     <div>
-                      <span className="text-[9px] uppercase font-bold text-slate-500 block">PREVIOUS</span>
-                      <span className="text-xs font-bold text-slate-300 block mt-0.5">
+                      <span className="text-xs uppercase font-semibold text-slate-400 block">PREVIOUS</span>
+                      <span className="text-sm font-bold text-slate-200 block mt-0.5">
                         {formatOdometerReading(reading.previousReading)} cu.m.
                       </span>
                     </div>
                     <div>
-                      <span className="text-[9px] uppercase font-bold text-sky-400 block">PRESENT</span>
-                      <span className="text-xs font-black text-sky-300 block mt-0.5">
+                      <span className="text-xs uppercase font-semibold text-sky-400 block">PRESENT</span>
+                      <span className="text-sm font-black text-sky-300 block mt-0.5">
                         {formatOdometerReading(reading.currentReading)} cu.m.
                       </span>
                     </div>
                     <div>
-                      <span className="text-[9px] uppercase font-bold text-emerald-400 block">CONSUMPTION</span>
-                      <span className="text-xs font-black text-emerald-400 block mt-0.5">
+                      <span className="text-xs uppercase font-semibold text-emerald-400 block">CONSUMPTION</span>
+                      <span className="text-sm font-black text-emerald-400 block mt-0.5">
                         +{reading.consumption} cu.m.
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-xs uppercase font-semibold text-amber-400 block">BILLED AMOUNT</span>
+                      <span className="text-sm font-black text-amber-300 block mt-0.5">
+                        ₱{billAmount}
                       </span>
                     </div>
                   </div>
 
-                  <div className="text-[10px] text-slate-500 flex flex-wrap items-center gap-1.5 font-mono">
-                    <span>Reader: {reading.readerName || reading.readerId}</span>
+                  <div className="text-xs text-slate-400 flex flex-wrap items-center justify-between gap-1.5 font-mono pt-0.5">
+                    <span>Reader: <strong className="text-slate-200">{reading.readerName || reading.readerId}</strong></span>
+                    {reading.approvedBy && isApproved && (
+                      <span className="text-emerald-400">Verified by: {reading.approvedBy}</span>
+                    )}
                     {reading.remarks && (
-                      <>
-                        <span>·</span>
-                        <span className="text-slate-400 italic">Note: {reading.remarks}</span>
-                      </>
+                      <span className="text-slate-400 italic">Note: {reading.remarks}</span>
                     )}
                   </div>
                 </div>

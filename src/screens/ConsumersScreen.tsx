@@ -23,6 +23,8 @@ import {
   TAGOLOAN_BARANGAYS, 
   isValidatedForFieldReading, 
   getConsumerDeactivationReason,
+  isConsumerDisconnected,
+  isConsumerUnverified,
   formatOdometerReading,
 } from '../constants/routes';
 import { DatabaseHelper } from '../services/databaseHelper';
@@ -323,23 +325,39 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
         ) : (
           filteredConsumers.map((consumer) => {
             const isReadyForReading = isValidatedForFieldReading(consumer);
+            const isDisconnected = isConsumerDisconnected(consumer);
+            const isUnverified = isConsumerUnverified(consumer);
             const deactivationReason = getConsumerDeactivationReason(consumer);
+
+            // Authoritative previous baseline for this specific card
+            const displayedPreviousReading =
+              consumer.isReadThisMonth && consumer.currentMonthReading?.previousReading !== undefined
+                ? consumer.currentMonthReading.previousReading
+                : consumer.previousReading;
 
             return (
               <div
                 key={consumer.id}
                 className={`border rounded-2xl p-3.5 transition shadow-sm ${
                   !isReadyForReading
-                    ? 'border-rose-900/50 bg-rose-950/10 cursor-not-allowed'
+                    ? 'border-rose-900/40 bg-slate-900/40 opacity-70 cursor-not-allowed select-none'
                     : consumer.isReadThisMonth
-                    ? 'border-emerald-900/50 bg-emerald-950/10 hover:border-sky-600/60 cursor-pointer'
-                    : 'border-slate-800 bg-slate-900/90 hover:border-sky-600/60 cursor-pointer'
+                    ? 'border-emerald-900/50 bg-emerald-950/10 hover:border-sky-500/70 cursor-pointer active:scale-[0.99]'
+                    : 'border-slate-800 bg-slate-900/90 hover:border-sky-500/70 cursor-pointer active:scale-[0.99]'
                 }`}
                 onClick={() => {
+                  // Only clickable if account is verified and active (not disconnected)
                   if (isReadyForReading) {
-                    onStartReading(consumer);
+                    onSelectConsumer(consumer);
                   }
                 }}
+                title={
+                  !isReadyForReading
+                    ? isDisconnected
+                      ? 'Account is disconnected by Central Admin. Withheld from meter reading until reconnected.'
+                      : 'Account is pending Admin ID Issuance / verification. Withheld until verified.'
+                    : `Click to view ${consumer.name}'s past readings ledger`
+                }
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="space-y-1 flex-1 min-w-0">
@@ -363,14 +381,20 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
                       </span>
 
                       {/* Status Badges */}
-                      {consumer.meterStatus && consumer.meterStatus !== 'active' && (
-                        <span className="text-xs font-bold px-2 py-0.5 rounded bg-rose-950 text-rose-300 border border-rose-800 uppercase">
-                          Meter: {consumer.meterStatus}
+                      {isDisconnected ? (
+                        <span className="text-xs font-bold px-2 py-0.5 rounded bg-rose-950 text-rose-300 border border-rose-800 uppercase flex items-center gap-1">
+                          <PowerOff className="w-3 h-3 text-rose-400" />
+                          DISCONNECTED
                         </span>
-                      )}
-                      {consumer.status && consumer.status !== 'Active' && (
-                        <span className="text-xs font-bold px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 uppercase">
-                          Account: {consumer.status}
+                      ) : isUnverified ? (
+                        <span className="text-xs font-bold px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 uppercase flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-amber-400" />
+                          UNVERIFIED
+                        </span>
+                      ) : (
+                        <span className="text-xs font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 uppercase flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                          ACTIVE
                         </span>
                       )}
                     </div>
@@ -388,10 +412,10 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
                         <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
                         <div>
                           <span className="font-bold block text-rose-300">
-                            Deactivated by Admin — Not Available for Field Reading
+                            {isDisconnected ? 'Service Disconnected — Withheld from Field Reading' : 'Not Verified — Awaiting Admin ID Issuance'}
                           </span>
                           <span className="text-xs text-rose-300/80">
-                            {deactivationReason || 'Account or Water Meter deactivated in Central Admin.'}
+                            {deactivationReason || 'Account unavailable for reading until re-activated by Central Admin.'}
                           </span>
                         </div>
                       </div>
@@ -404,7 +428,7 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
                           PREVIOUS
                         </span>
                         <span className="text-sm font-bold text-slate-200 block mt-0.5">
-                          {formatOdometerReading(consumer.previousReading)} cu.m.
+                          {formatOdometerReading(displayedPreviousReading)} cu.m.
                         </span>
                       </div>
 
@@ -426,11 +450,11 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
                           CONSUMPTION
                         </span>
                         <span className={`text-sm font-black block mt-0.5 ${
-                          consumer.isReadThisMonth ? 'text-emerald-400' : 'text-slate-300'
+                          consumer.isReadThisMonth ? 'text-emerald-400' : 'text-slate-400'
                         }`}>
                           {consumer.isReadThisMonth && consumer.currentMonthReading
                             ? `+${consumer.currentMonthReading.consumption} cu.m.`
-                            : (consumer.previousConsumption ? `${consumer.previousConsumption} cu.m.` : '—')}
+                            : '—'}
                         </span>
                       </div>
                     </div>
@@ -445,9 +469,9 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
                   {/* Right Side Action Button */}
                   <div className="flex flex-col items-end justify-between shrink-0 h-full space-y-2">
                     {!isReadyForReading ? (
-                      <span className="text-xs font-bold text-rose-400 bg-rose-950 border border-rose-800 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                        <PowerOff className="w-3.5 h-3.5" />
-                        DEACTIVATED
+                      <span className="text-xs font-bold text-rose-300 bg-rose-950 border border-rose-800 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                        <Lock className="w-3.5 h-3.5 text-rose-400" />
+                        {isDisconnected ? 'DISCONNECTED' : 'UNVERIFIED'}
                       </span>
                     ) : consumer.isReadThisMonth ? (
                       consumer.currentMonthReading?.approvalStatus === 'approved' || consumer.currentMonthReading?.status === 'APPROVED' ? (
@@ -469,17 +493,18 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
                     ) : (
                       <span className="text-xs font-bold text-slate-300 bg-slate-900 border border-slate-800 px-2.5 py-0.5 rounded-full flex items-center gap-1">
                         <Clock className="w-3.5 h-3.5 text-slate-400" />
-                        PENDING
+                        UNREAD
                       </span>
                     )}
 
                     {!isReadyForReading ? (
-                      <div className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-rose-950/40 text-rose-400 border border-rose-900/60 flex items-center gap-1 cursor-not-allowed">
+                      <div className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800/80 text-slate-400 border border-slate-700/80 flex items-center gap-1.5 cursor-not-allowed select-none">
                         <Lock className="w-3.5 h-3.5 text-rose-400" />
-                        <span>Locked</span>
+                        <span>{isDisconnected ? 'Disconnected' : 'Not Verified'}</span>
                       </div>
                     ) : (consumer.isReadThisMonth && consumer.currentMonthReading?.approvalStatus !== 'approved' && consumer.currentMonthReading?.status !== 'APPROVED' && consumer.currentMonthReading?.approvalStatus !== 'rejected') ? (
                       <button
+                        type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           onSelectConsumer(consumer);
@@ -492,6 +517,7 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
                       </button>
                     ) : (
                       <button
+                        type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           if (consumer.isReadThisMonth) {
@@ -500,13 +526,13 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
                             onStartReading(consumer);
                           }
                         }}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-sm ${
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer ${
                           consumer.isReadThisMonth
                             ? 'bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 border border-emerald-800'
                             : 'bg-sky-600 hover:bg-sky-500 text-white'
                         }`}
                       >
-                        <span>{consumer.isReadThisMonth ? 'View Details' : 'Enter Reading'}</span>
+                        <span>{consumer.isReadThisMonth ? 'View History' : 'Enter Reading'}</span>
                         <ChevronRight className="w-3.5 h-3.5" />
                       </button>
                     )}

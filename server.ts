@@ -269,6 +269,7 @@ const getGeminiClient = () => {
 };
 
 import { INITIAL_CONSUMERS as DEFAULT_SEED_CONSUMERS, INITIAL_READERS } from './src/data/seedData';
+import { SEED_HISTORICAL_READINGS } from './src/data/seedReadings';
 import { isConsumerInAssignedAreas, isValidatedForFieldReading } from './src/constants/routes';
 
 // Initial Seed Consumers for Tagoloan Water District (WDT), Misamis Oriental
@@ -339,7 +340,7 @@ const INITIAL_METERS: any[] = INITIAL_CONSUMERS
     statusUpdatedBy: 'Admin Billing Supervisor',
   }));
 
-let serverReadings: any[] = [];
+let serverReadings: any[] = [...SEED_HISTORICAL_READINGS];
 let serverAuditLogs: any[] = [
   {
     id: 'LOG-INIT-01',
@@ -2229,7 +2230,9 @@ const handleApproveReading = (req: any, res: any) => {
   const { id } = req.params;
   const { approvedBy } = req.body || {};
 
-  const reading = serverReadings.find((r: any) => r.id === id || r.accountNumber === id);
+  // Prioritize pending reading for the account/id, or pick the most recent one
+  const reading = serverReadings.find((r: any) => (r.id === id || r.accountNumber === id) && (r.approvalStatus === 'pending_approval' || r.status === 'PENDING_APPROVAL' || r.status === 'PENDING_SYNC')) ||
+    serverReadings.slice().reverse().find((r: any) => r.id === id || r.accountNumber === id);
   if (!reading) {
     return res.status(404).json({ success: false, message: 'Reading not found' });
   }
