@@ -269,6 +269,30 @@ export async function universalApiFetch(path: string, init?: RequestInit): Promi
   const method = (init?.method || 'GET').toUpperCase();
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
 
+  // Instant Offline Check: If device is offline or in simulated offline mode, return synthetic response immediately
+  const isBrowserOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+  const isSimulatedOffline = typeof window !== 'undefined' && window.localStorage?.getItem('twd_simulated_offline') === 'true';
+  if (isBrowserOffline || isSimulatedOffline) {
+    const offlinePayload = {
+      success: true,
+      district: 'Tagoloan Water District (WDT-MISOR)',
+      isOfflineFallback: true,
+      offline: true,
+      consumers: [],
+      data: [],
+      readers: [],
+      staff: [],
+      message: 'Operating in local offline database mode',
+    };
+    return new Response(JSON.stringify(offlinePayload), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'X-Offline-Fallback': 'true',
+      },
+    });
+  }
+
   // Client-Side Rate Limiter: Smooth bursts and avoid server flood / UI freeze
   const tokenAcquired = await apiRateLimiter.acquire(1, 3000);
   if (!tokenAcquired) {

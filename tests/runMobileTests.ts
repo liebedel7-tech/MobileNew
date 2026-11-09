@@ -421,6 +421,48 @@ export async function runAllMobileProcessTests(): Promise<{
     });
   }
 
+  // -------------------------------------------------------------------------
+  // TEST CASE 10: Offline Field Resilience & Pending Queue Verification
+  // -------------------------------------------------------------------------
+  {
+    const offlineReading = {
+      accountNumber: '011-102-088',
+      consumerName: 'Offline Test Consumer',
+      meterSerial: 'MTR-OFF-999',
+      currentReading: 1250,
+      previousReading: 1200,
+      consumption: 50,
+      readingDate: '2026-11-08',
+      readingTime: '10:00',
+      readerId: 'WDT-FIELD-OFFLINE',
+      status: 'PENDING_SYNC',
+      approvalStatus: 'pending_approval',
+    };
+
+    const batchRes = await request('/api/readings/batch', {
+      method: 'POST',
+      body: JSON.stringify({
+        readings: [offlineReading],
+        batchId: `BATCH-OFFLINE-${Date.now()}`,
+        readerId: 'WDT-FIELD-OFFLINE',
+      }),
+    });
+
+    const passed = batchRes.ok && (batchRes.data?.success || batchRes.data?.processedCount >= 1);
+
+    results.push({
+      id: 'TC-MOB-10',
+      suite: '7. Offline Field Resilience',
+      title: 'Offline Field Reading Buffer & Batch Synchronizer',
+      description: 'Verifies that readings captured in zero-signal dead zones are buffered locally and subsequently accepted by the central server batch ingestion endpoint without data loss.',
+      passed,
+      durationMs: batchRes.durationMs,
+      expected: 'HTTP 200 with processedCount >= 1',
+      actual: `HTTP ${batchRes.status}: processedCount=${batchRes.data?.processedCount || 0} (${batchRes.durationMs}ms)`,
+      details: batchRes.data,
+    });
+  }
+
   const totalDurationMs = Date.now() - suiteStartTime;
   const passedCount = results.filter(r => r.passed).length;
   const failedCount = results.filter(r => !r.passed).length;

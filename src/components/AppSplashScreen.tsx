@@ -66,14 +66,8 @@ export const AppSplashScreen: React.FC<AppSplashScreenProps> = ({
           transition={{ duration: 0.5, ease: 'easeOut' }}
           className="relative flex items-center justify-center"
         >
-          {/* Subtle Radiant Ring */}
-          <motion.div
-            animate={{ scale: [1, 1.12, 1], opacity: [0.35, 0.7, 0.35] }}
-            transition={{ repeat: Infinity, duration: 2.4, ease: 'easeInOut' }}
-            className="absolute -inset-4 rounded-full bg-sky-500/30 blur-lg -z-10"
-          />
-          
-          <OfficialLogo size="2xl" glow className="shadow-2xl" />
+          {/* Clean Municipal Logo */}
+          <OfficialLogo size="2xl" className="shadow-lg" />
         </motion.div>
 
         {/* Official Name */}
@@ -95,9 +89,9 @@ export const AppSplashScreen: React.FC<AppSplashScreenProps> = ({
           transition={{ delay: 0.35, duration: 0.4 }}
           className="w-56 space-y-2 pt-3"
         >
-          <div className="h-1.5 w-full bg-[#030e24] rounded-full overflow-hidden border border-sky-900/60 shadow-inner">
+          <div className="h-2 w-full bg-[#030e24] rounded-full overflow-hidden border border-sky-900/60 shadow-inner">
             <motion.div
-              className="h-full bg-gradient-to-r from-sky-400 via-cyan-300 to-sky-500 rounded-full shadow-[0_0_10px_rgba(56,189,248,0.5)]"
+              className="h-full bg-sky-500 rounded-full"
               initial={{ width: '0%' }}
               animate={{ width: `${progress}%` }}
               transition={{ duration: 0.3, ease: 'easeOut' }}

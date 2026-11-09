@@ -41,9 +41,6 @@ export const OfficialLogo: React.FC<OfficialLogoProps> = ({
 
   return (
     <div className={`relative shrink-0 flex items-center justify-center ${sizeClass} ${className}`}>
-      {glow && (
-        <div className="absolute -inset-1 rounded-full bg-gradient-to-tr from-sky-500 to-blue-600 opacity-50 blur-sm animate-pulse" />
-      )}
       
       {src ? (
         <img

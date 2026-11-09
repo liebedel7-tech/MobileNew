@@ -11,7 +11,6 @@ import {
   ShieldCheck, 
   FileText,
   Clock,
-  Sparkles,
   Send,
   UserCheck,
   ChevronRight,
@@ -93,6 +92,25 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
   const [isSendingToAdmin, setIsSendingToAdmin] = useState(false);
   const [sendSuccess, setSendSuccess] = useState(false);
   const [sendFeedback, setSendFeedback] = useState<string | null>(null);
+
+  // Network & Simulated Offline state
+  const [isOffline, setIsOffline] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return !navigator.onLine || window.localStorage?.getItem('twd_simulated_offline') === 'true';
+  });
+
+  useEffect(() => {
+    const handleStatus = () => {
+      const offline = !navigator.onLine || window.localStorage?.getItem('twd_simulated_offline') === 'true';
+      setIsOffline(offline);
+    };
+    window.addEventListener('online', handleStatus);
+    window.addEventListener('offline', handleStatus);
+    return () => {
+      window.removeEventListener('online', handleStatus);
+      window.removeEventListener('offline', handleStatus);
+    };
+  }, []);
 
   // Retrieve Latest Approved Reading Baseline and Any Existing Pending Record
   useEffect(() => {
@@ -484,12 +502,18 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
             ) : (
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-950/80 border border-amber-800 text-amber-300 text-[11px] font-mono font-bold tracking-wide uppercase mb-2">
                 <Clock className="w-3.5 h-3.5 text-amber-400" />
-                <span>Transmitted to Central Admin</span>
+                <span>{isOffline ? 'Offline Queue (Pending Sync)' : 'Transmitted to Central Admin'}</span>
               </span>
             )}
 
             <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-              {isApproved ? 'Reading Approved & Saved' : isRejected ? 'Reading Flagged for Review' : 'Reading Confirmed & Sent'}
+              {isApproved 
+                ? 'Reading Approved & Saved' 
+                : isRejected 
+                ? 'Reading Flagged for Review' 
+                : isOffline 
+                ? 'Reading Confirmed & Saved Offline' 
+                : 'Reading Confirmed & Sent'}
             </h2>
             <p className="text-xs text-slate-400 max-w-md mx-auto mt-1">
               {isApproved ? (
@@ -499,6 +523,10 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
               ) : isRejected ? (
                 <>
                   Admin requested re-check: <strong className="text-rose-400">{savedReading.rejectionReason || 'Inspection needed'}</strong>.
+                </>
+              ) : isOffline ? (
+                <>
+                  Meter reading saved securely to device database. Status: <strong className="text-amber-400 font-mono">Queued for Admin Sync</strong>.
                 </>
               ) : (
                 <>
@@ -813,28 +841,43 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
             </button>
           </div>
 
+          {/* Captured Dial Photo Preview (carried from Camera Scan) */}
+          {photoUrl && (
+            <div className="relative w-full max-h-48 rounded-xl overflow-hidden border border-slate-700 bg-slate-950 flex items-center justify-center shadow-inner">
+              <img
+                src={photoUrl}
+                alt="Captured Dial"
+                className="max-h-44 object-contain rounded-lg p-1"
+              />
+              <div className="absolute top-2 left-2 bg-slate-950/90 border border-slate-700 px-2.5 py-1 rounded-lg text-xs text-sky-300 font-mono flex items-center gap-1.5 shadow">
+                <Camera className="w-3.5 h-3.5 text-sky-400" />
+                <span>Captured Meter Photo</span>
+              </div>
+            </div>
+          )}
+
           {/* 5-Wheel Mechanical Odometer Roller HUD (00000 to 99999) */}
-          <div className="bg-slate-950 p-3 sm:p-4 rounded-2xl border border-slate-800 text-center space-y-2">
-            <div className="flex items-center justify-between text-[10.5px] text-slate-400 font-mono">
-              <span className="uppercase font-bold text-sky-400 tracking-wider">5-DIGIT MECHANICAL ODOMETER DIALS</span>
-              <span className="text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
-                Whole numbers only (00000–99999)
+          <div className="bg-slate-950 p-3.5 sm:p-4 rounded-2xl border border-slate-800 text-center space-y-2.5">
+            <div className="flex items-center justify-between text-xs text-slate-300 font-mono">
+              <span className="uppercase font-bold text-sky-400 tracking-wider">5-DIGIT MECHANICAL ODOMETER</span>
+              <span className="text-slate-300 bg-slate-900 px-2.5 py-0.5 rounded border border-slate-800 text-xs">
+                Whole numbers (00000–99999)
               </span>
             </div>
 
             {/* 5 Physical Roller Wheel Dials */}
-            <div className="flex items-center justify-center gap-2 sm:gap-2.5 py-1">
+            <div className="flex items-center justify-center gap-2 sm:gap-3 py-1">
               {formatOdometerReading(currentReading).split('').map((digit, idx) => {
                 const labels = ['10k', '1k', '100', '10', '1'];
                 return (
                   <div key={idx} className="flex flex-col items-center gap-1">
-                    <span className="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-wider">
+                    <span className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider">
                       {labels[idx]}
                     </span>
-                    <div className="w-10 sm:w-12 h-14 sm:h-16 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 border-2 border-sky-500/80 rounded-xl flex items-center justify-center font-mono font-black text-2xl sm:text-3xl text-white shadow-inner select-none relative overflow-hidden ring-1 ring-sky-500/20">
+                    <div className="w-11 sm:w-13 h-16 sm:h-18 bg-slate-900 border-2 border-slate-600 rounded-xl flex items-center justify-center font-mono font-black text-3xl sm:text-4xl text-white shadow-inner select-none relative overflow-hidden">
                       <div className="absolute inset-x-0 top-0 h-2 bg-gradient-to-b from-black/80 to-transparent pointer-events-none" />
                       <div className="absolute inset-x-0 bottom-0 h-2 bg-gradient-to-t from-black/80 to-transparent pointer-events-none" />
-                      <span className={currentReading !== '' ? 'text-sky-300 drop-shadow-[0_0_8px_rgba(56,189,248,0.5)]' : 'text-slate-500'}>
+                      <span className={currentReading !== '' ? 'text-white font-black' : 'text-slate-500'}>
                         {digit}
                       </span>
                     </div>
@@ -856,70 +899,70 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
               placeholder={formatOdometerReading(prevReading)}
               required
               autoFocus
-              className={`w-full bg-slate-950 border-2 rounded-2xl py-3 px-4 text-3xl font-black text-center tracking-widest font-mono focus:outline-none transition shadow-inner ${
+              className={`w-full bg-slate-950 border-2 rounded-2xl py-3.5 px-4 text-3xl font-black text-center tracking-widest font-mono focus:outline-none transition shadow-inner ${
                 isReadingInvalid
-                  ? 'border-red-500 text-red-400 focus:border-red-400 focus:ring-2 focus:ring-red-500/20'
-                  : 'border-slate-700 text-sky-400 focus:border-sky-500'
+                  ? 'border-red-500 text-red-400 focus:border-red-400'
+                  : 'border-slate-700 text-white focus:border-sky-500'
               }`}
             />
-            <div className="text-center text-[11px] text-slate-400 mt-1.5 flex flex-wrap items-center justify-center gap-1.5">
-              <span>Whole numbers only (no decimal points or commas)</span>
+            <div className="text-center text-xs text-slate-300 mt-2 flex flex-wrap items-center justify-center gap-2 font-medium">
+              <span>Whole numbers only</span>
               <span>•</span>
-              <span>Min: <strong className="text-slate-300 font-mono">{formatOdometerReading(prevReading)} cu.m.</strong></span>
+              <span>Min: <strong className="text-white font-mono">{formatOdometerReading(prevReading)} cu.m.</strong></span>
             </div>
           </div>
 
           {/* Validation Rule Alert: Present Reading >= Previous Reading */}
           {isReadingInvalid && (
-            <div className="p-3.5 bg-red-950/80 border-2 border-red-500/80 rounded-xl text-xs text-red-200 flex items-start gap-2.5 animate-in fade-in slide-in-from-top-1">
+            <div className="p-3.5 bg-red-950/80 border-2 border-red-500/80 rounded-xl text-xs sm:text-sm text-red-200 flex items-start gap-2.5 animate-in fade-in slide-in-from-top-1">
               <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
               <div className="space-y-1">
-                <strong className="text-red-300 font-extrabold block text-xs uppercase tracking-wide">
-                  ⚠️ Invalid Reading: Below Previous Reading
+                <strong className="text-red-300 font-bold block text-sm uppercase tracking-wide">
+                  Invalid Reading: Below Previous Reading
                 </strong>
-                <p className="text-[11px] text-red-200/90 leading-relaxed">
+                <p className="text-xs sm:text-sm text-red-200 leading-relaxed">
                   Present reading (<strong className="text-white font-mono">{formatOdometerReading(numReading)} cu.m.</strong>) cannot be less than previous reading (<strong className="text-white font-mono">{formatOdometerReading(prevReading)} cu.m.</strong>).
-                  Negative consumption is strictly not allowed in meter reading.
+                  Negative consumption is strictly not allowed.
                 </p>
               </div>
             </div>
           )}
 
           {/* Real-time Readings & Consumption Breakdown */}
-          <div className="bg-slate-950 rounded-xl p-3 border border-slate-800 space-y-2 font-mono text-xs">
+          <div className="bg-slate-950 rounded-xl p-3.5 border border-slate-800 space-y-2 font-mono text-xs sm:text-sm">
             <div className="flex items-center justify-between text-slate-300">
-              <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+              <span className="text-xs uppercase font-semibold text-slate-400 tracking-wider">
                 PREVIOUS READING
               </span>
-              <span className="font-bold text-slate-200 text-sm">
+              <span className="font-bold text-slate-200 text-sm sm:text-base">
                 {formatOdometerReading(prevReading)} cu.m.
               </span>
             </div>
 
             <div className="flex items-center justify-between text-slate-300">
-              <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+              <span className="text-xs uppercase font-semibold text-slate-400 tracking-wider">
                 PRESENT READING
               </span>
-              <span className={`font-bold text-sm ${
+              <span className={`font-bold text-sm sm:text-base ${
                 isReadingInvalid ? 'text-red-400' : 'text-sky-300'
               }`}>
                 {currentReading !== '' ? `${formatOdometerReading(numReading)} cu.m.` : '—'}
               </span>
             </div>
 
-            <div className="flex items-center justify-between pt-1.5 border-t border-slate-800">
-              <span className="text-[10px] uppercase font-bold text-emerald-400 tracking-wider">
+            <div className="flex items-center justify-between pt-2 border-t border-slate-800">
+              <span className="text-xs uppercase font-bold text-emerald-400 tracking-wider">
                 CONSUMPTION
               </span>
               {isReadingInvalid ? (
-                <span className="text-xs font-mono font-bold text-red-400">
+                <span className="text-xs sm:text-sm font-mono font-bold text-red-400">
                   Invalid (Below Previous)
                 </span>
               ) : (
-                <span className="font-black text-emerald-400 text-sm flex items-center gap-1.5">
+                <span className="font-black text-emerald-400 text-base sm:text-lg flex items-center gap-1.5">
                   <span>{currentReading !== '' ? `+${consumption} cu.m.` : '0 cu.m.'}</span>
                   {isRollover && (
-                    <span className="text-[10px] font-sans font-bold bg-sky-950 text-sky-300 border border-sky-700 px-1.5 py-0.2 rounded">
+                    <span className="text-xs font-sans font-bold bg-sky-950 text-sky-300 border border-sky-700 px-2 py-0.5 rounded">
                       Rollover 99999
                     </span>
                   )}
@@ -928,7 +971,7 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
             </div>
 
             {isRollover && (
-              <div className="bg-sky-950/70 border border-sky-800/80 rounded-lg p-2 text-[11px] text-sky-200 flex items-center justify-between">
+              <div className="bg-sky-950 border border-sky-800 rounded-lg p-2.5 text-xs text-sky-200 flex items-center justify-between">
                 <span className="font-bold text-sky-300">5-Digit Mechanical Rollover:</span>
                 <span className="font-mono text-xs">Rolled over 00000 (+100,000 cu.m.)</span>
               </div>
@@ -1031,7 +1074,11 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
               <>
                 <Send className="w-4 h-4 text-slate-950" />
                 <span>
-                  {isSaving ? 'Recording & Sending to Admin...' : 'Confirm & Send to Admin'}
+                  {isSaving 
+                    ? 'Saving Reading...' 
+                    : isOffline 
+                    ? 'Save to Offline Queue' 
+                    : 'Confirm & Send to Admin'}
                 </span>
               </>
             )}

@@ -25,12 +25,21 @@ export class SyncService {
 
   static init() {
     if (typeof window !== 'undefined') {
+      const storedSimulated = window.localStorage?.getItem('twd_simulated_offline') === 'true';
+      const isNavOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
+      this.syncState.isSimulatedOffline = storedSimulated;
+      this.syncState.isOnline = storedSimulated ? false : isNavOnline;
+      this.syncState.lastSyncMessage = !this.syncState.isOnline ? 'Field Offline Mode active' : 'Connected to Central Server';
+
       window.addEventListener('online', () => {
-        this.updateState({ isOnline: !this.syncState.isSimulatedOffline });
-        this.syncNow();
+        const isStillSimulated = window.localStorage?.getItem('twd_simulated_offline') === 'true';
+        this.updateState({ isOnline: !isStillSimulated });
+        if (!isStillSimulated) {
+          this.syncNow();
+        }
       });
       window.addEventListener('offline', () => {
-        this.updateState({ isOnline: false });
+        this.updateState({ isOnline: false, lastSyncMessage: 'Device offline. Data queued locally in SQLite/IndexedDB.' });
       });
     }
 
@@ -123,29 +132,49 @@ export class SyncService {
 
   /**
    * Submits a single meter reading directly to the Central Admin Dashboard for approval
+   * If offline or in simulated offline mode, saves directly to local IndexedDB/SQLite queue without blocking.
    */
   static async submitSingleReading(reading: MeterReading): Promise<{
     success: boolean;
     message: string;
     reading?: any;
   }> {
-    try {
-      const readingPayload = {
-        ...reading,
-        accountNumber: reading.accountNumber,
-        presentReading: reading.currentReading,
-        currentReading: reading.currentReading,
-        previousReading: reading.previousReading,
-        consumption: reading.consumption,
-        readerId: reading.readerId,
-        readerName: reading.readerName,
-        readingDate: reading.readingDate,
-        photoUrl: reading.photoUrl,
-        remarks: reading.remarks,
-        status: 'PENDING_SYNC',
-        approvalStatus: 'pending_approval',
-      };
+    const readingPayload: MeterReading = {
+      ...reading,
+      accountNumber: reading.accountNumber,
+      currentReading: reading.currentReading,
+      previousReading: reading.previousReading,
+      consumption: reading.consumption,
+      readerId: reading.readerId,
+      readerName: reading.readerName,
+      readingDate: reading.readingDate,
+      photoUrl: reading.photoUrl,
+      remarks: reading.remarks,
+      status: 'PENDING_SYNC',
+      approvalStatus: 'pending_approval',
+    };
 
+    const isOffline = !this.syncState.isOnline || 
+      (typeof navigator !== 'undefined' && !navigator.onLine) || 
+      this.syncState.isSimulatedOffline;
+
+    // 1. Direct Offline Save: If field reader is offline, queue directly into local database
+    if (isOffline) {
+      await DatabaseHelper.saveReading(readingPayload);
+      await this.refreshPendingCount();
+      await LoggerService.log(
+        'READING_SAVED_OFFLINE',
+        `Meter reading for Account #${reading.accountNumber} saved in offline queue (Pending Sync with Admin).`
+      );
+      return {
+        success: true,
+        message: 'Saved to local offline queue (Pending Sync with Admin).',
+        reading: readingPayload,
+      };
+    }
+
+    // 2. Online Transmission
+    try {
       const res = await universalApiFetch('/api/readings/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
@@ -156,7 +185,18 @@ export class SyncService {
       });
 
       if (res.ok) {
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
+        // If API returned synthetic offline fallback
+        if (data?.isOfflineFallback) {
+          await DatabaseHelper.saveReading(readingPayload);
+          await this.refreshPendingCount();
+          return {
+            success: true,
+            message: 'Saved to local offline queue (Pending Sync with Admin).',
+            reading: readingPayload,
+          };
+        }
+
         await DatabaseHelper.saveReading({
           ...reading,
           approvalStatus: 'pending_approval',
@@ -172,22 +212,28 @@ export class SyncService {
           reading: data.reading || readingPayload,
         };
       } else {
-        const errData = await res.json().catch(() => ({}));
+        // Server returned non-ok, safely queue locally
+        await DatabaseHelper.saveReading(readingPayload);
+        await this.refreshPendingCount();
         return {
-          success: false,
-          message: errData?.message || 'Server did not acknowledge reading transmission.',
+          success: true,
+          message: 'Server unreachable: Saved to local offline queue.',
+          reading: readingPayload,
         };
       }
     } catch (err: any) {
+      // Safe fallback: queue reading locally in IndexedDB
+      await DatabaseHelper.saveReading(readingPayload);
+      await this.refreshPendingCount();
       return {
-        success: false,
-        message: `Offline or network timeout: Saved in offline queue. (${err.message || 'Queued'})`,
+        success: true,
+        message: 'Saved to local offline queue (Pending Sync with Admin).',
+        reading: readingPayload,
       };
     }
   }
 
   static startAutoSync() {
-
     this.toggleAutoSync(true);
   }
 
@@ -199,6 +245,9 @@ export class SyncService {
     this.syncState.isSimulatedOffline = offline;
     this.syncState.isOnline = offline ? false : (typeof navigator !== 'undefined' ? navigator.onLine : true);
     this.syncState.lastSyncMessage = offline ? 'Field Offline Mode active' : 'Connected to Central Server';
+    if (typeof window !== 'undefined') {
+      window.localStorage?.setItem('twd_simulated_offline', offline ? 'true' : 'false');
+    }
     this.notify();
     LoggerService.log(
       'CONNECTIVITY_MODE_CHANGED',

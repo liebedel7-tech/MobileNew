@@ -344,19 +344,19 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
                 <div className="flex items-start justify-between gap-3">
                   <div className="space-y-1 flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-mono text-xs font-extrabold text-sky-400 bg-sky-950/80 px-2 py-0.5 rounded border border-sky-800/60">
+                      <span className="font-mono text-xs font-black text-sky-300 bg-sky-950 px-2 py-0.5 rounded border border-sky-800">
                         {consumer.accountNumber}
                       </span>
-                      <span className="text-[10px] font-semibold text-slate-400 px-1.5 py-0.5 bg-slate-800 rounded">
+                      <span className="text-xs font-semibold text-slate-300 px-2 py-0.5 bg-slate-800 rounded">
                         Seq #{consumer.sequenceNo}
                       </span>
                       <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                        className={`text-xs font-bold px-2 py-0.5 rounded ${
                           consumer.category === 'Residential'
-                            ? 'bg-blue-950 text-blue-300 border border-blue-800/60'
+                            ? 'bg-blue-950 text-blue-300 border border-blue-800'
                             : consumer.category === 'Industrial'
-                            ? 'bg-purple-950 text-purple-300 border border-purple-800/60'
-                            : 'bg-amber-950 text-amber-300 border border-amber-800/60'
+                            ? 'bg-purple-950 text-purple-300 border border-purple-800'
+                            : 'bg-amber-950 text-amber-300 border border-amber-800'
                         }`}
                       >
                         {consumer.category}
@@ -364,21 +364,21 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
 
                       {/* Status Badges */}
                       {consumer.meterStatus && consumer.meterStatus !== 'active' && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-rose-950 text-rose-300 border border-rose-800/80 uppercase">
+                        <span className="text-xs font-bold px-2 py-0.5 rounded bg-rose-950 text-rose-300 border border-rose-800 uppercase">
                           Meter: {consumer.meterStatus}
                         </span>
                       )}
                       {consumer.status && consumer.status !== 'Active' && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800/80 uppercase">
+                        <span className="text-xs font-bold px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 uppercase">
                           Account: {consumer.status}
                         </span>
                       )}
                     </div>
 
-                    <h3 className="font-bold text-sm text-white truncate">{consumer.name}</h3>
+                    <h3 className="font-bold text-base text-white truncate mt-1">{consumer.name}</h3>
 
-                    <div className="text-xs text-slate-400 flex items-center gap-1 truncate">
-                      <MapPin className="w-3 h-3 text-rose-400 shrink-0" />
+                    <div className="text-xs text-slate-300 flex items-center gap-1.5 truncate mt-0.5">
+                      <MapPin className="w-3.5 h-3.5 text-rose-400 shrink-0" />
                       <span className="truncate">{consumer.address}</span>
                     </div>
 
@@ -388,9 +388,9 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
                         <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
                         <div>
                           <span className="font-bold block text-rose-300">
-                            🚫 Deactivated by Admin — Not Available for Field Reading
+                            Deactivated by Admin — Not Available for Field Reading
                           </span>
-                          <span className="text-[11px] text-rose-300/80">
+                          <span className="text-xs text-rose-300/80">
                             {deactivationReason || 'Account or Water Meter deactivated in Central Admin.'}
                           </span>
                         </div>
@@ -398,22 +398,22 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
                     )}
 
                     {/* Standardized 3-Column Odometer Breakdown */}
-                    <div className="mt-2.5 grid grid-cols-3 gap-2 bg-slate-950/80 rounded-xl p-2.5 border border-slate-800/80 text-center font-mono">
+                    <div className="mt-2.5 grid grid-cols-3 gap-2 bg-slate-950 rounded-xl p-3 border border-slate-800 text-center font-mono">
                       <div>
-                        <span className="text-[9px] uppercase font-bold text-slate-500 tracking-wider block">
+                        <span className="text-xs uppercase font-semibold text-slate-400 tracking-wider block">
                           PREVIOUS
                         </span>
-                        <span className="text-xs font-bold text-slate-300 block mt-0.5">
+                        <span className="text-sm font-bold text-slate-200 block mt-0.5">
                           {formatOdometerReading(consumer.previousReading)} cu.m.
                         </span>
                       </div>
 
                       <div>
-                        <span className="text-[9px] uppercase font-bold text-sky-400 tracking-wider block">
+                        <span className="text-xs uppercase font-semibold text-sky-400 tracking-wider block">
                           PRESENT
                         </span>
-                        <span className={`text-xs block mt-0.5 ${
-                          consumer.isReadThisMonth ? 'font-black text-sky-300' : 'text-slate-500 italic'
+                        <span className={`text-sm block mt-0.5 ${
+                          consumer.isReadThisMonth ? 'font-black text-sky-300' : 'text-slate-400 italic'
                         }`}>
                           {consumer.isReadThisMonth && consumer.currentMonthReading
                             ? `${formatOdometerReading(consumer.currentMonthReading.currentReading)} cu.m.`
@@ -422,11 +422,11 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
                       </div>
 
                       <div>
-                        <span className="text-[9px] uppercase font-bold text-emerald-400 tracking-wider block">
+                        <span className="text-xs uppercase font-semibold text-emerald-400 tracking-wider block">
                           CONSUMPTION
                         </span>
-                        <span className={`text-xs font-black block mt-0.5 ${
-                          consumer.isReadThisMonth ? 'text-emerald-400' : 'text-slate-400'
+                        <span className={`text-sm font-black block mt-0.5 ${
+                          consumer.isReadThisMonth ? 'text-emerald-400' : 'text-slate-300'
                         }`}>
                           {consumer.isReadThisMonth && consumer.currentMonthReading
                             ? `+${consumer.currentMonthReading.consumption} cu.m.`
@@ -435,40 +435,40 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono pt-1">
+                    <div className="flex items-center gap-2 text-xs text-slate-300 font-mono pt-1">
                       <span>Tag: <strong className="text-sky-300">{consumer.meterNumber || consumer.meterSerial}</strong></span>
                       <span>•</span>
-                      <span>Rate: <strong className="text-slate-300">{consumer.rateCode}</strong></span>
+                      <span>Rate: <strong className="text-white">{consumer.rateCode}</strong></span>
                     </div>
                   </div>
 
                   {/* Right Side Action Button */}
                   <div className="flex flex-col items-end justify-between shrink-0 h-full space-y-2">
                     {!isReadyForReading ? (
-                      <span className="text-[10px] font-bold text-rose-400 bg-rose-950/80 border border-rose-800 px-2 py-0.5 rounded-full flex items-center gap-1">
-                        <PowerOff className="w-3 h-3" />
+                      <span className="text-xs font-bold text-rose-400 bg-rose-950 border border-rose-800 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                        <PowerOff className="w-3.5 h-3.5" />
                         DEACTIVATED
                       </span>
                     ) : consumer.isReadThisMonth ? (
                       consumer.currentMonthReading?.approvalStatus === 'approved' || consumer.currentMonthReading?.status === 'APPROVED' ? (
-                        <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/80 border border-emerald-800 px-2 py-0.5 rounded-full flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                        <span className="text-xs font-bold text-emerald-300 bg-emerald-950 border border-emerald-800 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                           APPROVED
                         </span>
                       ) : consumer.currentMonthReading?.approvalStatus === 'rejected' || consumer.currentMonthReading?.status === 'REJECTED' ? (
-                        <span className="text-[10px] font-bold text-rose-400 bg-rose-950/80 border border-rose-800 px-2 py-0.5 rounded-full flex items-center gap-1">
-                          <AlertCircle className="w-3 h-3 text-rose-400" />
+                        <span className="text-xs font-bold text-rose-300 bg-rose-950 border border-rose-800 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                          <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
                           FLAGGED
                         </span>
                       ) : (
-                        <span className="text-[10px] font-bold text-amber-400 bg-amber-950/80 border border-amber-800 px-2 py-0.5 rounded-full flex items-center gap-1">
-                          <Clock className="w-3 h-3 text-amber-400" />
+                        <span className="text-xs font-bold text-amber-300 bg-amber-950 border border-amber-800 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5 text-amber-400" />
                           READ (PENDING)
                         </span>
                       )
                     ) : (
-                      <span className="text-[10px] font-bold text-slate-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded-full flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
+                      <span className="text-xs font-bold text-slate-300 bg-slate-900 border border-slate-800 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5 text-slate-400" />
                         PENDING
                       </span>
                     )}

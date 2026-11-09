@@ -46,7 +46,7 @@ export const WDTBottomNav: React.FC<WDTBottomNavProps> = ({
         <div className="relative flex items-center justify-center">
           <Send className="w-5 h-5" />
           {pendingCount > 0 && (
-            <span className="absolute -top-1.5 -right-2.5 min-w-[17px] h-4 px-1 rounded-full bg-amber-400 text-slate-950 text-[9px] font-black flex items-center justify-center shadow-md animate-pulse">
+            <span className="absolute -top-1.5 -right-2.5 min-w-[18px] h-4 px-1 rounded-full bg-amber-400 text-slate-950 text-xs font-black flex items-center justify-center shadow-sm">
               {pendingCount > 99 ? '99+' : pendingCount}
             </span>
           )}
@@ -66,7 +66,7 @@ export const WDTBottomNav: React.FC<WDTBottomNavProps> = ({
   ];
 
   return (
-    <nav className="w-full bg-slate-900 border-t border-slate-800 grid grid-cols-5 px-1 sm:px-3 shrink-0 select-none z-40 shadow-2xl sticky bottom-0 left-0 right-0 overscroll-none [overscroll-behavior:none] touch-none pb-[env(safe-area-inset-bottom)]">
+    <nav className="w-full bg-slate-900 border-t border-slate-800 grid grid-cols-5 px-1 sm:px-3 shrink-0 select-none z-40 shadow-lg sticky bottom-0 left-0 right-0 overscroll-none [overscroll-behavior:none] touch-none pb-[env(safe-area-inset-bottom)]">
       {NAV_ITEMS.map((item) => {
         const isActive = currentTab === item.id;
 
@@ -75,7 +75,7 @@ export const WDTBottomNav: React.FC<WDTBottomNavProps> = ({
             key={item.id}
             type="button"
             onClick={() => onNavigate(item.id)}
-            className={`flex flex-col items-center justify-center gap-1 transition-colors py-2.5 px-0.5 relative touch-manipulation cursor-pointer ${
+            className={`flex flex-col items-center justify-center gap-1 transition-colors py-2 px-0.5 relative touch-manipulation cursor-pointer ${
               isActive
                 ? 'text-sky-400 font-bold'
                 : 'text-slate-400 hover:text-slate-200 active:text-slate-100'
@@ -83,13 +83,13 @@ export const WDTBottomNav: React.FC<WDTBottomNavProps> = ({
           >
             {/* Active Top Bar Indicator */}
             {isActive && (
-              <span className="absolute top-0 left-2 right-2 h-0.5 bg-sky-400 rounded-full shadow-[0_0_8px_rgba(56,189,248,0.8)]" />
+              <span className="absolute top-0 left-2 right-2 h-0.5 bg-sky-400 rounded-full" />
             )}
 
             <span className={`shrink-0 transition-transform ${isActive ? 'scale-105' : ''}`}>
               {item.icon}
             </span>
-            <span className="text-[10px] sm:text-[11px] leading-tight whitespace-nowrap tracking-tight font-medium">
+            <span className="text-xs leading-tight whitespace-nowrap tracking-tight font-semibold">
               {item.label}
             </span>
           </button>

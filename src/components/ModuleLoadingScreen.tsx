@@ -65,7 +65,7 @@ export const ModuleLoadingScreen: React.FC<ModuleLoadingScreenProps> = ({
         <div className="w-full max-w-xs bg-slate-900/95 border border-slate-800 rounded-2xl p-5 shadow-2xl space-y-3.5 text-center">
           {/* Logo & Spinner */}
           <div className="flex justify-center items-center relative py-1">
-            <OfficialLogo size="sm" glow />
+            <OfficialLogo size="sm" />
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <Loader2 className="w-11 h-11 text-sky-400 animate-spin opacity-50" />
             </div>
@@ -73,11 +73,11 @@ export const ModuleLoadingScreen: React.FC<ModuleLoadingScreenProps> = ({
 
           {/* Titles */}
           <div className="space-y-1">
-            <h2 className="text-xs sm:text-sm font-bold text-white tracking-tight">
+            <h2 className="text-sm font-bold text-white tracking-tight">
               {processInfo.title || 'Loading Module...'}
             </h2>
             {processInfo.subtitle && (
-              <p className="text-[11px] text-slate-400 font-mono truncate px-1">
+              <p className="text-xs text-slate-400 font-mono truncate px-1">
                 {processInfo.subtitle}
               </p>
             )}

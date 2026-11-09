@@ -17,7 +17,6 @@ import {
   Smartphone,
   Download,
   AlertCircle,
-  Sparkles,
   Ban,
   UserCheck,
   Eye,
@@ -93,36 +92,48 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       setRegisteredReaders(local);
 
       try {
+        // 1. Fetch live readers list from Central Server
         const res = await universalApiFetch('/api/readers');
         if (res.ok) {
           const data = await res.json();
-          const serverList = data.readers || data.staff || [];
+          const serverList: ReaderAccount[] = data.readers || data.staff || [];
           if (Array.isArray(serverList) && serverList.length > 0) {
             const map = new Map<string, ReaderAccount>();
             // Add local readers first
             local.forEach(r => map.set((r.username || r.id).toLowerCase(), r));
 
-            // Merge server readers, strictly enforcing that if an account is deactivated, its routes are automatically freed
-            serverList.forEach((sr: ReaderAccount) => {
+            // Central server is the single source of truth across all devices
+            for (const sr of serverList) {
               const key = (sr.username || sr.id).toLowerCase();
               const existingLocal = map.get(key);
+              const isServerActive = sr.status === 'active' || (sr as any).employmentStatus === 'active';
 
-              const isDeactivated = isReaderAccountDeactivated(sr) || (existingLocal && isReaderAccountDeactivated(existingLocal));
-
-              if (isDeactivated) {
-                const deactivatedRecord: ReaderAccount = {
-                  ...(existingLocal || sr),
+              if (isServerActive) {
+                const activeRecord: ReaderAccount = {
+                  ...(existingLocal || {}),
                   ...sr,
-                  status: 'terminated',
-                  assignedRoutes: [], // Area route assigned is automatically available!
+                  status: 'active',
+                  assignedRoutes: Array.isArray(sr.assignedRoutes) ? sr.assignedRoutes : (existingLocal?.assignedRoutes || []),
                 };
-                map.set(key, deactivatedRecord);
-                // Also update local DB so offline route occupancy stays freed
-                DatabaseHelper.updateLocalReaderStatus(key, 'terminated', []).catch(() => {});
+                map.set(key, activeRecord);
+                // Crucial for multi-device: persist active server reader to local storage on this device
+                DatabaseHelper.saveLocalReader(activeRecord).catch(() => {});
               } else {
-                map.set(key, { ...(existingLocal || {}), ...sr });
+                const isDeactivated = isReaderAccountDeactivated(sr);
+                if (isDeactivated) {
+                  const deactivatedRecord: ReaderAccount = {
+                    ...(existingLocal || sr),
+                    ...sr,
+                    status: 'terminated',
+                    assignedRoutes: [], // Area route assigned is freed
+                  };
+                  map.set(key, deactivatedRecord);
+                  DatabaseHelper.updateLocalReaderStatus(key, 'terminated', []).catch(() => {});
+                } else {
+                  map.set(key, { ...(existingLocal || {}), ...sr });
+                }
               }
-            });
+            }
 
             const merged = Array.from(map.values());
             setRegisteredReaders(merged);
@@ -498,15 +509,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           <OfficialLogo size={authMode === 'REGISTER' ? 'md' : 'lg'} glow />
         </div>
 
-        <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-500/10 border border-sky-500/30 text-sky-300 text-[9px] font-mono font-medium mb-1">
-          <Sparkles className="w-2.5 h-2.5 text-sky-400 animate-pulse" />
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-300 text-xs font-semibold mb-1.5">
+          <BadgeCheck className="w-3.5 h-3.5 text-sky-400" />
           <span>{APP_OFFICIAL_BADGE}</span>
         </div>
 
         <h1 className={`${authMode === 'REGISTER' ? 'text-lg sm:text-xl' : 'text-xl sm:text-2xl'} font-black tracking-tight text-white uppercase`}>
           {APP_OFFICIAL_TITLE}
         </h1>
-        <p className="text-[11px] text-sky-400 font-semibold mt-0.5">
+        <p className="text-xs sm:text-sm text-sky-400 font-semibold mt-0.5">
           Field Meter Reader & Billing System (WDT)
         </p>
       </div>
@@ -516,17 +527,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         <button
           type="button"
           onClick={onOpenApkModal}
-          className="w-full mb-2.5 p-2 rounded-xl bg-emerald-950/40 hover:bg-emerald-950/60 border border-emerald-700/60 text-emerald-300 flex items-center justify-between text-xs transition cursor-pointer active:scale-[0.99] shrink-0"
+          className="w-full mb-3 p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 flex items-center justify-between text-xs sm:text-sm transition cursor-pointer active:scale-[0.99] shrink-0"
         >
-          <div className="flex items-center gap-2">
-            <Smartphone className="w-4 h-4 text-emerald-400 shrink-0" />
+          <div className="flex items-center gap-2.5">
+            <Smartphone className="w-4 h-4 text-sky-400 shrink-0" />
             <div className="text-left">
-              <span className="font-bold text-white block text-[11px]">Install App on Your Phone</span>
-              <span className="text-[9.5px] text-emerald-300/80">Offline camera OCR & standalone field mode</span>
+              <span className="font-bold text-white block text-xs sm:text-sm">Install App on Phone</span>
+              <span className="text-xs text-slate-400">Offline camera scan & field reading</span>
             </div>
           </div>
-          <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-900/60 px-2 py-1 rounded-lg border border-emerald-700/60">
-            <Download className="w-3 h-3" />
+          <div className="flex items-center gap-1.5 text-xs font-bold text-sky-300 bg-sky-950 px-2.5 py-1 rounded-lg border border-sky-800">
+            <Download className="w-3.5 h-3.5" />
             <span>Install</span>
           </div>
         </button>
@@ -579,29 +590,29 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-sky-400" />
-                <h2 className="text-xs font-bold text-white uppercase tracking-wider">
+                <h2 className="text-sm font-bold text-white uppercase tracking-wider">
                   Sign In
                 </h2>
               </div>
-              <span className="text-[10px] text-emerald-400 font-mono font-bold bg-emerald-950 px-2 py-0.5 rounded border border-emerald-800">
+              <span className="text-xs text-emerald-400 font-semibold bg-emerald-950 px-2.5 py-1 rounded border border-emerald-800">
                 Meter Reader
               </span>
             </div>
 
             {error && (
-              <div className="p-2.5 bg-rose-950/80 border border-rose-800 rounded-xl text-xs text-rose-300 flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+              <div className="p-3 bg-rose-950/80 border border-rose-800 rounded-xl text-sm text-rose-200 flex items-start gap-2.5">
+                <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
                 <span>{error}</span>
               </div>
             )}
 
-            <form onSubmit={handleLoginSubmit} className="space-y-3">
+            <form onSubmit={handleLoginSubmit} className="space-y-3.5">
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                <label className="block text-sm font-semibold text-slate-200 mb-1.5">
                   Username
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                     <User className="w-4 h-4" />
                   </div>
                   <input
@@ -611,19 +622,19 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                       setUsername(e.target.value);
                       if (error) setError(null);
                     }}
-                    placeholder="Username"
+                    placeholder="Enter your username"
                     required
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition font-mono"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-10 pr-3.5 py-2.5 text-sm sm:text-base text-white focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                <label className="block text-sm font-semibold text-slate-200 mb-1.5">
                   Password
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                     <Lock className="w-4 h-4" />
                   </div>
                   <input
@@ -633,9 +644,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                       setPin(e.target.value);
                       if (error) setError(null);
                     }}
-                    placeholder="Password"
+                    placeholder="Enter your password"
                     required
-                    className={`w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-10 py-2 text-xs text-white focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition font-mono ${
+                    className={`w-full bg-slate-950 border border-slate-700 rounded-xl pl-10 pr-11 py-2.5 text-sm sm:text-base text-white focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition ${
                       showPin ? 'tracking-normal' : 'tracking-widest'
                     }`}
                   />
@@ -648,11 +659,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                       e.stopPropagation();
                       setShowPin((prev) => !prev);
                     }}
-                    className="absolute inset-y-0 right-0 w-10 flex items-center justify-center text-slate-400 hover:text-sky-400 active:text-sky-300 transition cursor-pointer touch-manipulation focus:outline-none z-10 select-none"
+                    className="absolute inset-y-0 right-0 w-11 flex items-center justify-center text-slate-400 hover:text-sky-400 active:text-sky-300 transition cursor-pointer touch-manipulation focus:outline-none z-10 select-none"
                     aria-label={showPin ? "Hide password" : "Show password"}
                     title={showPin ? "Hide password" : "Show password"}
                   >
-                    {showPin ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                    {showPin ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
                   </button>
                 </div>
               </div>
@@ -660,10 +671,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 rounded-xl shadow-lg shadow-sky-600/30 flex items-center justify-center gap-2 text-xs uppercase tracking-wider transition cursor-pointer disabled:opacity-50 active:scale-[0.99]"
+                className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 rounded-xl shadow-md flex items-center justify-center gap-2 text-sm uppercase tracking-wider transition cursor-pointer disabled:opacity-50 active:scale-[0.99]"
               >
-                {loading && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
-                <span>{loading ? 'Logging in...' : 'Log In'}</span>
+                {loading && <RefreshCw className="w-4 h-4 animate-spin" />}
+                <span>{loading ? 'Signing in...' : 'Sign In'}</span>
                 {!loading && <ArrowRight className="w-4 h-4" />}
               </button>
             </form>
@@ -676,41 +687,41 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <div className="flex items-center gap-2">
                 <UserPlus className="w-4 h-4 text-sky-400" />
-                <h2 className="text-xs font-bold text-white uppercase tracking-wider">
+                <h2 className="text-sm font-bold text-white uppercase tracking-wider">
                   Create Reader Account
                 </h2>
               </div>
-              <span className="text-[10px] text-emerald-400 font-mono font-bold bg-emerald-950 px-2 py-0.5 rounded border border-emerald-800">
-                ⚡ Auto-Activated
+              <span className="text-xs text-emerald-400 font-semibold bg-emerald-950 px-2.5 py-1 rounded border border-emerald-800">
+                Instant Activation
               </span>
             </div>
 
             {/* Instant Terminal Availability Banner */}
-            <div className="p-2.5 bg-emerald-950/60 border border-emerald-800/80 rounded-xl text-xs text-emerald-300 flex items-start gap-2">
-              <Sparkles className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+            <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl text-xs sm:text-sm text-slate-300 flex items-start gap-2.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
               <div>
-                <span className="font-bold block text-emerald-200">Instant Mobile Terminal Access</span>
-                <p className="text-[10.5px] text-emerald-300/90 mt-0.5">
-                  Your mobile terminal is automatically available upon registration. You do not need to wait for system approval.
+                <span className="font-bold block text-white">Immediate Field Access</span>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Your mobile reader terminal activates immediately upon registration with your selected barangay assignment.
                 </p>
               </div>
             </div>
 
             {error && (
-              <div className="p-2.5 bg-rose-950/80 border border-rose-800 rounded-xl text-xs text-rose-300 flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+              <div className="p-3 bg-rose-950/80 border border-rose-800 rounded-xl text-sm text-rose-200 flex items-start gap-2.5">
+                <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
                 <span>{error}</span>
               </div>
             )}
 
-            <form onSubmit={handleRegisterSubmit} className="space-y-2.5">
+            <form onSubmit={handleRegisterSubmit} className="space-y-3">
               <div>
-                <label className="block text-[11px] font-semibold text-slate-300 mb-0.5">
+                <label className="block text-sm font-semibold text-slate-200 mb-1">
                   Full Name <span className="text-rose-400">*</span>
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
-                    <User className="w-3.5 h-3.5" />
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <User className="w-4 h-4" />
                   </div>
                   <input
                     type="text"
@@ -718,14 +729,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegName(e.target.value)}
                     placeholder="e.g. Juan Dela Cruz"
                     required
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500 transition"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-10 pr-3.5 py-2.5 text-sm sm:text-base text-white focus:outline-none focus:border-sky-500 transition"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-300 mb-0.5">
+                  <label className="block text-sm font-semibold text-slate-200 mb-1">
                     Username <span className="text-rose-400">*</span>
                   </label>
                   <input
@@ -734,17 +745,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegUsername(e.target.value)}
                     placeholder="Username"
                     required
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-sky-500 transition"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-sm sm:text-base text-white focus:outline-none focus:border-sky-500 transition"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-300 mb-0.5">
+                  <label className="block text-sm font-semibold text-slate-200 mb-1">
                     Password <span className="text-rose-400">*</span>
                   </label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-500">
-                      <Lock className="w-3.5 h-3.5" />
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                      <Lock className="w-4 h-4" />
                     </div>
                     <input
                       type={showRegPin ? "text" : "password"}
@@ -752,7 +763,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegPin(e.target.value)}
                       placeholder="Password"
                       required
-                      className={`w-full bg-slate-950 border border-slate-700 rounded-xl pl-8 pr-10 py-1.5 text-xs text-white font-mono transition focus:outline-none focus:border-sky-500 ${
+                      className={`w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-10 py-2.5 text-sm sm:text-base text-white transition focus:outline-none focus:border-sky-500 ${
                         showRegPin ? 'tracking-normal' : 'tracking-widest'
                       }`}
                     />
@@ -777,20 +788,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
               {/* Coverage Area Selection with Real-Time Occupancy Detection */}
               <div>
-                <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center justify-between mb-2">
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-300">
-                      Assigned Coverage Areas
+                    <label className="block text-sm font-semibold text-slate-200">
+                      Assigned Barangay / Route
                     </label>
-                    <span className="text-[10px] text-slate-400 block">
-                      <span className="text-emerald-400 font-medium">{availableLocations.length} Available</span>
+                    <span className="text-xs text-slate-400 block mt-0.5">
+                      <span className="text-emerald-400 font-semibold">{availableLocations.length} Available</span>
                       {' • '}
-                      <span className="text-amber-400/90">{occupiedLocations.length} Occupied</span>
+                      <span className="text-amber-400 font-semibold">{occupiedLocations.length} Occupied</span>
                       {' • '}
                       <span className="text-sky-300 font-bold">{regSelectedRoutes.length} Selected</span>
-                    </span>
-                    <span className="text-[9.5px] text-emerald-400/90 block mt-0.5 font-medium">
-                      ✓ Routes of deactivated accounts are automatically released &amp; available
                     </span>
                   </div>
                   {availableLocations.length > 0 && (
@@ -803,25 +811,25 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                           setRegSelectedRoutes([...availableLocations]);
                         }
                       }}
-                      className="text-[10px] text-sky-400 hover:text-sky-300 font-mono underline cursor-pointer"
+                      className="text-xs text-sky-400 hover:text-sky-300 underline cursor-pointer"
                     >
-                      {regSelectedRoutes.length === availableLocations.length ? 'Reset to 1' : 'Select All Available'}
+                      {regSelectedRoutes.length === availableLocations.length ? 'Pick Single' : 'Select All Available'}
                     </button>
                   )}
                 </div>
 
                 {availableLocations.length === 0 ? (
-                  <div className="p-3 bg-amber-950/70 border border-amber-800/80 rounded-xl text-xs text-amber-200 flex items-start gap-2.5">
-                    <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <div className="p-3.5 bg-amber-950/70 border border-amber-800/80 rounded-xl text-xs sm:text-sm text-amber-200 flex items-start gap-2.5">
+                    <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
                     <div>
                       <span className="font-bold block text-amber-300">All Locations Occupied</span>
-                      <p className="text-[10.5px] text-amber-200/90 mt-0.5">
-                        All 10 barangays in Tagoloan Water District currently have active meter readers assigned. Please contact the administrator.
+                      <p className="text-xs text-amber-200/90 mt-0.5">
+                        All 10 barangays in Tagoloan Water District currently have active meter readers assigned. Please coordinate with district supervisors.
                       </p>
                     </div>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-40 overflow-y-auto p-1.5 bg-slate-950/95 border border-slate-700/80 rounded-xl scrollbar-thin scrollbar-thumb-slate-800">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 bg-slate-950 border border-slate-700 rounded-xl scrollbar-thin scrollbar-thumb-slate-800">
                     {locationOccupancies.map((loc) => {
                       const isOccupied = loc.isOccupied;
                       const isSelected = regSelectedRoutes.some(r => areLocationsEqual(r, loc.location));
@@ -830,19 +838,19 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                         return (
                           <div
                             key={loc.location}
-                            className="flex items-center justify-between p-2 rounded-lg text-[11px] bg-slate-900/40 border border-slate-800/80 text-slate-500 opacity-65 cursor-not-allowed select-none transition"
+                            className="flex items-center justify-between p-2.5 rounded-lg text-xs sm:text-sm bg-slate-900/60 border border-slate-800 text-slate-500 opacity-60 cursor-not-allowed select-none transition"
                             title={`Unavailable: Already assigned to active meter reader ${loc.assignedReaderName}`}
                           >
                             <div className="flex flex-col min-w-0 pr-1.5">
                               <div className="flex items-center gap-1.5">
-                                <Lock className="w-3 h-3 text-amber-500/70 shrink-0" />
-                                <span className="font-medium text-slate-400 line-through truncate">{loc.location}</span>
+                                <Lock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                <span className="font-semibold text-slate-400 line-through truncate">{loc.location}</span>
                               </div>
-                              <span className="text-[9px] text-amber-400/80 truncate font-mono mt-0.5">
-                                Taken by: {loc.assignedReaderName}
+                              <span className="text-xs text-amber-400 truncate mt-0.5">
+                                Assigned to {loc.assignedReaderName}
                               </span>
                             </div>
-                            <span className="px-1.5 py-0.5 rounded bg-amber-950/80 border border-amber-800/60 text-amber-400 text-[8.5px] font-bold uppercase tracking-wider shrink-0">
+                            <span className="px-2 py-0.5 rounded bg-amber-950 border border-amber-800 text-amber-300 text-xs font-bold uppercase tracking-wider shrink-0">
                               Occupied
                             </span>
                           </div>
@@ -854,22 +862,22 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                           key={loc.location}
                           type="button"
                           onClick={() => toggleRouteSelection(loc.location)}
-                          className={`flex items-center justify-between p-2 rounded-lg text-[11px] font-medium transition cursor-pointer border text-left touch-manipulation ${
+                          className={`flex items-center justify-between p-2.5 rounded-lg text-xs sm:text-sm font-semibold transition cursor-pointer border text-left touch-manipulation ${
                             isSelected
-                              ? 'bg-sky-600/30 border-sky-500 text-white font-bold shadow-sm'
-                              : 'bg-slate-900/80 border-slate-800 text-slate-300 hover:border-slate-600 hover:text-white'
+                              ? 'bg-sky-600/30 border-sky-500 text-white shadow-sm'
+                              : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-600 hover:text-white'
                           }`}
                         >
                           <div className="flex flex-col min-w-0 pr-1">
                             <span className="truncate">{loc.location}</span>
-                            <span className="text-[9px] text-emerald-400 font-mono mt-0.5">
-                              🟢 Available
+                            <span className="text-xs text-emerald-400 mt-0.5 font-normal">
+                              Available
                             </span>
                           </div>
                           {isSelected ? (
-                            <CheckCircle2 className="w-3.5 h-3.5 text-sky-400 shrink-0 ml-1" />
+                            <CheckCircle2 className="w-4 h-4 text-sky-400 shrink-0 ml-1" />
                           ) : (
-                            <div className="w-3.5 h-3.5 rounded-full border border-slate-600 shrink-0 ml-1" />
+                            <div className="w-4 h-4 rounded-full border border-slate-600 shrink-0 ml-1" />
                           )}
                         </button>
                       );
@@ -881,9 +889,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               <button
                 type="submit"
                 disabled={isRegistering || availableLocations.length === 0 || regSelectedRoutes.length === 0}
-                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 text-xs uppercase tracking-wider transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.99] mt-1"
+                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow-md flex items-center justify-center gap-2 text-sm uppercase tracking-wider transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.99] mt-2"
               >
-                <span>{isRegistering ? 'Creating Account...' : 'Create Account & Start'}</span>
+                <span>{isRegistering ? 'Registering Account...' : 'Register & Launch Terminal'}</span>
                 <BadgeCheck className="w-4 h-4" />
               </button>
             </form>
@@ -891,9 +899,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         )}
       </div>
 
-      <div className="mt-3 text-center text-[10px] text-slate-500 space-y-0.5 shrink-0 pb-2">
+      <div className="mt-3 text-center text-xs text-slate-400 space-y-0.5 shrink-0 pb-2">
         <p>© 2026 Tagoloan Water District. All rights reserved.</p>
-        <p>Offline-First SQLite Architecture • Encrypted Vault</p>
+        <p>Offline-Ready Field Terminal</p>
       </div>
     </div>
   );

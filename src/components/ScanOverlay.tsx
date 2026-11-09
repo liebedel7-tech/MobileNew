@@ -58,35 +58,35 @@ export const ScanOverlay: React.FC<ScanOverlayProps> = ({
       {/* 🔝 MINIMALIST TOP HUD: Hides unnecessary labels; shows only clean mode & status */}
       <div className="flex items-center justify-between pointer-events-auto gap-2">
         {/* Minimal Mode Indicator */}
-        <div className="inline-flex items-center gap-1.5 bg-slate-950/90 backdrop-blur-md border border-slate-700/80 rounded-full px-2.5 py-1 shadow-md">
+        <div className="inline-flex items-center gap-1.5 bg-slate-950/90 border border-slate-700 rounded-full px-3 py-1 shadow-sm">
           {mode === 'tag' ? (
             <Tag className="w-3.5 h-3.5 text-emerald-400" />
           ) : (
             <Target className="w-3.5 h-3.5 text-sky-400" />
           )}
-          <span className="text-[10px] font-mono font-bold text-white uppercase tracking-wider">
-            {mode === 'tag' ? 'Tag #' : '5-Digit Odometer'}
+          <span className="text-xs font-mono font-bold text-white uppercase tracking-wider">
+            {mode === 'tag' ? 'Tag Serial' : '5-Digit Odometer'}
           </span>
         </div>
 
-        {/* Minimal Status & Confidence (Only shown in meter scan mode) */}
+        {/* Status & Confidence (Only shown in meter scan mode) */}
         {mode === 'meter' && (
           <div className="flex items-center gap-1.5">
             <div
-              className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-bold border backdrop-blur-md flex items-center gap-1.5 transition-all shadow-md ${
+              className={`px-3 py-1 rounded-full text-xs font-mono font-bold border flex items-center gap-2 transition-all ${
                 isReadingClear
-                  ? 'bg-emerald-950/95 text-emerald-300 border-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.35)]'
+                  ? 'bg-emerald-950 text-emerald-300 border-emerald-500'
                   : isDigitsIdentified
-                  ? 'bg-sky-950/90 text-sky-300 border-sky-400'
-                  : 'bg-slate-950/85 text-slate-400 border-slate-700'
+                  ? 'bg-sky-950 text-sky-300 border-sky-500'
+                  : 'bg-slate-950 text-slate-300 border-slate-700'
               }`}
             >
               <span
-                className={`w-1.5 h-1.5 rounded-full ${
+                className={`w-2 h-2 rounded-full ${
                   isReadingClear
-                    ? 'bg-emerald-400 animate-ping'
+                    ? 'bg-emerald-400'
                     : isDigitsIdentified
-                    ? 'bg-sky-400 animate-pulse'
+                    ? 'bg-sky-400'
                     : 'bg-amber-400'
                 }`}
               />
@@ -106,21 +106,21 @@ export const ScanOverlay: React.FC<ScanOverlayProps> = ({
       <div className="relative flex-1 flex flex-col items-center justify-center pointer-events-none my-auto">
         {mode === 'tag' ? (
           /* Tag scanning frame */
-          <div className="relative w-[85%] max-w-[280px] h-28 rounded-2xl border-2 transition-all duration-300 flex items-center justify-center border-emerald-400/90 bg-emerald-950/15 shadow-2xl">
+          <div className="relative w-[85%] max-w-[280px] h-28 rounded-2xl border-2 transition-all duration-300 flex items-center justify-center border-emerald-500 bg-slate-950/40 shadow-lg">
             <div className="absolute -top-1.5 -left-1.5 w-6 h-6 border-t-3 border-l-3 border-emerald-400 rounded-tl-xl" />
             <div className="absolute -top-1.5 -right-1.5 w-6 h-6 border-t-3 border-r-3 border-emerald-400 rounded-tr-xl" />
             <div className="absolute -bottom-1.5 -left-1.5 w-6 h-6 border-b-3 border-l-3 border-emerald-400 rounded-bl-xl" />
             <div className="absolute -bottom-1.5 -right-1.5 w-6 h-6 border-b-3 border-r-3 border-emerald-400 rounded-br-xl" />
 
             {liveTagDetected ? (
-              <div className="bg-slate-950/95 border-2 border-emerald-400 rounded-xl px-3 py-1.5 shadow-xl flex items-center gap-2">
+              <div className="bg-slate-950 border-2 border-emerald-400 rounded-xl px-3 py-1.5 shadow-md flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span className="text-xs font-mono font-black text-emerald-300 tracking-wider">
+                <span className="text-sm font-mono font-black text-emerald-300 tracking-wider">
                   {liveTagDetected}
                 </span>
               </div>
             ) : (
-              <span className="text-[10px] font-mono font-semibold text-emerald-300/90 bg-slate-950/80 px-2.5 py-0.5 rounded border border-emerald-500/40">
+              <span className="text-xs font-mono font-bold text-emerald-300 bg-slate-950/90 px-3 py-1 rounded border border-emerald-600">
                 Tag / Serial Badge
               </span>
             )}
@@ -128,17 +128,17 @@ export const ScanOverlay: React.FC<ScanOverlayProps> = ({
         ) : (
           /* High-Contrast 5-Digit Odometer Detection Bounding Box */
           <div className="relative w-[94%] max-w-[340px] flex flex-col items-center">
-            {/* High-Contrast Frame Container */}
+            {/* Frame Container */}
             <div
-              className={`relative w-full h-28 rounded-2xl border-3 transition-all duration-300 flex items-center justify-center shadow-2xl ${
+              className={`relative w-full h-28 rounded-2xl border-2 transition-all duration-300 flex items-center justify-center shadow-lg ${
                 isReadingClear
-                  ? 'border-emerald-400 bg-emerald-950/30 ring-4 ring-emerald-400/50 shadow-[0_0_30px_rgba(52,211,153,0.5)]'
+                  ? 'border-emerald-400 bg-emerald-950/40'
                   : isDigitsIdentified
-                  ? 'border-sky-400 bg-slate-950/40 ring-2 ring-sky-400/30'
-                  : 'border-slate-400/90 bg-slate-950/35'
+                  ? 'border-sky-400 bg-slate-950/50'
+                  : 'border-slate-500 bg-slate-950/40'
               }`}
             >
-              {/* High-Contrast Corner Brackets */}
+              {/* Corner Brackets */}
               <div className={`absolute -top-1.5 -left-1.5 w-6 h-6 border-t-3 border-l-3 rounded-tl-xl transition-colors ${
                 isReadingClear ? 'border-emerald-300' : 'border-sky-400'
               }`} />
@@ -159,12 +159,12 @@ export const ScanOverlay: React.FC<ScanOverlayProps> = ({
                   return (
                     <div
                       key={i}
-                      className={`w-9 sm:w-10 h-14 rounded-lg flex items-center justify-center font-mono font-black text-xl sm:text-2xl transition-all shadow-md ${
+                      className={`w-10 sm:w-11 h-15 rounded-lg flex items-center justify-center font-mono font-black text-2xl sm:text-3xl transition-all shadow-sm ${
                         digit !== null
                           ? isReadingClear
-                            ? 'bg-emerald-400 text-slate-950 border-2 border-white scale-105 shadow-[0_0_15px_rgba(52,211,153,0.6)]'
+                            ? 'bg-emerald-500 text-slate-950 border-2 border-white'
                             : 'bg-white text-slate-950 border-2 border-sky-400'
-                          : 'bg-slate-950/90 border border-slate-700 text-slate-500'
+                          : 'bg-slate-950 border border-slate-700 text-slate-500'
                       }`}
                     >
                       {digit !== null ? digit : '·'}
@@ -173,17 +173,17 @@ export const ScanOverlay: React.FC<ScanOverlayProps> = ({
                 })}
               </div>
 
-              {/* High-Contrast Alignment Reticle Line */}
+              {/* Alignment Reticle Line */}
               <div className={`absolute inset-x-2 top-1/2 -translate-y-1/2 h-0.5 transition-colors ${
                 isReadingClear
-                  ? 'bg-gradient-to-r from-transparent via-emerald-400 to-transparent opacity-80'
-                  : 'bg-gradient-to-r from-transparent via-sky-400 to-transparent opacity-60'
+                  ? 'bg-emerald-400/80'
+                  : 'bg-sky-400/60'
               }`} />
             </div>
 
-            {/* Confidence-Weighted Auto-Capture Progress Bar (When clear sustained reading >90% is locking) */}
+            {/* Auto-Capture Progress Bar */}
             {isReadingClear && clearConfidenceCount > 0 && (
-              <div className="w-full max-w-[240px] mt-1.5 bg-slate-950/90 rounded-full h-1.5 overflow-hidden border border-emerald-400/60 shadow">
+              <div className="w-full max-w-[240px] mt-2 bg-slate-950 rounded-full h-1.5 overflow-hidden border border-emerald-500">
                 <div 
                   className="bg-emerald-400 h-full transition-all duration-200"
                   style={{ width: `${Math.min(100, (clearConfidenceCount / 2) * 100)}%` }}
@@ -191,18 +191,18 @@ export const ScanOverlay: React.FC<ScanOverlayProps> = ({
               </div>
             )}
 
-            {/* High-Contrast Identified Reading Display */}
+            {/* Identified Reading Display */}
             {liveReadingValue !== null && liveReadingValue !== undefined && (
-              <div className={`mt-2 flex items-center gap-1.5 backdrop-blur-md rounded-full px-3 py-1 shadow-xl transition-all ${
+              <div className={`mt-2 flex items-center gap-2 rounded-full px-3.5 py-1.5 shadow-md transition-all ${
                 isReadingClear
-                  ? 'bg-emerald-950/95 border-2 border-emerald-400 text-emerald-300 ring-2 ring-emerald-400/40'
-                  : 'bg-slate-950/95 border border-sky-400 text-sky-300'
+                  ? 'bg-emerald-950 border-2 border-emerald-400 text-emerald-200'
+                  : 'bg-slate-950 border border-sky-400 text-sky-200'
               }`}>
-                <Eye className={`w-3.5 h-3.5 ${isReadingClear ? 'text-emerald-400' : 'text-sky-400'}`} />
-                <span className="font-mono text-xs font-black">
+                <Eye className={`w-4 h-4 ${isReadingClear ? 'text-emerald-400' : 'text-sky-400'}`} />
+                <span className="font-mono text-sm font-black">
                   {formatOdometerReading(liveReadingValue)} m³
                 </span>
-                <span className={`text-[10px] font-mono font-bold ml-1 ${isReadingClear ? 'text-emerald-300' : 'text-sky-400'}`}>
+                <span className={`text-xs font-mono font-bold ml-1 ${isReadingClear ? 'text-emerald-300' : 'text-sky-400'}`}>
                   ({pct}%)
                 </span>
               </div>
@@ -240,7 +240,7 @@ export const ScanOverlay: React.FC<ScanOverlayProps> = ({
                 key={z}
                 type="button"
                 onClick={() => onSetZoom(z)}
-                className={`px-2 py-0.5 rounded-full text-[11px] font-mono font-bold transition cursor-pointer ${
+                className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-bold transition cursor-pointer ${
                   zoom === z
                     ? 'bg-sky-500 text-slate-950 font-black'
                     : 'text-slate-400 hover:text-white'

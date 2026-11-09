@@ -13,7 +13,6 @@ import {
   User, 
   MapPin, 
   Send, 
-  Sparkles,
   Check,
   Smartphone,
   CheckCheck,
@@ -119,6 +118,25 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
   // Quick manual tag input fallback
   const [manualTagQuery, setManualTagQuery] = useState('');
   const [showManualTagInput, setShowManualTagInput] = useState(false);
+
+  // Network & Simulated Offline state
+  const [isOffline, setIsOffline] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return !navigator.onLine || window.localStorage?.getItem('twd_simulated_offline') === 'true';
+  });
+
+  useEffect(() => {
+    const handleStatus = () => {
+      const offline = !navigator.onLine || window.localStorage?.getItem('twd_simulated_offline') === 'true';
+      setIsOffline(offline);
+    };
+    window.addEventListener('online', handleStatus);
+    window.addEventListener('offline', handleStatus);
+    return () => {
+      window.removeEventListener('online', handleStatus);
+      window.removeEventListener('offline', handleStatus);
+    };
+  }, []);
 
   // Load consumers list for active reader
   useEffect(() => {
@@ -710,6 +728,7 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
     }
 
     setIsSendingToAdmin(true);
+    let readingRecord: MeterReading | null = null;
 
     try {
       const bill = CalculationService.calculateWaterBill(
@@ -723,7 +742,7 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
       // Re-use existing pending record ID to prevent duplicate pending records
       const recordId = existingPending?.id || `MR-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
 
-      const readingRecord: MeterReading = {
+      readingRecord = {
         id: recordId,
         consumerId: selectedConsumer.id,
         accountNumber: selectedConsumer.accountNumber,
@@ -777,15 +796,19 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
         `Camera 2-Stage Verified for Account ${selectedConsumer.accountNumber} (${selectedConsumer.name}). Reading: ${currentReading} m³, Consumption: ${bill.consumption} m³.`
       );
 
-      SyncService.submitSingleReading(readingRecord).catch(() => {});
+      await SyncService.submitSingleReading(readingRecord).catch(() => {});
 
       if (onReloadData) onReloadData();
 
       setLastSubmittedReading(readingRecord);
       setScanStep('SUBMITTED');
     } catch (err: any) {
-      console.error('Send to admin error:', err);
-      alert('Failed to send reading to admin. Saved to offline ledger.');
+      console.warn('Reading save offline note:', err);
+      if (onReloadData) onReloadData();
+      if (readingRecord) {
+        setLastSubmittedReading(readingRecord);
+        setScanStep('SUBMITTED');
+      }
     } finally {
       setIsSendingToAdmin(false);
     }
@@ -844,13 +867,13 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
           </div>
 
           {/* Dynamic Stage Pill */}
-          <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-700 px-2.5 py-1 rounded-xl text-xs font-mono shadow-sm">
-            <span className={`w-2 h-2 rounded-full ${selectedConsumer ? 'bg-sky-400' : 'bg-emerald-400'} animate-ping`} />
-            <span className="font-bold text-white text-[10.5px]">
+          <div className="flex items-center gap-2 bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-xl text-xs font-mono shadow-sm">
+            <span className={`w-2 h-2 rounded-full ${isOffline ? 'bg-amber-400' : selectedConsumer ? 'bg-sky-400' : 'bg-emerald-400'}`} />
+            <span className="font-bold text-white text-xs">
               {scanStep === 'SUBMITTED' 
-                ? 'SENT TO ADMIN' 
+                ? (isOffline ? 'SAVED OFFLINE' : 'SENT TO ADMIN') 
                 : scanStep === 'SCAN_METER' 
-                ? 'ODOMETER SCAN' 
+                ? (isOffline ? 'OFFLINE DIALS' : 'ODOMETER SCAN') 
                 : 'TAG SCAN'}
             </span>
           </div>
@@ -859,35 +882,46 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
           <button
             type="button"
             onClick={() => setLiveAutoScanActive(!liveAutoScanActive)}
-            className={`px-2 py-1 rounded-lg text-[10px] font-mono font-bold flex items-center gap-1 border transition ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 border transition cursor-pointer ${
               liveAutoScanActive
-                ? 'bg-emerald-950 text-emerald-300 border-emerald-600/70 shadow-sm'
-                : 'bg-slate-900 text-slate-400 border-slate-700'
+                ? 'bg-emerald-950 text-emerald-300 border-emerald-600 shadow-sm'
+                : 'bg-slate-900 text-slate-300 border-slate-700'
             }`}
-            title="Toggle Continuous Real-Time OCR"
+            title="Toggle Continuous Real-Time Scan"
           >
-            <Sparkles className="w-3 h-3" />
-            <span>{liveAutoScanActive ? 'Auto OCR' : 'Manual'}</span>
+            <Camera className="w-3.5 h-3.5" />
+            <span>{liveAutoScanActive ? 'Auto Scan' : 'Manual'}</span>
           </button>
         </div>
 
+        {/* Offline Banner when in Field Offline Mode */}
+        {isOffline && (
+          <div className="bg-amber-950/80 border border-amber-800 px-3 py-1.5 rounded-xl flex items-center justify-between text-xs text-amber-200">
+            <span className="flex items-center gap-2 font-bold">
+              <span className="w-2 h-2 rounded-full bg-amber-400" />
+              Field Offline Mode Active
+            </span>
+            <span className="text-xs text-amber-300">Queuing to local storage</span>
+          </div>
+        )}
+
         {/* 🌟 STEP 2 CONFIRMED OWNER BANNER */}
         {selectedConsumer && scanStep === 'SCAN_METER' && !ocrResult && (
-          <div className="bg-slate-900/95 border border-sky-500/80 p-2 rounded-xl shadow-md flex items-center justify-between text-xs animate-in slide-in-from-top-1">
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="w-7 h-7 rounded-lg bg-sky-500/20 border border-sky-400 flex items-center justify-center text-sky-300 shrink-0">
-                <CheckCheck className="w-3.5 h-3.5 text-sky-400" />
+          <div className="bg-slate-900 border border-sky-500/80 p-2.5 rounded-xl shadow-md flex items-center justify-between text-xs sm:text-sm">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-lg bg-sky-500/20 border border-sky-400 flex items-center justify-center text-sky-300 shrink-0">
+                <CheckCheck className="w-4 h-4 text-sky-400" />
               </div>
               <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[9px] bg-sky-950 text-sky-300 border border-sky-700 px-1 py-0.2 rounded font-mono font-bold">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs bg-sky-950 text-sky-300 border border-sky-700 px-1.5 py-0.5 rounded font-mono font-bold">
                     TAG #{selectedConsumer.meterNumber || selectedConsumer.meterSerial}
                   </span>
-                  <span className="text-[9.5px] text-slate-400 font-mono truncate">
+                  <span className="text-xs text-slate-400 font-mono truncate">
                     Acc #{selectedConsumer.accountNumber}
                   </span>
                 </div>
-                <h3 className="font-bold text-[11.5px] text-white truncate">
+                <h3 className="font-bold text-sm text-white truncate mt-0.5">
                   {selectedConsumer.name}
                 </h3>
               </div>
@@ -896,7 +930,7 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
             <button
               type="button"
               onClick={handleResetScan}
-              className="text-[9.5px] text-sky-400 hover:text-white px-2 py-1 bg-slate-800 border border-slate-700 rounded-lg shrink-0 ml-1 font-semibold"
+              className="text-xs text-sky-400 hover:text-white px-2.5 py-1 bg-slate-800 border border-slate-700 rounded-lg shrink-0 ml-1.5 font-semibold cursor-pointer"
             >
               Change Tag
             </button>
@@ -905,38 +939,38 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
 
         {/* 🌟 STEP 1 QUICK CONSUMER SEARCH & SELECTION */}
         {!selectedConsumer && scanStep === 'IDENTIFY_TAG' && (
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-[10px]">
-              <span className="text-emerald-400 font-bold flex items-center gap-1">
-                <Sparkles className="w-3 h-3" />
-                Aim at Meter Tag or search account:
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-emerald-400 font-bold flex items-center gap-1.5">
+                <Camera className="w-3.5 h-3.5" />
+                Aim at meter tag or select account:
               </span>
               <button
                 type="button"
                 onClick={() => setShowManualTagInput(!showManualTagInput)}
-                className="text-sky-400 hover:text-sky-300 font-bold text-[9.5px] flex items-center gap-0.5"
+                className="text-sky-400 hover:text-sky-300 font-bold text-xs flex items-center gap-1 cursor-pointer"
               >
-                <Search className="w-2.5 h-2.5" />
-                <span>{showManualTagInput ? 'Hide Search' : 'Filter / Search'}</span>
+                <Search className="w-3 h-3" />
+                <span>{showManualTagInput ? 'Hide Search' : 'Search / Filter'}</span>
               </button>
             </div>
 
             {showManualTagInput && (
-              <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1">
-                <Search className="w-3 h-3 text-sky-400 shrink-0" />
+              <div className="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2">
+                <Search className="w-4 h-4 text-sky-400 shrink-0" />
                 <input
                   type="text"
                   value={manualTagQuery}
                   onChange={(e) => handleDirectTagInput(e.target.value)}
-                  placeholder="Filter by Name, Tag #, Meter Serial, or Account..."
-                  className="w-full bg-transparent text-xs text-white placeholder:text-slate-500 focus:outline-none font-mono"
+                  placeholder="Filter by Name, Tag #, Serial, or Account..."
+                  className="w-full bg-transparent text-sm text-white placeholder:text-slate-500 focus:outline-none"
                   autoFocus
                 />
                 {manualTagQuery && (
                   <button
                     type="button"
                     onClick={() => setManualTagQuery('')}
-                    className="text-[10px] text-slate-400 hover:text-white px-1"
+                    className="text-xs text-slate-400 hover:text-white px-1.5 cursor-pointer"
                   >
                     Clear
                   </button>
@@ -944,7 +978,7 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
               </div>
             )}
 
-            <div className="flex gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
+            <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
               {(manualTagQuery
                 ? allConsumers.filter((c) =>
                     (c.name + ' ' + c.meterNumber + ' ' + c.meterSerial + ' ' + c.accountNumber)
@@ -957,12 +991,12 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
                   key={c.id}
                   type="button"
                   onClick={() => handleTagIdentified(c, c.meterNumber || c.meterSerial)}
-                  className="px-2 py-1 bg-slate-900 hover:bg-emerald-950/80 border border-slate-700 hover:border-emerald-500 rounded-lg text-left shrink-0 transition active:scale-95 cursor-pointer"
+                  className="px-3 py-1.5 bg-slate-900 hover:bg-emerald-950/80 border border-slate-700 hover:border-emerald-500 rounded-xl text-left shrink-0 transition active:scale-95 cursor-pointer"
                 >
-                  <span className="text-[8.5px] font-mono text-emerald-400 font-bold block truncate max-w-[110px]">
+                  <span className="text-xs font-mono text-emerald-400 font-bold block truncate max-w-[130px]">
                     {c.meterNumber || c.meterSerial}
                   </span>
-                  <span className="text-[9.5px] font-bold text-white truncate max-w-[110px] block">
+                  <span className="text-xs font-bold text-white truncate max-w-[130px] block mt-0.5">
                     {c.name}
                   </span>
                 </button>
@@ -970,7 +1004,7 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
             </div>
 
             {tagStatusMessage && (
-              <p className="text-[10px] text-amber-300 bg-amber-950/60 px-2 py-0.5 rounded border border-amber-800/80">
+              <p className="text-xs text-amber-300 bg-amber-950/70 px-3 py-1 rounded-lg border border-amber-800">
                 {tagStatusMessage}
               </p>
             )}
@@ -1192,16 +1226,16 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
           <div className="w-full space-y-1.5">
             {/* Stage 1: Live Tag Detected Banner */}
             {scanStep === 'IDENTIFY_TAG' && liveTagDetected && (
-              <div className="bg-emerald-950/90 border border-emerald-500/80 p-2 rounded-xl shadow-lg flex items-center justify-between animate-in zoom-in-95">
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-6 h-6 rounded-lg bg-emerald-500/20 border border-emerald-400 flex items-center justify-center text-emerald-300 shrink-0">
-                    <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+              <div className="bg-emerald-950 border border-emerald-600 p-2.5 rounded-xl shadow-md flex items-center justify-between">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-900/60 border border-emerald-400 flex items-center justify-center text-emerald-300 shrink-0">
+                    <Tag className="w-4 h-4 text-emerald-400" />
                   </div>
-                  <div className="min-w-0 font-mono">
-                    <span className="text-[9px] text-emerald-400 font-bold block uppercase tracking-wider">
-                      Auto-Detected Tag
+                  <div className="min-w-0">
+                    <span className="text-xs text-emerald-400 font-bold block uppercase tracking-wider">
+                      Detected Tag
                     </span>
-                    <span className="text-xs font-black text-white truncate block">
+                    <span className="text-sm font-bold text-white truncate block">
                       {liveTagDetected} {liveDetectedConsumer ? `• ${liveDetectedConsumer.name}` : ''}
                     </span>
                   </div>
@@ -1210,37 +1244,37 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
                 <button
                   type="button"
                   onClick={handleAcceptRealTimeTag}
-                  className="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-lg text-xs shadow flex items-center gap-1 active:scale-95 transition cursor-pointer shrink-0"
+                  className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-lg text-xs shadow flex items-center gap-1 active:scale-95 transition cursor-pointer shrink-0"
                 >
-                  <Check className="w-3 h-3" />
+                  <Check className="w-3.5 h-3.5" />
                   <span>Select</span>
                 </button>
               </div>
             )}
 
-            {/* Stage 2: Minimalist Single-Line Dial Reading HUD */}
+            {/* Stage 2: Dial Reading HUD */}
             {scanStep === 'SCAN_METER' && selectedConsumer && (
-              <div className="w-full bg-slate-900/90 border border-slate-800 px-3 py-2 rounded-xl text-xs font-mono flex items-center justify-between shadow-md">
-                <div className="flex items-center gap-2.5">
-                  <span className="text-[10.5px] text-slate-400">
+              <div className="w-full bg-slate-900 border border-slate-700 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-mono flex items-center justify-between shadow-sm">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-slate-300">
                     Prev: <strong className="text-white font-bold">{formatOdometerReading(selectedConsumer.previousReading)}</strong> m³
                   </span>
                   {liveReadingValue !== null && (
-                    <span className="text-[10.5px] text-sky-400">
+                    <span className="text-xs text-sky-400">
                       Live: <strong className="text-sky-300 font-bold">{formatOdometerReading(liveReadingValue)}</strong> m³
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-2">
                   {liveReadingValue !== null && liveReadingValue >= selectedConsumer.previousReading && (
-                    <span className="text-[10px] font-black text-emerald-400 bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-800/60">
+                    <span className="text-xs font-bold text-emerald-300 bg-emerald-950 px-2 py-0.5 rounded border border-emerald-700">
                       +{liveReadingValue - selectedConsumer.previousReading} m³
                     </span>
                   )}
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded border ${
                     isReadingClear
-                      ? 'bg-emerald-950 text-emerald-300 border-emerald-500 shadow-[0_0_8px_rgba(52,211,153,0.3)]'
-                      : 'bg-slate-950 text-slate-400 border-slate-700'
+                      ? 'bg-emerald-950 text-emerald-300 border-emerald-500'
+                      : 'bg-slate-950 text-slate-300 border-slate-700'
                   }`}>
                     {((liveConfidence || 0.9) * 100).toFixed(0)}%
                   </span>
@@ -1250,46 +1284,48 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
           </div>
         )}
 
-        {/* 🚀 SUBMISSION CELEBRATION MODAL */}
+        {/* 🚀 SUBMISSION NOTIFICATION MODAL */}
         {scanStep === 'SUBMITTED' && lastSubmittedReading && (
-          <div className="p-3 bg-slate-900 border-2 border-emerald-500 rounded-2xl shadow-2xl space-y-2.5 z-40 max-w-lg mx-auto w-full animate-in slide-in-from-bottom-2">
-            <div className="text-center space-y-0.5">
-              <div className="w-9 h-9 bg-emerald-500/20 border-2 border-emerald-400 rounded-xl flex items-center justify-center mx-auto text-emerald-400 shadow-sm">
-                <CheckCircle2 className="w-5 h-5" />
+          <div className="p-4 bg-slate-900 border-2 border-emerald-500 rounded-2xl shadow-xl space-y-3 z-40 max-w-lg mx-auto w-full">
+            <div className="text-center space-y-1">
+              <div className="w-10 h-10 bg-emerald-500/20 border-2 border-emerald-400 rounded-xl flex items-center justify-center mx-auto text-emerald-400 shadow-sm">
+                <CheckCircle2 className="w-6 h-6" />
               </div>
-              <h2 className="text-xs font-black text-white uppercase tracking-tight">
-                Reading Sent to Admin
+              <h2 className="text-sm font-black text-white uppercase tracking-tight">
+                {isOffline ? 'Reading Saved Offline' : 'Reading Sent to Admin'}
               </h2>
-              <p className="text-[10px] text-slate-300">
-                Dispatched live to Central Billing Portal (Approval Queue)
+              <p className="text-xs text-slate-300">
+                {isOffline
+                  ? 'Queued in device local database (Ready to sync with Admin)'
+                  : 'Submitted to Central Billing Portal (Approval Queue)'}
               </p>
             </div>
 
-            <div className="bg-slate-950 p-2.5 rounded-xl border border-emerald-500/40 space-y-1.5 text-xs">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-1">
+            <div className="bg-slate-950 p-3 rounded-xl border border-emerald-500/40 space-y-2 text-xs sm:text-sm">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
                 <div>
-                  <span className="text-[9px] text-emerald-400 font-bold block">
+                  <span className="text-xs text-emerald-400 font-bold block">
                     ACCOUNT #{lastSubmittedReading.accountNumber}
                   </span>
-                  <span className="font-bold text-white text-xs">{lastSubmittedReading.consumerName}</span>
+                  <span className="font-bold text-white text-sm">{lastSubmittedReading.consumerName}</span>
                 </div>
-                <span className="px-2 py-0.5 bg-emerald-950 text-emerald-300 border border-emerald-700 text-[9px] font-bold rounded-full">
+                <span className="px-2.5 py-0.5 bg-emerald-950 text-emerald-300 border border-emerald-700 text-xs font-bold rounded-full">
                   Pending Approval
                 </span>
               </div>
 
-              <div className="bg-slate-900/90 rounded-lg p-2 border border-slate-800 space-y-1 font-mono text-xs">
+              <div className="bg-slate-900 rounded-lg p-2.5 border border-slate-800 space-y-1.5 font-mono text-xs sm:text-sm">
                 <div className="flex items-center justify-between text-slate-300">
-                  <span className="text-[9px] uppercase font-bold text-slate-400">PREVIOUS READING</span>
+                  <span className="text-xs uppercase font-semibold text-slate-400">PREVIOUS READING</span>
                   <span className="font-bold text-slate-200">{formatOdometerReading(lastSubmittedReading.previousReading)} cu.m.</span>
                 </div>
                 <div className="flex items-center justify-between text-slate-300">
-                  <span className="text-[9px] uppercase font-bold text-slate-400">PRESENT READING</span>
+                  <span className="text-xs uppercase font-semibold text-slate-400">PRESENT READING</span>
                   <span className="font-bold text-sky-300">{formatOdometerReading(lastSubmittedReading.currentReading)} cu.m.</span>
                 </div>
-                <div className="flex items-center justify-between pt-1 border-t border-slate-800">
-                  <span className="text-[9px] uppercase font-bold text-emerald-400">CONSUMPTION</span>
-                  <span className="font-black text-emerald-400">+{lastSubmittedReading.consumption} cu.m.</span>
+                <div className="flex items-center justify-between pt-1.5 border-t border-slate-800">
+                  <span className="text-xs uppercase font-bold text-emerald-400">CONSUMPTION</span>
+                  <span className="font-black text-emerald-400 text-sm">+{lastSubmittedReading.consumption} cu.m.</span>
                 </div>
               </div>
             </div>
@@ -1365,15 +1401,15 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
             {ocrResult.success ? (
               <div className="space-y-2">
                 {/* 5 Wheel Slot Display with Interactive Stepper Buttons */}
-                <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-center space-y-1.5">
-                  <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
-                    <span>5-WHEEL COUNTER</span>
-                    <span className="text-sky-400">Tap ▲/▼ to fine-tune digits</span>
+                <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-center space-y-2">
+                  <div className="flex items-center justify-between text-xs text-slate-400 font-mono">
+                    <span className="font-semibold text-slate-300">5-DIGIT MECHANICAL WHEELS</span>
+                    <span className="text-sky-400">Tap ▲/▼ to fine-tune</span>
                   </div>
 
-                  <div className="flex items-center justify-center gap-1.5 my-1">
+                  <div className="flex items-center justify-center gap-2 my-1.5">
                     {ocrResult.digits.map((digit, i) => (
-                      <div key={i} className="flex flex-col items-center gap-0.5">
+                      <div key={i} className="flex flex-col items-center gap-1">
                         <button
                           type="button"
                           onClick={() => {
@@ -1389,13 +1425,13 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
                               odometerFormatted: newDigits.join(''),
                             });
                           }}
-                          className="w-7 h-4 bg-slate-800 hover:bg-sky-600 text-slate-300 hover:text-white rounded flex items-center justify-center text-[9px] font-black transition cursor-pointer"
+                          className="w-10 h-7 bg-slate-800 hover:bg-sky-600 text-slate-200 hover:text-white rounded-md flex items-center justify-center text-xs font-black transition cursor-pointer"
                           title={`Increment digit ${i + 1}`}
                         >
                           ▲
                         </button>
                         <div
-                          className="w-8 h-10 bg-slate-900 border-2 border-sky-400 rounded-lg flex items-center justify-center font-mono font-black text-lg text-white shadow select-none"
+                          className="w-11 h-14 bg-slate-900 border-2 border-slate-600 rounded-lg flex items-center justify-center font-mono font-black text-2xl sm:text-3xl text-white shadow-sm select-none"
                         >
                           {digit}
                         </div>
@@ -1414,7 +1450,7 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
                               odometerFormatted: newDigits.join(''),
                             });
                           }}
-                          className="w-7 h-4 bg-slate-800 hover:bg-sky-600 text-slate-300 hover:text-white rounded flex items-center justify-center text-[9px] font-black transition cursor-pointer"
+                          className="w-10 h-7 bg-slate-800 hover:bg-sky-600 text-slate-200 hover:text-white rounded-md flex items-center justify-center text-xs font-black transition cursor-pointer"
                           title={`Decrement digit ${i + 1}`}
                         >
                           ▼
@@ -1423,8 +1459,8 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
                     ))}
                   </div>
 
-                  <div className="flex items-center justify-center gap-2 pt-1 border-t border-slate-800/80">
-                    <span className="text-xs font-mono text-slate-400">Total Reading:</span>
+                  <div className="flex items-center justify-center gap-2.5 pt-2 border-t border-slate-800">
+                    <span className="text-sm font-semibold text-slate-300">Total Reading:</span>
                     <input
                       type="text"
                       inputMode="numeric"
@@ -1442,24 +1478,24 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
                           digits: formatted.slice(-5).split(''),
                         });
                       }}
-                      className="w-24 bg-slate-900 border border-sky-500/70 text-sky-300 font-mono font-black text-sm px-2 py-0.5 rounded text-center focus:outline-none focus:ring-1 focus:ring-sky-400"
+                      className="w-28 bg-slate-900 border-2 border-slate-600 text-white font-mono font-black text-lg px-3 py-1 rounded-lg text-center focus:outline-none focus:border-sky-500"
                     />
-                    <span className="text-xs text-sky-400 font-mono">cu.m.</span>
+                    <span className="text-sm text-sky-400 font-bold">cu.m.</span>
                   </div>
 
                   {selectedConsumer && (
-                    <div className="bg-slate-900/90 rounded-lg p-1.5 border border-slate-800 space-y-0.5 font-mono text-xs mt-1 text-left">
+                    <div className="bg-slate-900 rounded-lg p-2.5 border border-slate-800 space-y-1 font-mono text-xs sm:text-sm mt-2 text-left">
                       <div className="flex items-center justify-between text-slate-300">
-                        <span className="text-[8.5px] uppercase font-bold text-slate-400">PREVIOUS</span>
+                        <span className="text-xs uppercase font-semibold text-slate-400">PREVIOUS READING</span>
                         <span className="font-bold text-slate-200">{formatOdometerReading(selectedConsumer.previousReading)} cu.m.</span>
                       </div>
                       <div className="flex items-center justify-between text-slate-300">
-                        <span className="text-[8.5px] uppercase font-bold text-slate-400">PRESENT</span>
+                        <span className="text-xs uppercase font-semibold text-slate-400">PRESENT READING</span>
                         <span className="font-bold text-sky-300">{formatOdometerReading(ocrResult.readingValue)} cu.m.</span>
                       </div>
-                      <div className="flex items-center justify-between pt-0.5 border-t border-slate-800">
-                        <span className="text-[8.5px] uppercase font-bold text-emerald-400">CONSUMPTION</span>
-                        <span className={`font-black ${ocrResult.readingValue >= selectedConsumer.previousReading ? 'text-emerald-400' : 'text-red-400'}`}>
+                      <div className="flex items-center justify-between pt-1 border-t border-slate-800">
+                        <span className="text-xs uppercase font-bold text-emerald-400">CONSUMPTION</span>
+                        <span className={`font-black text-sm ${ocrResult.readingValue >= selectedConsumer.previousReading ? 'text-emerald-400' : 'text-red-400'}`}>
                           {ocrResult.readingValue >= selectedConsumer.previousReading
                             ? `+${ocrResult.readingValue - selectedConsumer.previousReading} cu.m.`
                             : `Invalid: Less than previous (${formatOdometerReading(selectedConsumer.previousReading)} cu.m.)`}
@@ -1475,17 +1511,17 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
                     type="button"
                     onClick={handleSendToAdmin}
                     disabled={isSendingToAdmin}
-                    className="w-full bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-500 text-slate-950 font-black py-2.5 rounded-xl shadow flex items-center justify-center gap-2 text-xs uppercase tracking-wider transition active:scale-95 cursor-pointer disabled:opacity-50"
+                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow-md flex items-center justify-center gap-2 text-sm uppercase tracking-wider transition active:scale-95 cursor-pointer disabled:opacity-50"
                   >
                     {isSendingToAdmin ? (
                       <>
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-slate-950" />
-                        <span>Transmitting...</span>
+                        <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                        <span>Transmitting Reading...</span>
                       </>
                     ) : (
                       <>
-                        <Send className="w-3.5 h-3.5 text-slate-950" />
-                        <span>Send to Admin</span>
+                        <Send className="w-4 h-4 text-white" />
+                        <span>Send Reading to Admin</span>
                       </>
                     )}
                   </button>
@@ -1493,7 +1529,7 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
                   <button
                     type="button"
                     onClick={() => onNavigate(selectedConsumer ? 'reading_entry' : 'consumers')}
-                    className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-2 rounded-xl shadow text-xs uppercase tracking-wider transition"
+                    className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 rounded-xl shadow text-sm uppercase tracking-wider transition cursor-pointer"
                   >
                     <span>{selectedConsumer ? 'Adjust in Manual Form' : 'Assign Owner'}</span>
                   </button>
@@ -1604,12 +1640,12 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
                 {isSendingToAdmin ? (
                   <>
                     <RefreshCw className="w-3.5 h-3.5 animate-spin text-slate-950" />
-                    <span>Transmitting...</span>
+                    <span>Saving...</span>
                   </>
                 ) : (
                   <>
                     <Send className="w-3.5 h-3.5 text-slate-950" />
-                    <span>Send to Admin</span>
+                    <span>{isOffline ? 'Save to Offline Queue' : 'Send to Admin'}</span>
                   </>
                 )}
               </button>
@@ -1640,7 +1676,18 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
           {/* Persistent Fallback Action: Type Reading Manually */}
           <button
             type="button"
-            onClick={() => onNavigate(selectedConsumer ? 'reading_entry' : 'consumers')}
+            onClick={() => {
+              const photo = capturedPhoto || (videoRef.current ? OCRService.captureFrameFromVideo(videoRef.current) : '');
+              if (selectedConsumer && onOCRComplete && photo) {
+                onOCRComplete({
+                  readingValue: selectedConsumer.previousReading || 0,
+                  photoUrl: photo,
+                  confidence: 0,
+                });
+              } else {
+                onNavigate(selectedConsumer ? 'reading_entry' : 'consumers');
+              }
+            }}
             className="px-3 py-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-sky-400 hover:text-white rounded-xl text-xs font-bold font-mono flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer shadow shrink-0"
             title="Type reading manually if dial is damaged, moisture-filled, or unclear"
           >

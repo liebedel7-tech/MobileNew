@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Sparkles, Ban, ShieldAlert } from 'lucide-react';
+import { Ban, ShieldAlert } from 'lucide-react';
 import { 
   Consumer, 
   MeterReading, 
@@ -864,11 +864,11 @@ export function App() {
         }`}>
           <div className="flex items-center gap-2 min-w-0 pr-2">
             <span className={`w-2 h-2 rounded-full shrink-0 ${
-              liveAdminAlert.type.includes('deactivated') ? 'bg-rose-400 animate-pulse' : 'bg-emerald-400'
+              liveAdminAlert.type.includes('deactivated') ? 'bg-rose-400' : 'bg-emerald-400'
             }`} />
             <div className="truncate">
               <strong className="block text-white text-xs">{liveAdminAlert.title}</strong>
-              <span className="text-[11px] opacity-90 truncate block">{liveAdminAlert.message}</span>
+              <span className="text-xs opacity-90 truncate block">{liveAdminAlert.message}</span>
             </div>
           </div>
           <button
@@ -1112,11 +1112,11 @@ export function App() {
               <Ban className="w-8 h-8 text-rose-400" />
             </div>
 
-            <div className="space-y-1">
-              <span className="text-[10px] font-mono uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-rose-950 border border-rose-700 text-rose-300 font-bold">
+            <div className="space-y-1.5">
+              <span className="text-xs font-mono uppercase tracking-widest px-3 py-1 rounded-full bg-rose-950 border border-rose-700 text-rose-300 font-bold">
                 ACCESS REVOKED BY ADMIN
               </span>
-              <h3 className="text-lg font-black text-white pt-1">
+              <h3 className="text-xl font-black text-white pt-1">
                 Account Terminated
               </h3>
               <p className="text-xs font-semibold text-rose-300">
@@ -1124,15 +1124,15 @@ export function App() {
               </p>
             </div>
 
-            <div className="p-3 bg-rose-950/40 border border-rose-900/80 rounded-xl text-left text-xs text-rose-200 space-y-1.5">
+            <div className="p-3.5 bg-rose-950/40 border border-rose-900/80 rounded-xl text-left text-xs text-rose-200 space-y-2">
               <div className="font-bold flex items-center gap-1.5 text-rose-300">
                 <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
                 <span>Termination Notice:</span>
               </div>
-              <p className="text-[11.5px] leading-relaxed text-rose-200/90">
+              <p className="text-xs leading-relaxed text-rose-200/90">
                 {terminatedLockout.reason || 'This account has been deactivated or terminated by the Central Administrator.'}
               </p>
-              <p className="text-[10.5px] text-slate-400 pt-1 leading-normal border-t border-rose-900/50">
+              <p className="text-xs text-slate-400 pt-1 leading-normal border-t border-rose-900/50">
                 Field operations, route access, and reading submissions have been blocked for this device. Please report to the Tagoloan Water District office.
               </p>
             </div>
@@ -1142,7 +1142,7 @@ export function App() {
                 setTerminatedLockout(null);
                 setActiveScreen('login');
               }}
-              className="w-full py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs uppercase tracking-wider shadow-lg transition active:scale-95 cursor-pointer"
+              className="w-full py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-sm uppercase tracking-wider shadow-md transition active:scale-95 cursor-pointer"
             >
               Exit to Login Screen
             </button>

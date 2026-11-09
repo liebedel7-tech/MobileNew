@@ -63,6 +63,7 @@ export class RealTimeScanner {
    */
   private static async getTesseractWorker(): Promise<any> {
     if (this.isTesseractDisabled) return null;
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return null;
     if (this.tesseractWorker) return this.tesseractWorker;
     if (this.isWorkerInitializing) return null;
 
@@ -194,8 +195,10 @@ export class RealTimeScanner {
     }
 
     // --- STEP 3: Live Server Optical Stream (Debounced every 1.5s for real-time responsiveness) ---
+    const isOffline = (typeof navigator !== 'undefined' && !navigator.onLine) ||
+      (typeof window !== 'undefined' && window.localStorage?.getItem('twd_simulated_offline') === 'true');
     const now = Date.now();
-    if (!this.isServerScanBusy && now - this.lastServerScanTime > 1200) {
+    if (!isOffline && !this.isServerScanBusy && now - this.lastServerScanTime > 1200) {
       this.lastServerScanTime = now;
       this.isServerScanBusy = true;
       try {
@@ -365,8 +368,10 @@ export class RealTimeScanner {
     }
 
     // --- STEP 3: Server Optical Stream (Debounced for real-time responsiveness) ---
+    const isOffline = (typeof navigator !== 'undefined' && !navigator.onLine) ||
+      (typeof window !== 'undefined' && window.localStorage?.getItem('twd_simulated_offline') === 'true');
     const now = Date.now();
-    if (!this.isServerScanBusy && now - this.lastServerScanTime > 1200) {
+    if (!isOffline && !this.isServerScanBusy && now - this.lastServerScanTime > 1200) {
       this.lastServerScanTime = now;
       this.isServerScanBusy = true;
       try {

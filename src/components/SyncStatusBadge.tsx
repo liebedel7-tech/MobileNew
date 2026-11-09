@@ -38,8 +38,7 @@ export const SyncStatusBadge: React.FC<SyncStatusBadgeProps> = ({
           </div>
           {syncState.isOnline && (
             <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 ring-2 ring-slate-900" />
             </span>
           )}
         </div>
@@ -56,7 +55,7 @@ export const SyncStatusBadge: React.FC<SyncStatusBadgeProps> = ({
                 : 'ALL RECORDS SYNCHRONIZED'}
             </span>
           </div>
-          <p className="text-[11px] text-slate-400 truncate max-w-[260px] sm:max-w-md">
+          <p className="text-xs text-slate-400 font-medium truncate max-w-[260px] sm:max-w-md">
             {syncState.lastSyncMessage}
           </p>
         </div>

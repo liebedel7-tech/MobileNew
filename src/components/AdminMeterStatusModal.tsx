@@ -577,20 +577,20 @@ export const AdminMeterStatusModal: React.FC<AdminMeterStatusModalProps> = ({
 
                           <div className="flex items-center gap-1.5 shrink-0">
                             {isPending && (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
+                              <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-amber-950 text-amber-300 border border-amber-800 flex items-center gap-1">
+                                <Clock className="w-3.5 h-3.5" />
                                 PENDING APPROVAL
                               </span>
                             )}
                             {isApproved && (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 flex items-center gap-1">
-                                <CheckCircle2 className="w-3 h-3" />
-                                APPROVED & BILLED
+                              <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-emerald-950 text-emerald-300 border border-emerald-800 flex items-center gap-1">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                APPROVED
                               </span>
                             )}
                             {isRejected && (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-rose-950 text-rose-300 border border-rose-800 flex items-center gap-1">
-                                <Ban className="w-3 h-3" />
+                              <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-rose-950 text-rose-300 border border-rose-800 flex items-center gap-1">
+                                <Ban className="w-3.5 h-3.5" />
                                 REJECTED / FLAGGED
                               </span>
                             )}
@@ -598,22 +598,22 @@ export const AdminMeterStatusModal: React.FC<AdminMeterStatusModalProps> = ({
                         </div>
 
                         {/* Dial Progression Chain */}
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono bg-slate-900/90 p-2.5 rounded-xl border border-slate-800">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs font-mono bg-slate-900/90 p-3 rounded-xl border border-slate-800">
                           <div>
-                            <span className="text-[9.5px] uppercase text-slate-500 font-sans block">Previous Baseline</span>
-                            <span className="font-bold text-slate-300 text-sm">{formatOdometerReading(r.previousReading)} cu.m.</span>
+                            <span className="text-xs uppercase text-slate-400 font-semibold block">Previous Baseline</span>
+                            <span className="font-bold text-slate-200 text-sm sm:text-base">{formatOdometerReading(r.previousReading)} cu.m.</span>
                           </div>
                           <div>
-                            <span className="text-[9.5px] uppercase text-slate-500 font-sans block">Present Reading</span>
-                            <span className="font-bold text-sky-300 text-sm">{formatOdometerReading(r.currentReading)} cu.m.</span>
+                            <span className="text-xs uppercase text-slate-400 font-semibold block">Present Reading</span>
+                            <span className="font-bold text-sky-300 text-sm sm:text-base">{formatOdometerReading(r.currentReading)} cu.m.</span>
                           </div>
                           <div>
-                            <span className="text-[9.5px] uppercase text-slate-500 font-sans block">Net Consumption</span>
-                            <span className="font-bold text-emerald-400 text-sm">+{r.consumption} cu.m.</span>
+                            <span className="text-xs uppercase text-slate-400 font-semibold block">Net Consumption</span>
+                            <span className="font-bold text-emerald-400 text-sm sm:text-base">+{r.consumption} cu.m.</span>
                           </div>
                           <div>
-                            <span className="text-[9.5px] uppercase text-slate-500 font-sans block">Bill Amount</span>
-                            <span className="font-bold text-amber-300 text-sm">
+                            <span className="text-xs uppercase text-slate-400 font-semibold block">Bill Amount</span>
+                            <span className="font-bold text-amber-300 text-sm sm:text-base">
                               ₱{r.billCalculation?.totalAmountDue ? r.billCalculation.totalAmountDue.toFixed(2) : (r.consumption * 28).toFixed(2)}
                             </span>
                           </div>
@@ -1017,7 +1017,7 @@ export const AdminMeterStatusModal: React.FC<AdminMeterStatusModalProps> = ({
         {/* Modal Footer */}
         <div className="px-4 py-3 border-t border-slate-800 bg-slate-950/90 flex items-center justify-between text-xs text-slate-400">
           <div className="flex items-center gap-2">
-            <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+            <Radio className="w-3.5 h-3.5 text-emerald-400" />
             <span>Real-time WebSocket Broadcast active</span>
           </div>
 

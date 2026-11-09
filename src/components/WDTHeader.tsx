@@ -45,39 +45,31 @@ export const WDTHeader: React.FC<WDTHeaderProps> = ({
         className="flex items-center gap-2.5 cursor-pointer group min-w-0"
         title="Tagoloan Water District Field Terminal"
       >
-        <OfficialLogo size="sm" glow />
+        <OfficialLogo size="sm" />
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">
-            <h1 className="text-xs sm:text-sm font-bold tracking-tight text-white truncate leading-tight">
+            <h1 className="text-sm font-bold tracking-tight text-white truncate leading-tight">
               Tagoloan Water District
             </h1>
             {/* Subtle Connection Status Dot */}
             <span 
-              className="relative flex h-2 w-2 shrink-0" 
+              className={`h-2.5 w-2.5 rounded-full shrink-0 ${
+                wsStatus === 'CONNECTED'
+                  ? 'bg-emerald-500'
+                  : wsStatus === 'RECONNECTING' || wsStatus === 'CONNECTING'
+                  ? 'bg-amber-500'
+                  : 'bg-slate-500'
+              }`}
               title={`Connection Status: ${wsStatus}`}
-            >
-              {wsStatus === 'CONNECTED' ? (
-                <>
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-                </>
-              ) : wsStatus === 'RECONNECTING' || wsStatus === 'CONNECTING' ? (
-                <>
-                  <span className="animate-pulse absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
-                </>
-              ) : (
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-slate-500" />
-              )}
-            </span>
+            />
           </div>
 
-          <p className="text-[10px] text-slate-400 truncate leading-tight flex items-center gap-1">
-            <span className="font-medium text-slate-300">
+          <p className="text-xs text-slate-300 truncate leading-tight flex items-center gap-1 font-medium">
+            <span>
               {user?.name || 'Field Staff'}
             </span>
-            <span className="text-slate-600">·</span>
-            <span className="text-sky-400 font-mono text-[9.5px]">
+            <span className="text-slate-500">·</span>
+            <span className="text-sky-300 font-mono text-xs font-bold">
               {user?.assignedRoutes && user.assignedRoutes.length > 0 
                 ? user.assignedRoutes.join(', ') 
                 : (user?.zone || 'All Routes')}
@@ -93,10 +85,10 @@ export const WDTHeader: React.FC<WDTHeaderProps> = ({
           <button
             type="button"
             onClick={() => onNavigate('batch_submission')}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-400 text-[10px] font-bold hover:bg-amber-500/25 transition active:scale-95"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/20 border border-amber-500/50 text-amber-300 text-xs font-bold hover:bg-amber-500/30 transition active:scale-95"
             title={`${syncState.pendingCount} pending field reading(s) queued for sync`}
           >
-            <Send className="w-3 h-3 shrink-0" />
+            <Send className="w-3.5 h-3.5 shrink-0" />
             <span>{syncState.pendingCount}</span>
           </button>
         )}
@@ -117,11 +109,11 @@ export const WDTHeader: React.FC<WDTHeaderProps> = ({
           <button
             type="button"
             onClick={onOpenApkModal}
-            className="px-2 py-1.5 rounded-lg bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-600/70 text-emerald-300 hover:text-emerald-100 transition active:scale-95 cursor-pointer shadow-sm flex items-center gap-1 text-xs font-bold shrink-0"
+            className="px-2.5 py-1.5 rounded-lg bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-600/70 text-emerald-300 hover:text-emerald-100 transition active:scale-95 cursor-pointer shadow-sm flex items-center gap-1.5 text-xs font-bold shrink-0"
             title="Install App on Phone"
           >
             <Smartphone className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-            <span className="text-[11px] font-bold">Install</span>
+            <span className="text-xs font-bold">Install</span>
           </button>
         )}
 

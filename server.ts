@@ -710,15 +710,22 @@ app.all(['/api/readers/register', '/api/readers/sync', '/api/readers/batch-sync'
         );
 
         if (existingIndex >= 0) {
-          // If already existing, preserve active status if server approved it
+          // If already existing on server, preserve server's active status and assignedRoutes
           const existing = REGISTERED_READERS[existingIndex];
+          const isServerActive = existing.status === 'active';
           REGISTERED_READERS[existingIndex] = {
             ...existing,
             ...r,
-            status: existing.status === 'active' ? 'active' : (r.status || existing.status),
-            assignedRoutes: r.assignedRoutes && r.assignedRoutes.length > 0 ? r.assignedRoutes : existing.assignedRoutes,
+            status: isServerActive ? 'active' : (r.status || existing.status),
+            employmentStatus: isServerActive ? 'active' : (r.status || existing.status),
+            assignedRoutes: (isServerActive && existing.assignedRoutes && existing.assignedRoutes.length > 0)
+              ? existing.assignedRoutes
+              : (Array.isArray(r.assignedRoutes) && r.assignedRoutes.length > 0 ? r.assignedRoutes : existing.assignedRoutes),
           };
         } else if (uname) {
+          // Verify that routes for new reader are available
+          const reqRoutes = Array.isArray(r.assignedRoutes) && r.assignedRoutes.length > 0 ? r.assignedRoutes : [];
+          const validRoutes = reqRoutes.filter((rt: string) => !findOccupyingReader(rt));
           const newR = {
             id: r.id || `RDR-${String(REGISTERED_READERS.length + 1).padStart(3, '0')}`,
             employeeId: r.employeeId || `TWD-2026-${String(Math.floor(100 + Math.random() * 900))}`,
@@ -728,7 +735,7 @@ app.all(['/api/readers/register', '/api/readers/sync', '/api/readers/batch-sync'
             role: r.role || 'Meter Reader I',
             contactNumber: r.contactNumber || '',
             email: r.email || `${uname}@tagoloanwater.gov.ph`,
-            assignedRoutes: Array.isArray(r.assignedRoutes) && r.assignedRoutes.length > 0 ? r.assignedRoutes : ['Poblacion'],
+            assignedRoutes: validRoutes.length > 0 ? validRoutes : (TAGOLOAN_BARANGAYS_LIST.filter(b => !findOccupyingReader(b)).slice(0, 1)),
             status: r.status || 'active',
             employmentStatus: r.status || 'active',
             deviceInfo: r.deviceInfo || 'Android Field Terminal',

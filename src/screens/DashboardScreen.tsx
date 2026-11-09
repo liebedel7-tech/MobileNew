@@ -15,7 +15,8 @@ import {
   CloudUpload, 
   Layers, 
   Sliders,
-  Activity
+  Activity,
+  History
 } from 'lucide-react';
 import { Consumer, MeterReading, StaffUser, SyncState, ActiveScreen } from '../types';
 import { formatOdometerReading } from '../constants/routes';
@@ -194,16 +195,16 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               <CloudUpload className="w-4 h-4" />
             </div>
             {syncState.pendingCount > 0 && (
-              <span className="absolute top-3 right-3 px-1.5 py-0.5 rounded-full bg-amber-500 text-slate-950 text-[9px] font-black animate-pulse">
+              <span className="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 text-xs font-black shadow-sm">
                 {syncState.pendingCount}
               </span>
             )}
             <div>
-              <span className="text-xs font-bold text-white block group-hover:text-purple-300 transition">
+              <span className="text-sm font-bold text-white block group-hover:text-purple-300 transition">
                 Central Batch Sync
               </span>
-              <span className="text-[10px] text-slate-400 block mt-0.5">
-                WebSocket ledger sync & upload
+              <span className="text-xs text-slate-400 block mt-0.5">
+                Upload pending readings
               </span>
             </div>
           </button>
@@ -218,11 +219,11 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               <Send className="w-4 h-4" />
             </div>
             <div>
-              <span className="text-xs font-bold text-white block group-hover:text-sky-300 transition">
+              <span className="text-sm font-bold text-white block group-hover:text-sky-300 transition">
                 Reading Logs & Status
               </span>
-              <span className="text-[10px] text-slate-400 block mt-0.5">
-                Admin review & approval history
+              <span className="text-xs text-slate-400 block mt-0.5">
+                Review and status log
               </span>
             </div>
           </button>
@@ -237,11 +238,11 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               <Sliders className="w-4 h-4" />
             </div>
             <div>
-              <span className="text-xs font-bold text-white block group-hover:text-sky-300 transition">
+              <span className="text-sm font-bold text-white block group-hover:text-sky-300 transition">
                 Device & Diagnostics
               </span>
-              <span className="text-[10px] text-slate-400 block mt-0.5">
-                Offline database & sync health
+              <span className="text-xs text-slate-400 block mt-0.5">
+                Offline database & health
               </span>
             </div>
           </button>
@@ -543,14 +544,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             onClick={() => onNavigate('scan_meter')}
             className="p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-sky-500/50 transition-all flex flex-col items-center justify-center gap-2 group text-center active:scale-[0.98] cursor-pointer"
           >
-            <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/30 text-sky-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+            <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/30 text-sky-400 flex items-center justify-center group-hover:scale-105 transition-transform">
               <Camera className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-xs font-bold text-white block group-hover:text-sky-300 transition">
+              <span className="text-xs sm:text-sm font-bold text-white block group-hover:text-sky-300 transition">
                 Scan Meter
               </span>
-              <span className="text-[10px] text-slate-400">Camera OCR</span>
+              <span className="text-xs text-slate-400">Camera Scan</span>
             </div>
           </button>
 
@@ -560,14 +561,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             onClick={() => onNavigate('consumers')}
             className="p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-emerald-500/50 transition-all flex flex-col items-center justify-center gap-2 group text-center active:scale-[0.98] cursor-pointer"
           >
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center group-hover:scale-105 transition-transform">
               <Users className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-xs font-bold text-white block group-hover:text-emerald-300 transition">
-                Consumers List
+              <span className="text-xs sm:text-sm font-bold text-white block group-hover:text-emerald-300 transition">
+                Consumers
               </span>
-              <span className="text-[10px] text-slate-400">Directory</span>
+              <span className="text-xs text-slate-400">Directory</span>
             </div>
           </button>
 
@@ -577,19 +578,19 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             onClick={() => onNavigate('batch_submission')}
             className="p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-amber-500/50 transition-all flex flex-col items-center justify-center gap-2 group text-center active:scale-[0.98] relative cursor-pointer"
           >
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center group-hover:scale-105 transition-transform">
               <Send className="w-5 h-5" />
             </div>
             {syncState.pendingCount > 0 && (
-              <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded-full bg-amber-500 text-slate-950 text-[9px] font-black animate-pulse">
+              <span className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 text-xs font-black shadow-sm">
                 {syncState.pendingCount}
               </span>
             )}
             <div>
-              <span className="text-xs font-bold text-white block group-hover:text-amber-300 transition">
+              <span className="text-xs sm:text-sm font-bold text-white block group-hover:text-amber-300 transition">
                 Sync Queue
               </span>
-              <span className="text-[10px] text-slate-400">Batch Upload</span>
+              <span className="text-xs text-slate-400">Batch Upload</span>
             </div>
           </button>
 
@@ -599,14 +600,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             onClick={() => onNavigate('history')}
             className="p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-purple-500/50 transition-all flex flex-col items-center justify-center gap-2 group text-center active:scale-[0.98] cursor-pointer"
           >
-            <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-400 flex items-center justify-center group-hover:scale-110 transition-transform">
-              <FileText className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+              <History className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-xs font-bold text-white block group-hover:text-purple-300 transition">
-                Reading Logs
+              <span className="text-xs sm:text-sm font-bold text-white block group-hover:text-purple-300 transition">
+                Readings
               </span>
-              <span className="text-[10px] text-slate-400">History & Status</span>
+              <span className="text-xs text-slate-400">Status History</span>
             </div>
           </button>
         </div>
