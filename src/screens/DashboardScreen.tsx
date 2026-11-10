@@ -51,7 +51,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   onSyncTrigger,
   onOpenApkModal,
 }) => {
-  // Deduplicate consumers by accountNumber to guarantee strictly one name display in the consumer roster
+  // Deduplicate consumers by accountNumber with stable sorting by sequence number and name
   const deduplicatedConsumers = React.useMemo(() => {
     const seen = new Set<string>();
     const list: Consumer[] = [];
@@ -62,7 +62,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         list.push(c);
       }
     }
-    return list;
+    // Stable order: preserve deterministic sequence
+    return list.sort((a, b) => {
+      const seqA = a.sequenceNo ?? 99999;
+      const seqB = b.sequenceNo ?? 99999;
+      if (seqA !== seqB) return seqA - seqB;
+      return (a.accountNumber || '').localeCompare(b.accountNumber || '');
+    });
   }, [consumers]);
 
   const totalAssigned = deduplicatedConsumers.length;
@@ -79,7 +85,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     const sorted = [...readings].sort((a, b) => {
       const timeA = new Date(a.approvedAt || `${a.readingDate}T${a.readingTime || '00:00:00'}`).getTime();
       const timeB = new Date(b.approvedAt || `${b.readingDate}T${b.readingTime || '00:00:00'}`).getTime();
-      return timeB - timeA;
+      if (timeB !== timeA) {
+        return timeB - timeA;
+      }
+      const accA = a.accountNumber || a.consumerName || a.id;
+      const accB = b.accountNumber || b.consumerName || b.id;
+      return accA.localeCompare(accB);
     });
 
     const seen = new Set<string>();
@@ -450,13 +461,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   key={reading.id}
                   className="bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl p-3.5 space-y-2.5 transition shadow-sm"
                 >
-                  {/* Account, Name & Status Badge */}
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <div className="flex items-center gap-2 min-w-0">
+                  {/* Account, Name & Status Badge with Fixed Height */}
+                  <div className="flex items-center justify-between gap-2 min-h-[28px] h-7 w-full overflow-hidden">
+                    <div className="flex items-center gap-2 min-w-0 flex-1 h-full">
                       <span className="font-mono text-xs font-bold text-sky-400 bg-sky-950/80 px-2.5 py-0.5 rounded border border-sky-800/60 shrink-0">
                         {reading.accountNumber}
                       </span>
-                      <span className="text-xs font-bold text-white truncate">
+                      <span className="text-xs sm:text-sm font-bold text-white truncate min-w-0" title={reading.consumerName}>
                         {reading.consumerName}
                       </span>
                     </div>
@@ -483,31 +494,31 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     )}
                   </div>
 
-                  {/* Standardized 3-Column Odometer Breakdown */}
-                  <div className="grid grid-cols-3 gap-2 bg-slate-900/90 rounded-lg p-2.5 border border-slate-800/70 text-center font-mono">
-                    <div>
-                      <span className="text-[9px] uppercase font-bold text-slate-500 tracking-wider block">
+                  {/* Standardized 3-Column Odometer Breakdown with Fixed Dimensions & Zero Layout Shift */}
+                  <div className="grid grid-cols-3 gap-2 bg-slate-900 rounded-xl p-3 border border-slate-800 text-center font-mono min-h-[72px] h-[72px] items-center">
+                    <div className="flex flex-col justify-center min-w-[75px] h-full">
+                      <span className="text-xs uppercase font-bold text-slate-400 tracking-wider block min-h-[16px] leading-tight">
                         PREVIOUS
                       </span>
-                      <span className="text-xs font-bold text-slate-300 block mt-0.5">
+                      <span className="text-sm sm:text-base font-bold text-slate-200 block min-h-[24px] leading-tight mt-1 truncate">
                         {formatOdometerReading(reading.previousReading)} cu.m.
                       </span>
                     </div>
 
-                    <div>
-                      <span className="text-[9px] uppercase font-bold text-sky-400 tracking-wider block">
+                    <div className="flex flex-col justify-center min-w-[75px] h-full">
+                      <span className="text-xs uppercase font-bold text-sky-400 tracking-wider block min-h-[16px] leading-tight">
                         PRESENT
                       </span>
-                      <span className="text-xs font-black text-sky-300 block mt-0.5">
+                      <span className="text-sm sm:text-base font-black text-sky-300 block min-h-[24px] leading-tight mt-1 truncate">
                         {formatOdometerReading(reading.currentReading)} cu.m.
                       </span>
                     </div>
 
-                    <div>
-                      <span className="text-[9px] uppercase font-bold text-emerald-400 tracking-wider block">
+                    <div className="flex flex-col justify-center min-w-[75px] h-full">
+                      <span className="text-xs uppercase font-bold text-emerald-400 tracking-wider block min-h-[16px] leading-tight">
                         CONSUMPTION
                       </span>
-                      <span className="text-xs font-black text-emerald-400 block mt-0.5">
+                      <span className="text-sm sm:text-base font-black text-emerald-400 block min-h-[24px] leading-tight mt-1 truncate">
                         +{reading.consumption} cu.m.
                       </span>
                     </div>

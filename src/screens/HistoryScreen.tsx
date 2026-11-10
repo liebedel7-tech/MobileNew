@@ -65,11 +65,18 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
   const isReadingPending = (r: MeterReading) => !isReadingApproved(r) && !isReadingRejected(r);
 
   // Deduplicate readings by account number so each consumer name appears strictly once (latest reading)
+  // with rock-solid deterministic sorting to guarantee zero layout shifts or name swapping
   const deduplicatedReadings = useMemo(() => {
     const sorted = [...readings].sort((a, b) => {
       const timeA = new Date(a.approvedAt || `${a.readingDate}T${a.readingTime || '00:00:00'}`).getTime();
       const timeB = new Date(b.approvedAt || `${b.readingDate}T${b.readingTime || '00:00:00'}`).getTime();
-      return timeB - timeA;
+      if (timeB !== timeA) {
+        return timeB - timeA;
+      }
+      // Deterministic tie-breaker: sort alphabetically by account number then reading id
+      const accA = a.accountNumber || a.consumerName || a.id;
+      const accB = b.accountNumber || b.consumerName || b.id;
+      return accA.localeCompare(accB);
     });
 
     const seen = new Set<string>();
@@ -277,41 +284,46 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                   )}
                 </div>
 
-                {/* Consumer Name & Meter Tag */}
-                <div className="flex items-baseline justify-between gap-2">
-                  <h4 className="font-bold text-sm text-white tracking-tight truncate">
-                    {reading.consumerName}
-                  </h4>
-                  <span className="text-[11px] font-mono text-slate-400 shrink-0">
-                    Tag: {reading.meterSerial}
-                  </span>
+                {/* Consumer Name & Meter Tag Wrapper with Fixed Height and Min Dimensions */}
+                <div className="flex items-center justify-between gap-2 min-h-[28px] h-7 w-full overflow-hidden">
+                  <div className="min-w-0 flex-1 h-full flex items-center">
+                    <h4 className="font-bold text-sm text-white tracking-tight truncate w-full" title={reading.consumerName}>
+                      {reading.consumerName}
+                    </h4>
+                  </div>
+                  <div className="min-w-[120px] max-w-[160px] h-full flex items-center justify-end shrink-0">
+                    <span className="text-xs font-mono text-slate-400 truncate text-right">
+                      Tag: {reading.meterSerial}
+                    </span>
+                  </div>
                 </div>
 
-                {/* Standardized 3-Column Odometer Breakdown */}
-                <div className="grid grid-cols-3 gap-2 bg-slate-950/80 rounded-xl p-2.5 border border-slate-800/70 text-center font-mono">
-                  <div>
-                    <span className="text-[9px] uppercase font-bold text-slate-500 tracking-wider block">
+                {/* Standardized 3-Column Odometer Breakdown with Fixed Dimensions & Zero Layout Shift */}
+                <div className="grid grid-cols-3 gap-2 bg-slate-950/80 rounded-xl p-3 border border-slate-800/70 text-center font-mono min-h-[72px] h-[72px] items-center">
+                  <div className="flex flex-col justify-center min-w-[75px] h-full">
+                    <span className="text-xs uppercase font-bold text-slate-400 tracking-wider block min-h-[16px] leading-tight">
                       PREVIOUS
                     </span>
-                    <span className="text-xs font-bold text-slate-300 block mt-0.5">
+                    <span className="text-sm sm:text-base font-bold text-slate-200 block min-h-[24px] leading-tight mt-1 truncate">
                       {formatOdometerReading(reading.previousReading)} cu.m.
                     </span>
                   </div>
 
-                  <div>
-                    <span className="text-[9px] uppercase font-bold text-sky-400 tracking-wider block">
+                  <div className="flex flex-col justify-center min-w-[75px] h-full">
+                    <span className="text-xs uppercase font-bold text-sky-400 tracking-wider block min-h-[16px] leading-tight">
                       PRESENT
                     </span>
-                    <span className="text-xs font-black text-sky-300 block mt-0.5">
+                    <span className="text-sm sm:text-base font-black text-sky-300 block min-h-[24px] leading-tight mt-1 truncate">
                       {formatOdometerReading(reading.currentReading)} cu.m.
                     </span>
                   </div>
 
-                  <div>
-                    <span className="text-[9px] uppercase font-bold text-emerald-400 tracking-wider block">
+                  {/* Consumption Container with Fixed Height and Min Dimensions */}
+                  <div className="flex flex-col justify-center min-w-[75px] h-full">
+                    <span className="text-xs uppercase font-bold text-emerald-400 tracking-wider block min-h-[16px] leading-tight">
                       CONSUMPTION
                     </span>
-                    <span className="text-xs font-black text-emerald-400 block mt-0.5">
+                    <span className="text-sm sm:text-base font-black text-emerald-400 block min-h-[24px] leading-tight mt-1 truncate">
                       +{reading.consumption} cu.m.
                     </span>
                   </div>

@@ -127,5 +127,60 @@ div:has(> table)::-webkit-scrollbar-thumb {
 div:has(> table)::-webkit-scrollbar-thumb:hover {
   background: #475569;
 }
+/* ==========================================================================
+   Mobile-First High Readability & Ergonomic Field Typography
+   Ensures text is never too small or thin, with accessible touch padding
+   ========================================================================== */
 
+/* Set accessible base font size and robust rendering across mobile viewports */
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
 
+body {
+  font-size: 0.9375rem; /* ~15px base text */
+  line-height: 1.5;
+  color: #f1f5f9; /* slate-100 */
+  font-weight: 450;
+  letter-spacing: 0.01em;
+}
+
+/* Eliminate ultra-thin or hairline typography - ensure solid readable strokes */
+p, span, label, button, a, input, select, textarea {
+  font-weight: 500;
+}
+
+/* Boost readability for small and micro text: minimum font size is 12px with bold contrast */
+.text-\[9px\], .text-\[9\.5px\], .text-\[10px\], .text-\[10\.5px\], .text-\[11px\], .text-xs {
+  font-size: 0.8125rem !important; /* minimum 13px on mobile */
+  line-height: 1.35 !important;
+  font-weight: 600 !important;
+}
+
+/* Enhance odometer and consumption figures with thick, prominent dial numbers */
+.font-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em;
+}
+
+/* Ensure mobile cards, inputs, and buttons have comfortable ergonomic padding */
+input, select, textarea {
+  font-size: 1rem !important; /* 16px prevents iOS auto-zoom on focus */
+  min-height: 2.75rem;
+}
+
+button {
+  min-height: 2.5rem;
+  touch-action: manipulation;
+}
+
+/* Stable card layout constraints preventing jitter or moving content */
+.reading-card,
+.consumer-card {
+  contain: layout;
+}

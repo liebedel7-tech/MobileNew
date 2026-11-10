@@ -50,7 +50,8 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
     .sort((a, b) => {
       const timeA = new Date(`${a.readingDate}T${a.readingTime?.replace(/\s*(AM|PM)/i, '') || '00:00:00'}`).getTime();
       const timeB = new Date(`${b.readingDate}T${b.readingTime?.replace(/\s*(AM|PM)/i, '') || '00:00:00'}`).getTime();
-      return timeB - timeA;
+      if (timeB !== timeA) return timeB - timeA;
+      return (a.id || '').localeCompare(b.id || '');
     });
 
   const isReadyForReading = isValidatedForFieldReading(consumer);
@@ -287,31 +288,31 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
             )}
           </div>
 
-          {/* 3-Column Odometer Breakdown */}
-          <div className="grid grid-cols-3 gap-2 bg-slate-950/80 rounded-xl p-3 border border-slate-800/80 text-center font-mono">
-            <div>
-              <span className="text-[9.5px] uppercase font-bold text-slate-500 tracking-wider block">
+          {/* 3-Column Odometer Breakdown with Fixed Dimensions */}
+          <div className="grid grid-cols-3 gap-2 bg-slate-950/80 rounded-xl p-3 border border-slate-800/80 text-center font-mono min-h-[72px] h-[72px] items-center">
+            <div className="flex flex-col justify-center min-w-[75px] h-full">
+              <span className="text-[10px] sm:text-xs uppercase font-bold text-slate-400 tracking-wider block min-h-[16px] leading-tight">
                 PREVIOUS BASELINE
               </span>
-              <span className="text-xs sm:text-sm font-bold text-slate-200 block mt-0.5">
+              <span className="text-xs sm:text-sm font-bold text-slate-200 block min-h-[22px] leading-tight mt-0.5 truncate">
                 {formatOdometerReading(consumer.currentMonthReading.previousReading ?? consumer.previousReading)} cu.m.
               </span>
             </div>
 
-            <div>
-              <span className="text-[9.5px] uppercase font-bold text-sky-400 tracking-wider block">
+            <div className="flex flex-col justify-center min-w-[75px] h-full">
+              <span className="text-[10px] sm:text-xs uppercase font-bold text-sky-400 tracking-wider block min-h-[16px] leading-tight">
                 PRESENT INDEX
               </span>
-              <span className="text-xs sm:text-sm font-black text-sky-300 block mt-0.5">
+              <span className="text-xs sm:text-sm font-black text-sky-300 block min-h-[22px] leading-tight mt-0.5 truncate">
                 {formatOdometerReading(consumer.currentMonthReading.currentReading)} cu.m.
               </span>
             </div>
 
-            <div>
-              <span className="text-[9.5px] uppercase font-bold text-emerald-400 tracking-wider block">
+            <div className="flex flex-col justify-center min-w-[75px] h-full">
+              <span className="text-[10px] sm:text-xs uppercase font-bold text-emerald-400 tracking-wider block min-h-[16px] leading-tight">
                 CONSUMPTION
               </span>
-              <span className="text-xs sm:text-sm font-black text-emerald-400 block mt-0.5">
+              <span className="text-xs sm:text-sm font-black text-emerald-400 block min-h-[22px] leading-tight mt-0.5 truncate">
                 +{consumer.currentMonthReading.consumption} cu.m.
               </span>
             </div>
@@ -422,29 +423,29 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
                     </span>
                   </div>
 
-                  {/* 4-Column Progression Grid with Previous, Present, Consumption, and Billed Amount */}
-                  <div className="bg-slate-900/90 rounded-xl p-2.5 border border-slate-800/80 grid grid-cols-2 sm:grid-cols-4 gap-2 text-center font-mono">
-                    <div>
-                      <span className="text-xs uppercase font-semibold text-slate-400 block">PREVIOUS</span>
-                      <span className="text-sm font-bold text-slate-200 block mt-0.5">
+                  {/* 4-Column Progression Grid with Fixed Dimensions */}
+                  <div className="bg-slate-900/90 rounded-xl p-2.5 border border-slate-800/80 grid grid-cols-2 sm:grid-cols-4 gap-2 text-center font-mono min-h-[64px] items-center">
+                    <div className="min-w-[65px] h-full flex flex-col justify-center">
+                      <span className="text-xs uppercase font-semibold text-slate-400 block min-h-[16px]">PREVIOUS</span>
+                      <span className="text-sm font-bold text-slate-200 block mt-0.5 min-h-[20px] truncate">
                         {formatOdometerReading(reading.previousReading)} cu.m.
                       </span>
                     </div>
-                    <div>
-                      <span className="text-xs uppercase font-semibold text-sky-400 block">PRESENT</span>
-                      <span className="text-sm font-black text-sky-300 block mt-0.5">
+                    <div className="min-w-[65px] h-full flex flex-col justify-center">
+                      <span className="text-xs uppercase font-semibold text-sky-400 block min-h-[16px]">PRESENT</span>
+                      <span className="text-sm font-black text-sky-300 block mt-0.5 min-h-[20px] truncate">
                         {formatOdometerReading(reading.currentReading)} cu.m.
                       </span>
                     </div>
-                    <div>
-                      <span className="text-xs uppercase font-semibold text-emerald-400 block">CONSUMPTION</span>
-                      <span className="text-sm font-black text-emerald-400 block mt-0.5">
+                    <div className="min-w-[65px] h-full flex flex-col justify-center">
+                      <span className="text-xs uppercase font-semibold text-emerald-400 block min-h-[16px]">CONSUMPTION</span>
+                      <span className="text-sm font-black text-emerald-400 block mt-0.5 min-h-[20px] truncate">
                         +{reading.consumption} cu.m.
                       </span>
                     </div>
-                    <div>
-                      <span className="text-xs uppercase font-semibold text-amber-400 block">BILLED AMOUNT</span>
-                      <span className="text-sm font-black text-amber-300 block mt-0.5">
+                    <div className="min-w-[65px] h-full flex flex-col justify-center">
+                      <span className="text-xs uppercase font-semibold text-amber-400 block min-h-[16px]">BILLED AMOUNT</span>
+                      <span className="text-sm font-black text-amber-300 block mt-0.5 min-h-[20px] truncate">
                         ₱{billAmount}
                       </span>
                     </div>

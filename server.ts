@@ -270,7 +270,7 @@ const getGeminiClient = () => {
 
 import { INITIAL_CONSUMERS as DEFAULT_SEED_CONSUMERS, INITIAL_READERS } from './src/data/seedData';
 import { SEED_HISTORICAL_READINGS } from './src/data/seedReadings';
-import { isConsumerInAssignedAreas, isValidatedForFieldReading } from './src/constants/routes';
+import { isConsumerInAssignedAreas, isValidatedForFieldReading, parseReadingTimestamp } from './src/constants/routes';
 
 // Initial Seed Consumers for Tagoloan Water District (WDT), Misamis Oriental
 // Includes active verified consumers plus pending applicants awaiting Administrator ID issuance
@@ -1875,11 +1875,12 @@ function getAuthoritativePreviousReading(accountNumber: string, meterSerial?: st
   });
 
   if (approvedReadings.length > 0) {
-    // Sort newest approved first
+    // Sort newest approved first using robust timestamp parsing and tie-breaker
     approvedReadings.sort((a: any, b: any) => {
-      const timeA = new Date(a.approvedAt || `${a.readingDate}T${a.readingTime || '00:00:00'}`).getTime();
-      const timeB = new Date(b.approvedAt || `${b.readingDate}T${b.readingTime || '00:00:00'}`).getTime();
-      return timeB - timeA;
+      const timeA = parseReadingTimestamp(a);
+      const timeB = parseReadingTimestamp(b);
+      if (timeB !== timeA) return timeB - timeA;
+      return String(a.id || '').localeCompare(String(b.id || ''));
     });
     return Number(approvedReadings[0].currentReading || 0);
   }

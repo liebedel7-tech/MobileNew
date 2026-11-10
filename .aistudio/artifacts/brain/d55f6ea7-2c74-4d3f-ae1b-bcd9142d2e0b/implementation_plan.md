@@ -121,3 +121,20 @@ When the Administrator approves or accepts meter readings:
      - Queried existing records to preserve local deterministic IDs when matching account numbers are present, ensuring `store.put` performs updates instead of causing primary key conflicts.
      - Wrapped individual operations and gracefully handled transaction events so background sync operations never throw unhandled rejections.
 
+
+
+---
+
+## 10. Mobile Readability & Zero Cumulative Layout Shift (CLS)
+1. **Typography & Readability Upgrade**:
+   - `src/index.css`: Mobile base font scale set to 16px with minimum 13px (`0.8125rem`) for secondary labels and micro-text.
+   - Odometers and reading figures enforce `font-weight: 600` / bold with high contrast so field readers can view meters clearly in direct sunlight.
+   - Enforced 44px min touch targets on input fields, buttons, and filter tabs.
+2. **Layout Shift Prevention**:
+   - `src/screens/HistoryScreen.tsx`, `src/screens/DashboardScreen.tsx`, and `src/screens/ConsumersScreen.tsx`:
+     - Applied fixed height (`h-7 min-h-[28px]`) to consumer name and account tag header rows with `truncate` on text elements.
+     - Applied fixed height (`h-[72px] min-h-[72px] items-center`) to the 3-column odometer grid (`PREVIOUS`, `PRESENT`, `CONSUMPTION`).
+     - Added column wrappers with `min-w-[75px] h-full flex flex-col justify-center` and min-heights on labels (`min-h-[16px]`) and readings (`min-h-[24px]`).
+   - Consumer card and history updates now render with rock-solid, zero layout shift.
+3. **Deterministic Stable Sorting**:
+   - Added secondary string comparisons (`accountNumber.localeCompare()` and `id.localeCompare()`) when sorting readings and consumer pools to guarantee identical ordering across re-renders when timestamps match.

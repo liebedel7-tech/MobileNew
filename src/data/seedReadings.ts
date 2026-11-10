@@ -26,8 +26,14 @@ export function generateSeedHistoricalReadings(): MeterReading[] {
 
     // Cycle 1: October 2026 (The immediate previous baseline)
     const cons1 = Number(consumer.previousConsumption || Math.max(10, avg));
-    const curr1 = baseline;
-    const prev1 = Math.max(0, curr1 - cons1);
+    // If consumer initial index is 0, give realistic meter readings (prev = 100, curr = 100 + cons1)
+    // so PREVIOUS and PRESENT are not both 00000 cu.m. when consumption is +19 cu.m.
+    let curr1 = baseline;
+    let prev1 = Math.max(0, curr1 - cons1);
+    if (baseline === 0) {
+      prev1 = 80;
+      curr1 = prev1 + cons1;
+    }
     const date1 = '2026-10-25';
     const bill1 = CalculationService.calculateWaterBill(category, prev1, curr1, date1);
 

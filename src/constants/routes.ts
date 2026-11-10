@@ -410,3 +410,58 @@ export function parseOdometerReading(input: number | string | undefined | null):
   return Math.min(99999, Math.max(0, parseInt(clean, 10)));
 }
 
+/**
+ * Safely parses any reading record into a deterministic epoch timestamp in milliseconds.
+ * Handles ISO strings (approvedAt, createdAt), 12-hour AM/PM times (e.g. "09:30 AM", "10:00 PM"),
+ * and YYYY-MM-DD date strings without ever returning NaN.
+ */
+export function parseReadingTimestamp(reading: any): number {
+  if (!reading) return 0;
+
+  // 1. If approvedAt / createdAt / receivedAt is a valid ISO string
+  if (reading.approvedAt) {
+    const t = new Date(reading.approvedAt).getTime();
+    if (!isNaN(t) && t > 0) return t;
+  }
+  if (reading.createdAt) {
+    const t = new Date(reading.createdAt).getTime();
+    if (!isNaN(t) && t > 0) return t;
+  }
+  if (reading.receivedAt) {
+    const t = new Date(reading.receivedAt).getTime();
+    if (!isNaN(t) && t > 0) return t;
+  }
+
+  // 2. Parse readingDate and readingTime
+  const dateStr = reading.readingDate || reading.date || '2026-01-01';
+  let hours = 12;
+  let minutes = 0;
+  let seconds = 0;
+
+  const timeStr = reading.readingTime || reading.time;
+  if (timeStr && typeof timeStr === 'string') {
+    const timeMatch = timeStr.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i);
+    if (timeMatch) {
+      hours = parseInt(timeMatch[1], 10);
+      minutes = parseInt(timeMatch[2], 10);
+      seconds = timeMatch[3] ? parseInt(timeMatch[3], 10) : 0;
+      const meridiem = timeMatch[4] ? timeMatch[4].toUpperCase() : null;
+      if (meridiem === 'PM' && hours < 12) hours += 12;
+      if (meridiem === 'AM' && hours === 12) hours = 0;
+    }
+  }
+
+  const parts = String(dateStr).split('-');
+  if (parts.length === 3) {
+    const yr = parseInt(parts[0], 10);
+    const mo = parseInt(parts[1], 10) - 1;
+    const da = parseInt(parts[2], 10);
+    const d = new Date(yr, mo, da, hours, minutes, seconds).getTime();
+    if (!isNaN(d) && d > 0) return d;
+  }
+
+  const fallback = new Date(dateStr).getTime();
+  return isNaN(fallback) ? 0 : fallback;
+}
+
+

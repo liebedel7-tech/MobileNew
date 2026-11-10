@@ -1,0 +1,154 @@
+2m=_b:1536 No ID or name found in config.
+updateJsLog @ m=_b:1536
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app:24678/?token=bF3nUru2tt29' failed: Error in connection establishment: net::ERR_CONNECTION_TIMED_OUT
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app:24678/?token=bF3nUru2tt29' failed: Error in connection establishment: net::ERR_CONNECTION_TIMED_OUT
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app:24678/?token=HjV9qkXAQetL' failed: Error in connection establishment: net::ERR_CONNECTION_TIMED_OUT
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+3editor.main.js:122 Uncaught (in promise) Canceled: Canceled
+2m=_b:1536 No ID or name found in config.
+updateJsLog @ m=_b:1536
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app:24678/?token=HjV9qkXAQetL' failed: Error in connection establishment: net::ERR_CONNECTION_TIMED_OUT
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+990The resource <URL> was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally.
+m=_b:1536 No ID or name found in config.
+updateJsLog @ m=_b:1536
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app:24678/?token=ccNThVdDSL8w' failed: Error in connection establishment: net::ERR_CONNECTION_TIMED_OUT
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Connection closed before receiving a handshake response
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ The powerPreference option is currently ignored when calling requestAdapter() on Windows. See https://crbug.com/369219127
+eval @ (unknown)
+/apps/d55f6ea7-2c74-4d3f-ae1b-bcd9142d2e0b?showPreview=true&showAssistant=true&appParams=landing:1 No available adapters.
+ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/api/readings:1  Failed to load resource: the server responded with a status of 503 (Service Unavailable (Offline))
+twd-427m.onrender.com/api/readings:1  Failed to load resource: the server responded with a status of 503 (Service Unavailable (Offline))
+mobile-li9q.onrender.com/api/readings:1  Failed to load resource: the server responded with a status of 503 (Service Unavailable (Offline))
+ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/api/readings:1  Failed to load resource: the server responded with a status of 503 (Service Unavailable (Offline))
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error in connection establishment: net::ERR_SOCKET_NOT_CONNECTED
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error during WebSocket handshake: net::ERR_CONNECTION_RESET
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ The powerPreference option is currently ignored when calling requestAdapter() on Windows. See https://crbug.com/369219127
+eval @ (unknown)
+/apps/d55f6ea7-2c74-4d3f-ae1b-bcd9142d2e0b?showPreview=true&showAssistant=true&appParams=landing:1 No available adapters.
+editor.main.js:601 Creating a worker from 'https://aistudio.google.com/monaco/IWU5O3yRaE9v/worker.js' violates the following Content Security Policy directive: "script-src 'unsafe-inline' 'unsafe-eval' blob: data: https://accounts.google.com/gsi/client https://apis.google.com/js/api.js https://billing-ads-qa-devel.corp.google.com/payments/v4/js/integrator.js https://payments.google.com/payments/v4/js/integrator.js https://payments.sandbox.google.com/payments/v4/js/integrator.js https://www.googletagmanager.com/gtm.js https://www.gstatic.com/glue/cookienotificationbar/cookienotificationbar.min.js https://www-onepick-opensocial.googleusercontent.com/gadgets/js/rpc.js https://www.google.com/tools/feedback/chat_load.js https://www.google.com/tools/feedback/help_api.js https://www.google.com/tools/feedback/load.js https://www.google.com/tools/feedback/open.js https://www.google.com/tools/feedback/open_to_help_guide_lazy.js https://www.gstatic.com/feedback/js/ https://www.gstatic.com/feedback/js/help/prod/service/lazy.min.js https://www.gstatic.com/inproduct_help/api/main.min.js https://www.gstatic.com/inproduct_help/chatsupport/chatsupport_button_v2.js https://www.gstatic.com/inproduct_help/service/lazy.min.js https://www.gstatic.com/uservoice/feedback/client/web/live/ https://www.gstatic.com/uservoice/surveys/resources/prod/js/survey/ https://www.googletagmanager.com/gtag/js https://www.google-analytics.com/analytics.js https://www.googletagmanager.com/gtag/destination https://www.gstatic.com/_/mss/boq-makersuite/_/js/k=boq-makersuite.MakerSuite.en.0yKf50XJzlQ.2018.O/ https://apis.google.com/_/scs/abc-static/_/js/ https://payments.google.com/payments/u/0/v4/js/integrator.js https://payments.youtube.com/payments/v4/js/integrator.js https://payments.youtube.com/payments/u/0/v4/js/integrator.js https://payments.cloud.google/payments/v4/js/integrator.js". Note that 'worker-src' was not explicitly set, so 'script-src' is used as a fallback. The policy is report-only, so the violation has been logged but no further action has been taken.
+2editor.main.js:122 Uncaught (in promise) Canceled: Canceled
+2m=_b:1536 No ID or name found in config.
+updateJsLog @ m=_b:1536
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app:24678/?token=ef73exxrYlOB' failed: Error in connection establishment: net::ERR_CONNECTION_TIMED_OUT
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error during WebSocket handshake: 'Sec-WebSocket-Accept' header is missing
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error during WebSocket handshake: 'Sec-WebSocket-Accept' header is missing
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error during WebSocket handshake: 'Sec-WebSocket-Accept' header is missing
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error during WebSocket handshake: 'Sec-WebSocket-Accept' header is missing
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error during WebSocket handshake: 'Sec-WebSocket-Accept' header is missing
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error during WebSocket handshake: 'Sec-WebSocket-Accept' header is missing
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error during WebSocket handshake: 'Sec-WebSocket-Accept' header is missing
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error during WebSocket handshake: 'Sec-WebSocket-Accept' header is missing
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error during WebSocket handshake: 'Sec-WebSocket-Accept' header is missing
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error during WebSocket handshake: 'Sec-WebSocket-Accept' header is missing
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error during WebSocket handshake: 'Sec-WebSocket-Accept' header is missing
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error during WebSocket handshake: 'Sec-WebSocket-Accept' header is missing
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app:24678/?token=Soe_FYsNsYOo' failed: Error in connection establishment: net::ERR_CONNECTION_TIMED_OUT
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+m=Jn51xb:2759 JetskiLog: currentStep changed to 0
+(anonymous) @ m=Jn51xb:2759
+editor.main.js:601 Creating a worker from 'https://aistudio.google.com/monaco/IWU5O3yRaE9v/worker.js' violates the following Content Security Policy directive: "script-src 'unsafe-inline' 'unsafe-eval' blob: data: https://accounts.google.com/gsi/client https://apis.google.com/js/api.js https://billing-ads-qa-devel.corp.google.com/payments/v4/js/integrator.js https://payments.google.com/payments/v4/js/integrator.js https://payments.sandbox.google.com/payments/v4/js/integrator.js https://www.googletagmanager.com/gtm.js https://www.gstatic.com/glue/cookienotificationbar/cookienotificationbar.min.js https://www-onepick-opensocial.googleusercontent.com/gadgets/js/rpc.js https://www.google.com/tools/feedback/chat_load.js https://www.google.com/tools/feedback/help_api.js https://www.google.com/tools/feedback/load.js https://www.google.com/tools/feedback/open.js https://www.google.com/tools/feedback/open_to_help_guide_lazy.js https://www.gstatic.com/feedback/js/ https://www.gstatic.com/feedback/js/help/prod/service/lazy.min.js https://www.gstatic.com/inproduct_help/api/main.min.js https://www.gstatic.com/inproduct_help/chatsupport/chatsupport_button_v2.js https://www.gstatic.com/inproduct_help/service/lazy.min.js https://www.gstatic.com/uservoice/feedback/client/web/live/ https://www.gstatic.com/uservoice/surveys/resources/prod/js/survey/ https://www.googletagmanager.com/gtag/js https://www.google-analytics.com/analytics.js https://www.googletagmanager.com/gtag/destination https://www.gstatic.com/_/mss/boq-makersuite/_/js/k=boq-makersuite.MakerSuite.en.0yKf50XJzlQ.2018.O/ https://apis.google.com/_/scs/abc-static/_/js/ https://payments.google.com/payments/u/0/v4/js/integrator.js https://payments.youtube.com/payments/v4/js/integrator.js https://payments.youtube.com/payments/u/0/v4/js/integrator.js https://payments.cloud.google/payments/v4/js/integrator.js". Note that 'worker-src' was not explicitly set, so 'script-src' is used as a fallback. The policy is report-only, so the violation has been logged but no further action has been taken.
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error during WebSocket handshake: 'Sec-WebSocket-Accept' header is missing
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error during WebSocket handshake: 'Sec-WebSocket-Accept' header is missing
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error during WebSocket handshake: 'Sec-WebSocket-Accept' header is missing
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error during WebSocket handshake: 'Sec-WebSocket-Accept' header is missing
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+2m=_b:1536 No ID or name found in config.
+updateJsLog @ m=_b:1536
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app:24678/?token=hruYDiPM8Men' failed: Error in connection establishment: net::ERR_CONNECTION_TIMED_OUT
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+m=Jn51xb:2759 JetskiLog: currentStep changed to 0
+(anonymous) @ m=Jn51xb:2759
+VM1412:1 The powerPreference option is currently ignored when calling requestAdapter() on Windows. See https://crbug.com/369219127
+eval @ VM1412:1
+/apps/d55f6ea7-2c74-4d3f-ae1b-bcd9142d2e0b?showPreview=true&showAssistant=true&appParams=landing:1 No available adapters.
+m=iYOGl:5 Loading the script 'https://www.gstatic.com/external_hosted/katex/dist/katex.min.js' violates the following Content Security Policy directive: "script-src 'unsafe-inline' 'unsafe-eval' blob: data: https://accounts.google.com/gsi/client https://apis.google.com/js/api.js https://billing-ads-qa-devel.corp.google.com/payments/v4/js/integrator.js https://payments.google.com/payments/v4/js/integrator.js https://payments.sandbox.google.com/payments/v4/js/integrator.js https://www.googletagmanager.com/gtm.js https://www.gstatic.com/glue/cookienotificationbar/cookienotificationbar.min.js https://www-onepick-opensocial.googleusercontent.com/gadgets/js/rpc.js https://www.google.com/tools/feedback/chat_load.js https://www.google.com/tools/feedback/help_api.js https://www.google.com/tools/feedback/load.js https://www.google.com/tools/feedback/open.js https://www.google.com/tools/feedback/open_to_help_guide_lazy.js https://www.gstatic.com/feedback/js/ https://www.gstatic.com/feedback/js/help/prod/service/lazy.min.js https://www.gstatic.com/inproduct_help/api/main.min.js https://www.gstatic.com/inproduct_help/chatsupport/chatsupport_button_v2.js https://www.gstatic.com/inproduct_help/service/lazy.min.js https://www.gstatic.com/uservoice/feedback/client/web/live/ https://www.gstatic.com/uservoice/surveys/resources/prod/js/survey/ https://www.googletagmanager.com/gtag/js https://www.google-analytics.com/analytics.js https://www.googletagmanager.com/gtag/destination https://www.gstatic.com/_/mss/boq-makersuite/_/js/k=boq-makersuite.MakerSuite.en.0yKf50XJzlQ.2018.O/ https://apis.google.com/_/scs/abc-static/_/js/ https://payments.google.com/payments/u/0/v4/js/integrator.js https://payments.youtube.com/payments/v4/js/integrator.js https://payments.youtube.com/payments/u/0/v4/js/integrator.js https://payments.cloud.google/payments/v4/js/integrator.js". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The policy is report-only, so the violation has been logged but no further action has been taken.
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+m=Jn51xb:2027 Origin trial controlled feature not enabled: 'writer'.
+(anonymous) @ m=Jn51xb:2027
+m=Jn51xb:2027 Origin trial controlled feature not enabled: 'rewriter'.
+(anonymous) @ m=Jn51xb:2027
+m=Jn51xb:2027 Unrecognized feature: 'proofreader'.
+(anonymous) @ m=Jn51xb:2027
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app:24678/?token=-Gu23jZe2g8A' failed: Error in connection establishment: net::ERR_CONNECTION_TIMED_OUT
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+editor.main.js:601 Creating a worker from 'https://aistudio.google.com/monaco/IWU5O3yRaE9v/worker.js' violates the following Content Security Policy directive: "script-src 'unsafe-inline' 'unsafe-eval' blob: data: https://accounts.google.com/gsi/client https://apis.google.com/js/api.js https://billing-ads-qa-devel.corp.google.com/payments/v4/js/integrator.js https://payments.google.com/payments/v4/js/integrator.js https://payments.sandbox.google.com/payments/v4/js/integrator.js https://www.googletagmanager.com/gtm.js https://www.gstatic.com/glue/cookienotificationbar/cookienotificationbar.min.js https://www-onepick-opensocial.googleusercontent.com/gadgets/js/rpc.js https://www.google.com/tools/feedback/chat_load.js https://www.google.com/tools/feedback/help_api.js https://www.google.com/tools/feedback/load.js https://www.google.com/tools/feedback/open.js https://www.google.com/tools/feedback/open_to_help_guide_lazy.js https://www.gstatic.com/feedback/js/ https://www.gstatic.com/feedback/js/help/prod/service/lazy.min.js https://www.gstatic.com/inproduct_help/api/main.min.js https://www.gstatic.com/inproduct_help/chatsupport/chatsupport_button_v2.js https://www.gstatic.com/inproduct_help/service/lazy.min.js https://www.gstatic.com/uservoice/feedback/client/web/live/ https://www.gstatic.com/uservoice/surveys/resources/prod/js/survey/ https://www.googletagmanager.com/gtag/js https://www.google-analytics.com/analytics.js https://www.googletagmanager.com/gtag/destination https://www.gstatic.com/_/mss/boq-makersuite/_/js/k=boq-makersuite.MakerSuite.en.0yKf50XJzlQ.2018.O/ https://apis.google.com/_/scs/abc-static/_/js/ https://payments.google.com/payments/u/0/v4/js/integrator.js https://payments.youtube.com/payments/v4/js/integrator.js https://payments.youtube.com/payments/u/0/v4/js/integrator.js https://payments.cloud.google/payments/v4/js/integrator.js". Note that 'worker-src' was not explicitly set, so 'script-src' is used as a fallback. The policy is report-only, so the violation has been logged but no further action has been taken.
+IWU5O3yRaE9v/vs/loader.js:6 Loading the script 'https://www.gstatic.com/monaco_editor/IWU5O3yRaE9v/vs/basic-languages/javascript/javascript.js' violates the following Content Security Policy directive: "script-src 'unsafe-inline' 'unsafe-eval' blob: data: https://accounts.google.com/gsi/client https://apis.google.com/js/api.js https://billing-ads-qa-devel.corp.google.com/payments/v4/js/integrator.js https://payments.google.com/payments/v4/js/integrator.js https://payments.sandbox.google.com/payments/v4/js/integrator.js https://www.googletagmanager.com/gtm.js https://www.gstatic.com/glue/cookienotificationbar/cookienotificationbar.min.js https://www-onepick-opensocial.googleusercontent.com/gadgets/js/rpc.js https://www.google.com/tools/feedback/chat_load.js https://www.google.com/tools/feedback/help_api.js https://www.google.com/tools/feedback/load.js https://www.google.com/tools/feedback/open.js https://www.google.com/tools/feedback/open_to_help_guide_lazy.js https://www.gstatic.com/feedback/js/ https://www.gstatic.com/feedback/js/help/prod/service/lazy.min.js https://www.gstatic.com/inproduct_help/api/main.min.js https://www.gstatic.com/inproduct_help/chatsupport/chatsupport_button_v2.js https://www.gstatic.com/inproduct_help/service/lazy.min.js https://www.gstatic.com/uservoice/feedback/client/web/live/ https://www.gstatic.com/uservoice/surveys/resources/prod/js/survey/ https://www.googletagmanager.com/gtag/js https://www.google-analytics.com/analytics.js https://www.googletagmanager.com/gtag/destination https://www.gstatic.com/_/mss/boq-makersuite/_/js/k=boq-makersuite.MakerSuite.en.0yKf50XJzlQ.2018.O/ https://apis.google.com/_/scs/abc-static/_/js/ https://payments.google.com/payments/u/0/v4/js/integrator.js https://payments.youtube.com/payments/v4/js/integrator.js https://payments.youtube.com/payments/u/0/v4/js/integrator.js https://payments.cloud.google/payments/v4/js/integrator.js". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The policy is report-only, so the violation has been logged but no further action has been taken.
+editor.main.js:601 Creating a worker from 'https://aistudio.google.com/monaco/IWU5O3yRaE9v/worker.js' violates the following Content Security Policy directive: "script-src 'unsafe-inline' 'unsafe-eval' blob: data: https://accounts.google.com/gsi/client https://apis.google.com/js/api.js https://billing-ads-qa-devel.corp.google.com/payments/v4/js/integrator.js https://payments.google.com/payments/v4/js/integrator.js https://payments.sandbox.google.com/payments/v4/js/integrator.js https://www.googletagmanager.com/gtm.js https://www.gstatic.com/glue/cookienotificationbar/cookienotificationbar.min.js https://www-onepick-opensocial.googleusercontent.com/gadgets/js/rpc.js https://www.google.com/tools/feedback/chat_load.js https://www.google.com/tools/feedback/help_api.js https://www.google.com/tools/feedback/load.js https://www.google.com/tools/feedback/open.js https://www.google.com/tools/feedback/open_to_help_guide_lazy.js https://www.gstatic.com/feedback/js/ https://www.gstatic.com/feedback/js/help/prod/service/lazy.min.js https://www.gstatic.com/inproduct_help/api/main.min.js https://www.gstatic.com/inproduct_help/chatsupport/chatsupport_button_v2.js https://www.gstatic.com/inproduct_help/service/lazy.min.js https://www.gstatic.com/uservoice/feedback/client/web/live/ https://www.gstatic.com/uservoice/surveys/resources/prod/js/survey/ https://www.googletagmanager.com/gtag/js https://www.google-analytics.com/analytics.js https://www.googletagmanager.com/gtag/destination https://www.gstatic.com/_/mss/boq-makersuite/_/js/k=boq-makersuite.MakerSuite.en.0yKf50XJzlQ.2018.O/ https://apis.google.com/_/scs/abc-static/_/js/ https://payments.google.com/payments/u/0/v4/js/integrator.js https://payments.youtube.com/payments/v4/js/integrator.js https://payments.youtube.com/payments/u/0/v4/js/integrator.js https://payments.cloud.google/payments/v4/js/integrator.js". Note that 'worker-src' was not explicitly set, so 'script-src' is used as a fallback. The policy is report-only, so the violation has been logged but no further action has been taken.
+editor.main.js:122 Uncaught (in promise) Canceled: Canceled
+IWU5O3yRaE9v/vs/loader.js:8 Duplicate definition of module 'vs/basic-languages/javascript/javascript'
+defineModule @ IWU5O3yRaE9v/vs/loader.js:8
+2m=_b:1536 No ID or name found in config.
+updateJsLog @ m=_b:1536
+_aistudio-iframe.js?v=1f94f900:399 [TWD-PWA] Service worker registered successfully: https://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/
+_aistudio-iframe.js?v=1f94f900:399 [TWD-WS] [4:47:49 PM] Attempting connection to wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws (attempt #1)...
+_aistudio-iframe.js?v=1f94f900:399 [TWD-WS] [4:47:49 PM] Connection established with Central Node: wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws
+_aistudio-iframe.js?v=1f94f900:399 [TWD-WS] [4:47:49 PM] Handshake confirmed: Tagoloan Water District Central Billing Node
+_aistudio-iframe.js?v=1f94f900:313 WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app:24678/?token=-Gu23jZe2g8A' failed: Error in connection establishment: net::ERR_CONNECTION_TIMED_OUT
+createWebSocket @ _aistudio-iframe.js?v=1f94f900:313
+_aistudio-iframe.js?v=1f94f900:409 [vite] failed to connect to websocket (Error: WebSocket closed without opened.). 
+error @ _aistudio-iframe.js?v=1f94f900:409
+client:454 Uncaught (in promise) Error: WebSocket closed without opened.
+    at WebSocket.<anonymous> (client:454:22)
+m=Jn51xb:2759 JetskiLog: currentStep changed to 0
+(anonymous) @ m=Jn51xb:2759
+57 log entries are not shown.

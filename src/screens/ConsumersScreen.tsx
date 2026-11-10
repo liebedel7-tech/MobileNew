@@ -74,7 +74,13 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
         unique.push(c);
       }
     }
-    return unique;
+    // Deterministic stable ordering prevents row jumping when reading updates occur
+    return unique.sort((a, b) => {
+      const seqA = a.sequenceNo ?? 99999;
+      const seqB = b.sequenceNo ?? 99999;
+      if (seqA !== seqB) return seqA - seqB;
+      return (a.accountNumber || '').localeCompare(b.accountNumber || '');
+    });
   }, [consumers, allRouteConsumers, filterStatus]);
 
   // Extract unique barangays in Tagoloan, ensuring all official barangays (including Rosario) are available
@@ -399,7 +405,9 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
                       )}
                     </div>
 
-                    <h3 className="font-bold text-base text-white truncate mt-1">{consumer.name}</h3>
+                    <div className="min-h-[26px] h-[26px] flex items-center overflow-hidden mt-1">
+                      <h3 className="font-bold text-base text-white truncate" title={consumer.name}>{consumer.name}</h3>
+                    </div>
 
                     <div className="text-xs text-slate-300 flex items-center gap-1.5 truncate mt-0.5">
                       <MapPin className="w-3.5 h-3.5 text-rose-400 shrink-0" />
@@ -421,23 +429,23 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
                       </div>
                     )}
 
-                    {/* Standardized 3-Column Odometer Breakdown */}
-                    <div className="mt-2.5 grid grid-cols-3 gap-2 bg-slate-950 rounded-xl p-3 border border-slate-800 text-center font-mono">
-                      <div>
-                        <span className="text-xs uppercase font-semibold text-slate-400 tracking-wider block">
+                    {/* Standardized 3-Column Odometer Breakdown with Fixed Dimensions & Zero Layout Shift */}
+                    <div className="mt-2.5 grid grid-cols-3 gap-2 bg-slate-950 rounded-xl p-3 border border-slate-800 text-center font-mono min-h-[72px] h-[72px] items-center">
+                      <div className="flex flex-col justify-center min-w-[75px] h-full">
+                        <span className="text-xs uppercase font-bold text-slate-400 tracking-wider block min-h-[16px] leading-tight">
                           PREVIOUS
                         </span>
-                        <span className="text-sm font-bold text-slate-200 block mt-0.5">
+                        <span className="text-sm sm:text-base font-bold text-slate-200 block min-h-[24px] leading-tight mt-1 truncate">
                           {formatOdometerReading(displayedPreviousReading)} cu.m.
                         </span>
                       </div>
 
-                      <div>
-                        <span className="text-xs uppercase font-semibold text-sky-400 tracking-wider block">
+                      <div className="flex flex-col justify-center min-w-[75px] h-full">
+                        <span className="text-xs uppercase font-bold text-sky-400 tracking-wider block min-h-[16px] leading-tight">
                           PRESENT
                         </span>
-                        <span className={`text-sm block mt-0.5 ${
-                          consumer.isReadThisMonth ? 'font-black text-sky-300' : 'text-slate-400 italic'
+                        <span className={`text-sm sm:text-base block min-h-[24px] leading-tight mt-1 truncate ${
+                          consumer.isReadThisMonth ? 'font-black text-sky-300' : 'text-slate-400 font-semibold italic'
                         }`}>
                           {consumer.isReadThisMonth && consumer.currentMonthReading
                             ? `${formatOdometerReading(consumer.currentMonthReading.currentReading)} cu.m.`
@@ -445,12 +453,12 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
                         </span>
                       </div>
 
-                      <div>
-                        <span className="text-xs uppercase font-semibold text-emerald-400 tracking-wider block">
+                      <div className="flex flex-col justify-center min-w-[75px] h-full">
+                        <span className="text-xs uppercase font-bold text-emerald-400 tracking-wider block min-h-[16px] leading-tight">
                           CONSUMPTION
                         </span>
-                        <span className={`text-sm font-black block mt-0.5 ${
-                          consumer.isReadThisMonth ? 'text-emerald-400' : 'text-slate-400'
+                        <span className={`text-sm sm:text-base font-black block min-h-[24px] leading-tight mt-1 truncate ${
+                          consumer.isReadThisMonth ? 'text-emerald-400' : 'text-slate-400 font-semibold'
                         }`}>
                           {consumer.isReadThisMonth && consumer.currentMonthReading
                             ? `+${consumer.currentMonthReading.consumption} cu.m.`

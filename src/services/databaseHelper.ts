@@ -2,7 +2,7 @@ import { Consumer, MeterReading, AuditLog, AppConfig, StaffUser, ReaderAccount, 
 import { universalApiFetch, getApiEndpoint } from './apiConfig';
 import { INITIAL_CONSUMERS as FULL_SEED_CONSUMERS, INITIAL_READERS } from '../data/seedData';
 import { SEED_HISTORICAL_READINGS } from '../data/seedReadings';
-import { isConsumerInAssignedAreas, isValidatedForFieldReading } from '../constants/routes';
+import { isConsumerInAssignedAreas, isValidatedForFieldReading, parseReadingTimestamp } from '../constants/routes';
 
 const DB_NAME = 'WDT_MeterReader_DB_v2';
 const DB_VERSION = 2;
@@ -194,11 +194,12 @@ export class DatabaseHelper {
       }),
     ]);
 
-    // Sort readings newest first to ensure the latest reading is always attached
+    // Sort readings newest first using robust epoch timestamp parsing
     const sortedReadings = [...allReadings].sort((a, b) => {
-      const timeA = new Date(`${a.readingDate}T${a.readingTime || '00:00:00'}`).getTime();
-      const timeB = new Date(`${b.readingDate}T${b.readingTime || '00:00:00'}`).getTime();
-      return timeB - timeA;
+      const timeA = parseReadingTimestamp(a);
+      const timeB = parseReadingTimestamp(b);
+      if (timeB !== timeA) return timeB - timeA;
+      return (a.accountNumber || a.id || '').localeCompare(b.accountNumber || b.id || '');
     });
 
     // Deduplicate consumers by accountNumber to guarantee no duplicate name display in mobile
@@ -614,11 +615,12 @@ export class DatabaseHelper {
           return;
         }
 
-        // Sort by approvedAt or readingDate descending
+        // Sort by approvedAt or readingDate descending using robust timestamp parser
         approved.sort((a, b) => {
-          const timeA = new Date(a.approvedAt || `${a.readingDate}T${a.readingTime || '00:00:00'}`).getTime();
-          const timeB = new Date(b.approvedAt || `${b.readingDate}T${b.readingTime || '00:00:00'}`).getTime();
-          return timeB - timeA;
+          const timeA = parseReadingTimestamp(a);
+          const timeB = parseReadingTimestamp(b);
+          if (timeB !== timeA) return timeB - timeA;
+          return (a.id || '').localeCompare(b.id || '');
         });
 
         resolve(approved[0]);
@@ -658,9 +660,10 @@ export class DatabaseHelper {
         }
 
         pending.sort((a, b) => {
-          const timeA = new Date(`${a.readingDate}T${a.readingTime || '00:00:00'}`).getTime();
-          const timeB = new Date(`${b.readingDate}T${b.readingTime || '00:00:00'}`).getTime();
-          return timeB - timeA;
+          const timeA = parseReadingTimestamp(a);
+          const timeB = parseReadingTimestamp(b);
+          if (timeB !== timeA) return timeB - timeA;
+          return (a.id || '').localeCompare(b.id || '');
         });
 
         resolve(pending[0]);
@@ -679,25 +682,16 @@ export class DatabaseHelper {
       request.onsuccess = () => {
         const rawList: MeterReading[] = request.result || [];
 
-        // Sort in strict chronological order: newest first
+        // Sort in strict chronological order: newest first using parseReadingTimestamp
         const sorted = [...rawList].sort((a, b) => {
-          const timeA = new Date(a.approvedAt || `${a.readingDate}T${a.readingTime || '00:00:00'}`).getTime();
-          const timeB = new Date(b.approvedAt || `${b.readingDate}T${b.readingTime || '00:00:00'}`).getTime();
-          return timeB - timeA;
+          const timeA = parseReadingTimestamp(a);
+          const timeB = parseReadingTimestamp(b);
+          if (timeB !== timeA) return timeB - timeA;
+          return (a.accountNumber || a.id || '').localeCompare(b.accountNumber || b.id || '');
         });
 
-        // Deduplicate records by account number to guarantee only ONE reading entry per consumer (newest first)
-        const seenAccounts = new Set<string>();
-        const deduplicated: MeterReading[] = [];
-        sorted.forEach((r) => {
-          const accKey = (r.accountNumber || '').trim().toLowerCase() || (r.consumerId || '').trim().toLowerCase() || r.id;
-          if (!seenAccounts.has(accKey)) {
-            seenAccounts.add(accKey);
-            deduplicated.push(r);
-          }
-        });
-
-        resolve(deduplicated);
+        // Return complete historical reading ledger (sorted newest first) so consumers' past cycles are fully available
+        resolve(sorted);
       };
       request.onerror = () => reject(request.error || new Error('Failed to fetch readings'));
     });

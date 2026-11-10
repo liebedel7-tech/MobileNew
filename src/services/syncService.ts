@@ -431,13 +431,34 @@ export class SyncService {
             });
 
             const enrichedConsumers: Consumer[] = issuedConsumers.map((c: Consumer) => {
-              const existingReading = sortedLocal.find(
-                (r) => r.consumerId === c.id || r.accountNumber === c.accountNumber
-              );
+              const currentCycleReading = sortedLocal.find((r) => {
+                const matchesAccount =
+                  r.consumerId === c.id ||
+                  (Boolean(r.accountNumber) &&
+                    Boolean(c.accountNumber) &&
+                    r.accountNumber.trim().toLowerCase() === c.accountNumber.trim().toLowerCase());
+                if (!matchesAccount) return false;
+
+                // Pending readings awaiting admin approval
+                const isPending =
+                  r.approvalStatus === 'pending_approval' ||
+                  r.status === 'PENDING_SYNC';
+                if (isPending) return true;
+
+                // Approved reading that represents a newly taken present reading beyond baseline
+                if (c.isReadThisMonth && (r.status === 'APPROVED' || r.approvalStatus === 'approved')) {
+                  return true;
+                }
+                if (Number(r.currentReading) > Number(c.previousReading) && (r.status === 'APPROVED' || r.approvalStatus === 'approved')) {
+                  return true;
+                }
+                return false;
+              });
+
               return {
                 ...c,
-                isReadThisMonth: !!existingReading,
-                currentMonthReading: existingReading,
+                isReadThisMonth: !!currentCycleReading,
+                currentMonthReading: currentCycleReading,
               };
             });
 
