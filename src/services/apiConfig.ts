@@ -93,14 +93,14 @@ export const LIVE_BACKEND_URL = typeof window !== 'undefined' && window.location
   ? window.location.origin 
   : '';
 
-export const DEFAULT_TAGOLOAN_CLOUD_URL = 'https://twd-427m.onrender.com';
-export const DEFAULT_MOBILE_RENDER_URL = 'https://mobile-li9q.onrender.com';
+export const DEFAULT_TAGOLOAN_CLOUD_URL = '';
+export const DEFAULT_MOBILE_RENDER_URL = '';
 
 // Dynamic Resolution: Default to the active server origin hosting this application
 // to guarantee 100% instant connectivity out of the box, with full support for external targets
 export const TAGOLOAN_SYSTEM_BASE_URL = typeof window !== 'undefined' && window.location?.origin
   ? window.location.origin
-  : DEFAULT_TAGOLOAN_CLOUD_URL;
+  : '';
 
 export const DEFAULT_SERVER_URL = TAGOLOAN_SYSTEM_BASE_URL;
 
@@ -200,7 +200,20 @@ export function getApiBaseUrl(): string {
 export function getCandidateBackendUrls(): string[] {
   const candidates: string[] = [];
 
-  // Candidate 1: Stored custom URL (if configured by admin or tester)
+  // Candidate 1: Current origin (relative / active host) - always primary for 100% reliable local server communication
+  if (typeof window !== 'undefined' && window.location && window.location.origin) {
+    const origin = window.location.origin;
+    if (origin.startsWith('http') && !candidates.includes(origin)) {
+      candidates.push(origin);
+    }
+  }
+
+  // Candidate 2: Relative path fallback
+  if (!candidates.includes('')) {
+    candidates.push('');
+  }
+
+  // Candidate 3: Stored custom URL (if configured by admin or tester)
   if (typeof window !== 'undefined' && window.localStorage) {
     const stored = window.localStorage.getItem('TWD_API_BASE_URL') || window.localStorage.getItem('twd_api_base_url');
     if (stored && stored.trim()) {
@@ -211,15 +224,7 @@ export function getCandidateBackendUrls(): string[] {
     }
   }
 
-  // Candidate 2: Current origin (relative / active host)
-  if (typeof window !== 'undefined' && window.location && window.location.origin) {
-    const origin = window.location.origin;
-    if (origin.startsWith('http') && !candidates.includes(origin)) {
-      candidates.push(origin);
-    }
-  }
-
-  // Candidate 3: Vite / Environment Variable overrides
+  // Candidate 4: Vite / Environment Variable overrides
   try {
     const meta = import.meta as any;
     if (meta && meta.env) {
@@ -236,21 +241,6 @@ export function getCandidateBackendUrls(): string[] {
     }
   } catch {
     // Ignore in non-vite environments
-  }
-
-  // Candidate 4: Official Tagoloan Render Central Billing & Admin Server
-  if (!candidates.includes('https://twd-427m.onrender.com')) {
-    candidates.push('https://twd-427m.onrender.com');
-  }
-
-  // Candidate 5: Official Tagoloan Render Mobile Applet Server
-  if (!candidates.includes('https://mobile-li9q.onrender.com')) {
-    candidates.push('https://mobile-li9q.onrender.com');
-  }
-
-  // Candidate 6: Default Cloud Service
-  if (!candidates.includes(DEFAULT_TAGOLOAN_CLOUD_URL)) {
-    candidates.push(DEFAULT_TAGOLOAN_CLOUD_URL);
   }
 
   return candidates.length > 0 ? candidates : [''];

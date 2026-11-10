@@ -60,25 +60,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 3. For API endpoints (/api/*): Network-first with silent fallback (do not throw TypeError)
+  // 3. For API endpoints (/api/*): Let network requests pass directly to the backend
   if (url.pathname.startsWith('/api/')) {
-    event.respondWith(
-      fetch(request).catch(() => {
-        // Return a clean offline 503 response instead of an uncaught rejected promise
-        return new Response(
-          JSON.stringify({
-            error: 'Offline',
-            message: 'Network request unavailable in offline mode. Local cached database active.',
-            offline: true
-          }),
-          {
-            status: 503,
-            statusText: 'Service Unavailable (Offline)',
-            headers: { 'Content-Type': 'application/json' }
-          }
-        );
-      })
-    );
     return;
   }
 

@@ -221,7 +221,7 @@ export const SystemConnectionScreen: React.FC<SystemConnectionScreenProps> = ({
     }
   };
 
-  const isCloudConnected = config.baseUrl.includes('onrender.com') || config.baseUrl.includes('asia-southeast1.run.app') || (healthResult?.success === true);
+  const isCloudConnected = (healthResult?.success === true) || Boolean(config.baseUrl && !config.baseUrl.includes('localhost'));
 
   return (
     <div className="p-3 sm:p-5 max-w-4xl mx-auto space-y-4 select-none pb-24 text-slate-100">
@@ -271,73 +271,33 @@ export const SystemConnectionScreen: React.FC<SystemConnectionScreenProps> = ({
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-slate-400 font-semibold text-[11px]">Active Endpoint:</span>
             <code className="text-sky-300 font-mono text-[11px] bg-slate-950 px-2 py-0.5 rounded border border-slate-800 truncate max-w-xs sm:max-w-md">
-              {config.baseUrl}
+              {config.baseUrl || '(Same Origin / Relative)'}
             </code>
-            <a
-              href="https://twd-427m.onrender.com/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-[11px] font-mono text-emerald-400 hover:text-emerald-300 transition"
-              title="Open Render Central Admin & Billing in new tab"
-            >
-              <span>(Central: twd-427m)</span>
-              <ExternalLink className="w-3 h-3" />
-            </a>
-            <a
-              href="https://mobile-li9q.onrender.com/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-[11px] font-mono text-sky-400 hover:text-sky-300 transition"
-              title="Open Render Mobile App in new tab"
-            >
-              <span>(Mobile: mobile-li9q)</span>
-              <ExternalLink className="w-3 h-3" />
-            </a>
           </div>
 
           <div className="flex items-center gap-1.5 flex-wrap">
-            <button
-              onClick={() => handleSelectPreset('https://twd-427m.onrender.com')}
-              className={`px-2.5 py-1 text-[10px] font-bold rounded-lg border transition ${
-                config.baseUrl.includes('twd-427m.onrender.com')
-                  ? 'bg-emerald-600 text-white border-emerald-500 shadow-sm'
-                  : 'bg-slate-800 text-emerald-300 border-slate-700 hover:text-white'
-              }`}
-            >
-              ● Central (twd-427m)
-            </button>
-            <button
-              onClick={() => handleSelectPreset('https://mobile-li9q.onrender.com')}
-              className={`px-2.5 py-1 text-[10px] font-bold rounded-lg border transition ${
-                config.baseUrl.includes('mobile-li9q.onrender.com')
-                  ? 'bg-sky-600 text-white border-sky-500 shadow-sm'
-                  : 'bg-slate-800 text-sky-300 border-slate-700 hover:text-white'
-              }`}
-            >
-              ● Mobile (mobile-li9q)
-            </button>
-            <button
-              onClick={() => handleSelectPreset(TAGOLOAN_SYSTEM_BASE_URL)}
-              className={`px-2.5 py-1 text-[10px] font-bold rounded-lg border transition ${
-                config.baseUrl === TAGOLOAN_SYSTEM_BASE_URL && !config.baseUrl.includes('onrender.com')
-                  ? 'bg-sky-600 text-white border-sky-500'
-                  : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
-              }`}
-            >
-              Default Cloud
-            </button>
             {typeof window !== 'undefined' && window.location?.origin && (
               <button
                 onClick={() => handleSelectPreset(window.location.origin)}
                 className={`px-2.5 py-1 text-[10px] font-bold rounded-lg border transition ${
                   config.baseUrl === window.location.origin
-                    ? 'bg-sky-600 text-white border-sky-500'
-                    : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
+                    ? 'bg-sky-600 text-white border-sky-500 shadow-sm'
+                    : 'bg-slate-800 text-sky-300 border-slate-700 hover:text-white'
                 }`}
               >
-                Local Host
+                ● Active Host ({window.location.host})
               </button>
             )}
+            <button
+              onClick={() => handleSelectPreset('')}
+              className={`px-2.5 py-1 text-[10px] font-bold rounded-lg border transition ${
+                config.baseUrl === ''
+                  ? 'bg-emerald-600 text-white border-emerald-500 shadow-sm'
+                  : 'bg-slate-800 text-emerald-300 border-slate-700 hover:text-white'
+              }`}
+            >
+              ● Relative / Same Origin
+            </button>
           </div>
         </div>
       </div>
@@ -702,24 +662,17 @@ export const SystemConnectionScreen: React.FC<SystemConnectionScreenProps> = ({
               <span className="text-[10px] text-slate-400 mr-1">Quick Presets:</span>
               <button
                 type="button"
-                onClick={() => handleSelectPreset('https://twd-427m.onrender.com')}
-                className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-emerald-700/80 text-[10.5px] font-mono text-emerald-300 font-bold transition cursor-pointer"
-              >
-                ● Central (twd-427m.onrender.com)
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSelectPreset('https://mobile-li9q.onrender.com')}
+                onClick={() => handleSelectPreset(typeof window !== 'undefined' && window.location?.origin ? window.location.origin : 'http://localhost:3000')}
                 className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-sky-700/80 text-[10.5px] font-mono text-sky-300 font-bold transition cursor-pointer"
               >
-                ● Mobile (mobile-li9q.onrender.com)
+                ● Active Host (Auto)
               </button>
               <button
                 type="button"
-                onClick={() => handleSelectPreset(typeof window !== 'undefined' && window.location?.origin ? window.location.origin : 'http://localhost:3000')}
-                className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[10.5px] font-mono text-slate-300 transition cursor-pointer"
+                onClick={() => handleSelectPreset('')}
+                className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-emerald-700/80 text-[10.5px] font-mono text-emerald-300 font-bold transition cursor-pointer"
               >
-                ● Active Host (Auto)
+                ● Relative Origin
               </button>
               <button
                 type="button"
