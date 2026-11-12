@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Ban, ShieldAlert } from 'lucide-react';
 import { 
   Consumer, 
@@ -430,7 +430,7 @@ export function App() {
   }, []);
 
   // Reload data helper
-  const reloadData = async () => {
+  const reloadData = useCallback(async () => {
     const readerRoutes = currentUser?.assignedRoutes || (currentUser?.zone ? [currentUser.zone] : undefined);
     const [c, r, l] = await Promise.all([
       DatabaseHelper.getConsumersForReader(readerRoutes),
@@ -440,7 +440,7 @@ export function App() {
     setConsumers(c);
     setReadings(r);
     setAuditLogs(l);
-  };
+  }, [currentUser]);
 
   // Unified Navigation with Process Loading Screen and WebSocket Dispatcher
   const navigateTo = (
@@ -1020,6 +1020,14 @@ export function App() {
             <ScreenErrorBoundary screenName="Reading History" onRecoverToDashboard={() => navigateTo('dashboard')}>
               <HistoryScreen
                 readings={readings}
+                consumers={consumers}
+                onSelectConsumer={(c: Consumer) => {
+                  setSelectedConsumer(c);
+                  navigateTo('consumer_details', {
+                    title: 'Loading Consumer Profile',
+                    subtitle: `${c.name} (${c.accountNumber})`,
+                  });
+                }}
                 onNavigate={navigateTo}
                 onReload={reloadData}
               />

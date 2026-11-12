@@ -7,21 +7,33 @@ import {
   Clock, 
   AlertCircle,
   RefreshCw,
-  ShieldCheck
+  ShieldCheck,
+  ChevronRight,
+  Lock
 } from 'lucide-react';
-import { MeterReading, ActiveScreen } from '../types';
-import { formatOdometerReading } from '../constants/routes';
+import { MeterReading, ActiveScreen, Consumer } from '../types';
+import { 
+  formatOdometerReading, 
+  parseReadingTimestamp, 
+  isValidatedForFieldReading, 
+  isConsumerDisconnected, 
+  isConsumerUnverified 
+} from '../constants/routes';
 import { SyncService } from '../services/syncService';
 
 interface HistoryScreenProps {
   readings: MeterReading[];
+  consumers?: Consumer[];
   onNavigate: (screen: ActiveScreen) => void;
+  onSelectConsumer?: (consumer: Consumer) => void;
   onReload?: () => void;
 }
 
 export const HistoryScreen: React.FC<HistoryScreenProps> = ({
   readings,
+  consumers = [],
   onNavigate,
+  onSelectConsumer,
   onReload,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -29,7 +41,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
   const [isCheckingApprovals, setIsCheckingApprovals] = useState(false);
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
 
-  // Auto-sync approvals from Central Admin on screen load
+  // Auto-sync approvals from Central Admin once on screen mount
   useEffect(() => {
     let isMounted = true;
     SyncService.syncNow(true).then(() => {
@@ -41,7 +53,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [onReload]);
+  }, []);
 
   const handleManualCheckApprovals = async () => {
     if (isCheckingApprovals) return;
@@ -68,8 +80,8 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
   // with rock-solid deterministic sorting to guarantee zero layout shifts or name swapping
   const deduplicatedReadings = useMemo(() => {
     const sorted = [...readings].sort((a, b) => {
-      const timeA = new Date(a.approvedAt || `${a.readingDate}T${a.readingTime || '00:00:00'}`).getTime();
-      const timeB = new Date(b.approvedAt || `${b.readingDate}T${b.readingTime || '00:00:00'}`).getTime();
+      const timeA = parseReadingTimestamp(a);
+      const timeB = parseReadingTimestamp(b);
       if (timeB !== timeA) {
         return timeB - timeA;
       }
@@ -251,10 +263,36 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
             const isRejected = isReadingRejected(reading);
             const isPending = isReadingPending(reading);
 
+            const consumer = (consumers || []).find((c) =>
+              (Boolean(c.accountNumber) && Boolean(reading.accountNumber) && c.accountNumber.trim().toLowerCase() === reading.accountNumber.trim().toLowerCase()) ||
+              (Boolean(c.id) && Boolean(reading.consumerId) && c.id.toLowerCase() === reading.consumerId.toLowerCase()) ||
+              (Boolean(c.meterSerial) && Boolean(reading.meterSerial) && c.meterSerial.trim().toLowerCase() === reading.meterSerial.trim().toLowerCase())
+            );
+
+            const isAccountActiveAndVerified = Boolean(consumer && isValidatedForFieldReading(consumer));
+            const isAccountDisconnected = Boolean(consumer && isConsumerDisconnected(consumer));
+            const isAccountUnverified = Boolean(consumer && isConsumerUnverified(consumer));
+
             return (
               <div
                 key={reading.id}
-                className="bg-slate-900 border border-slate-800/90 rounded-2xl p-3.5 sm:p-4 space-y-2.5 shadow-sm hover:border-slate-700/80 transition"
+                onClick={() => {
+                  if (isAccountActiveAndVerified && consumer && onSelectConsumer) {
+                    onSelectConsumer(consumer);
+                  }
+                }}
+                title={
+                  isAccountActiveAndVerified && consumer
+                    ? `Click to view ${consumer.name}'s complete past readings history`
+                    : consumer
+                    ? `Account is ${isAccountDisconnected ? 'disconnected' : 'unverified'} in Central Admin. Reading history is locked until activated.`
+                    : 'Consumer record not loaded'
+                }
+                className={`bg-slate-900 border rounded-2xl p-3.5 sm:p-4 space-y-2.5 shadow-sm transition ${
+                  isAccountActiveAndVerified
+                    ? 'border-slate-800/90 hover:border-sky-500/80 hover:bg-slate-900/90 cursor-pointer active:scale-[0.99]'
+                    : 'border-slate-800/80 opacity-75 cursor-not-allowed select-none'
+                }`}
               >
                 {/* Header Row: Account Tag & Mutually Exclusive Status */}
                 <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -329,28 +367,47 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                   </div>
                 </div>
 
-                {/* Footer Metadata */}
-                <div className="text-[10.5px] text-slate-400 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono pt-0.5">
-                  <span>{reading.readingDate} {reading.readingTime}</span>
-                  <span className="text-slate-600">·</span>
-                  <span>Reader: {reading.readerName || reading.readerId}</span>
-                  
-                  {isApproved && (
-                    <>
-                      <span className="text-slate-600">·</span>
-                      <span className="text-emerald-400 font-semibold flex items-center gap-1">
-                        <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                        <span>Admin Verified ({reading.approvedBy || 'Supervisor'})</span>
-                      </span>
-                    </>
-                  )}
+                {/* Footer Metadata & Clickable Ledger Cue */}
+                <div className="flex items-center justify-between gap-2 flex-wrap text-[10.5px] text-slate-400 font-mono pt-0.5">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span>{reading.readingDate} {reading.readingTime}</span>
+                    <span className="text-slate-600">·</span>
+                    <span>Reader: {reading.readerName || reading.readerId}</span>
+                    
+                    {isApproved && (
+                      <>
+                        <span className="text-slate-600">·</span>
+                        <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                          <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                          <span>Admin Verified ({reading.approvedBy || 'Supervisor'})</span>
+                        </span>
+                      </>
+                    )}
 
-                  {reading.remarks && (
-                    <>
-                      <span className="text-slate-600">·</span>
-                      <span className="text-slate-400 italic">Note: {reading.remarks}</span>
-                    </>
-                  )}
+                    {reading.remarks && (
+                      <>
+                        <span className="text-slate-600">·</span>
+                        <span className="text-slate-400 italic">Note: {reading.remarks}</span>
+                      </>
+                    )}
+                  </div>
+
+                  {isAccountActiveAndVerified ? (
+                    <span className="text-sky-400 hover:text-sky-300 font-sans font-semibold text-xs flex items-center gap-1">
+                      <span>Past Readings Ledger</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </span>
+                  ) : isAccountDisconnected ? (
+                    <span className="text-rose-400 font-sans font-semibold text-[11px] flex items-center gap-1">
+                      <Lock className="w-3 h-3" />
+                      <span>Disconnected (Locked)</span>
+                    </span>
+                  ) : isAccountUnverified ? (
+                    <span className="text-amber-400 font-sans font-semibold text-[11px] flex items-center gap-1">
+                      <Lock className="w-3 h-3" />
+                      <span>Unverified in Admin</span>
+                    </span>
+                  ) : null}
                 </div>
               </div>
             );

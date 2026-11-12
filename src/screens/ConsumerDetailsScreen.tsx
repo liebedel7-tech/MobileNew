@@ -18,6 +18,7 @@ import {
   isValidatedForFieldReading, 
   getConsumerDeactivationReason,
   formatOdometerReading,
+  parseReadingTimestamp,
 } from '../constants/routes';
 
 interface ConsumerDetailsScreenProps {
@@ -48,8 +49,8 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
       return matchId || matchAcc;
     })
     .sort((a, b) => {
-      const timeA = new Date(`${a.readingDate}T${a.readingTime?.replace(/\s*(AM|PM)/i, '') || '00:00:00'}`).getTime();
-      const timeB = new Date(`${b.readingDate}T${b.readingTime?.replace(/\s*(AM|PM)/i, '') || '00:00:00'}`).getTime();
+      const timeA = parseReadingTimestamp(a);
+      const timeB = parseReadingTimestamp(b);
       if (timeB !== timeA) return timeB - timeA;
       return (a.id || '').localeCompare(b.id || '');
     });

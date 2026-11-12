@@ -25,7 +25,8 @@ import {
   formatOdometerReading, 
   isValidatedForFieldReading, 
   isConsumerDisconnected, 
-  isConsumerUnverified 
+  isConsumerUnverified,
+  parseReadingTimestamp,
 } from '../constants/routes';
 
 interface DashboardScreenProps {
@@ -83,8 +84,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   // Deduplicate readings by accountNumber so each consumer appears strictly once in reading summaries and recent list
   const deduplicatedReadings = React.useMemo(() => {
     const sorted = [...readings].sort((a, b) => {
-      const timeA = new Date(a.approvedAt || `${a.readingDate}T${a.readingTime || '00:00:00'}`).getTime();
-      const timeB = new Date(b.approvedAt || `${b.readingDate}T${b.readingTime || '00:00:00'}`).getTime();
+      const timeA = parseReadingTimestamp(a);
+      const timeB = parseReadingTimestamp(b);
       if (timeB !== timeA) {
         return timeB - timeA;
       }
@@ -456,10 +457,36 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               const isRejected = isReadingRejected(reading);
               const isPending = isReadingPending(reading);
 
+              const consumer = (consumers || []).find((c) =>
+                (Boolean(c.accountNumber) && Boolean(reading.accountNumber) && c.accountNumber.trim().toLowerCase() === reading.accountNumber.trim().toLowerCase()) ||
+                (Boolean(c.id) && Boolean(reading.consumerId) && c.id.toLowerCase() === reading.consumerId.toLowerCase()) ||
+                (Boolean(c.meterSerial) && Boolean(reading.meterSerial) && c.meterSerial.trim().toLowerCase() === reading.meterSerial.trim().toLowerCase())
+              );
+
+              const isAccountActiveAndVerified = Boolean(consumer && isValidatedForFieldReading(consumer));
+              const isAccountDisconnected = Boolean(consumer && isConsumerDisconnected(consumer));
+              const isAccountUnverified = Boolean(consumer && isConsumerUnverified(consumer));
+
               return (
                 <div
                   key={reading.id}
-                  className="bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl p-3.5 space-y-2.5 transition shadow-sm"
+                  onClick={() => {
+                    if (isAccountActiveAndVerified && consumer && onSelectConsumer) {
+                      onSelectConsumer(consumer);
+                    }
+                  }}
+                  title={
+                    isAccountActiveAndVerified && consumer
+                      ? `Click to view ${consumer.name}'s complete past readings history`
+                      : consumer
+                      ? `Account is ${isAccountDisconnected ? 'disconnected' : 'unverified'} in Central Admin. Reading history is locked until activated.`
+                      : 'Consumer record not loaded'
+                  }
+                  className={`bg-slate-950 border rounded-xl p-3.5 space-y-2.5 transition shadow-sm ${
+                    isAccountActiveAndVerified
+                      ? 'border-slate-800 hover:border-sky-500/80 hover:bg-slate-900/60 cursor-pointer active:scale-[0.99]'
+                      : 'border-slate-800/80 opacity-75 cursor-not-allowed select-none'
+                  }`}
                 >
                   {/* Account, Name & Status Badge with Fixed Height */}
                   <div className="flex items-center justify-between gap-2 min-h-[28px] h-7 w-full overflow-hidden">
@@ -524,19 +551,39 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     </div>
                   </div>
 
-                  <div className="text-[10.5px] text-slate-400 flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono">
-                    <span>{reading.readingDate} {reading.readingTime}</span>
-                    <span className="text-slate-600">·</span>
-                    <span>Tag: <strong className="text-slate-300">{reading.meterSerial}</strong></span>
-                    {isApproved && (
-                      <>
-                        <span className="text-slate-600">·</span>
-                        <span className="text-emerald-400 font-semibold flex items-center gap-1">
-                          <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                          <span>Admin Verified</span>
-                        </span>
-                      </>
-                    )}
+                  {/* Footer metadata & clickable ledger cue */}
+                  <div className="flex items-center justify-between gap-2 flex-wrap text-[10.5px] text-slate-400 font-mono">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                      <span>{reading.readingDate} {reading.readingTime}</span>
+                      <span className="text-slate-600">·</span>
+                      <span>Tag: <strong className="text-slate-300">{reading.meterSerial}</strong></span>
+                      {isApproved && (
+                        <>
+                          <span className="text-slate-600">·</span>
+                          <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                            <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                            <span>Admin Verified</span>
+                          </span>
+                        </>
+                      )}
+                    </div>
+
+                    {isAccountActiveAndVerified ? (
+                      <span className="text-sky-400 hover:text-sky-300 font-sans font-semibold text-xs flex items-center gap-1">
+                        <span>Past Readings Ledger</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </span>
+                    ) : isAccountDisconnected ? (
+                      <span className="text-rose-400 font-sans font-semibold text-[11px] flex items-center gap-1">
+                        <Lock className="w-3 h-3" />
+                        <span>Disconnected (Locked)</span>
+                      </span>
+                    ) : isAccountUnverified ? (
+                      <span className="text-amber-400 font-sans font-semibold text-[11px] flex items-center gap-1">
+                        <Lock className="w-3 h-3" />
+                        <span>Unverified in Admin</span>
+                      </span>
+                    ) : null}
                   </div>
                 </div>
               );

@@ -2,7 +2,7 @@ import { Consumer, MeterReading, SyncState } from '../types';
 import { DatabaseHelper } from './databaseHelper';
 import { LoggerService } from './loggerService';
 import { universalApiFetch, getApiEndpoint } from './apiConfig';
-import { isConsumerInAssignedAreas, isValidatedForFieldReading, isConsumerAccountIssued } from '../constants/routes';
+import { isConsumerInAssignedAreas, isValidatedForFieldReading, isConsumerAccountIssued, parseReadingTimestamp } from '../constants/routes';
 
 export class SyncService {
   private static timerId: any = null;
@@ -425,9 +425,10 @@ export class SyncService {
             // Merge with local reading flags so consumers never lose track of present readings
             const localReadings = await DatabaseHelper.getAllReadings();
             const sortedLocal = [...localReadings].sort((a, b) => {
-              const timeA = new Date(`${a.readingDate}T${a.readingTime || '00:00:00'}`).getTime();
-              const timeB = new Date(`${b.readingDate}T${b.readingTime || '00:00:00'}`).getTime();
-              return timeB - timeA;
+              const timeA = parseReadingTimestamp(a);
+              const timeB = parseReadingTimestamp(b);
+              if (timeB !== timeA) return timeB - timeA;
+              return (a.id || '').localeCompare(b.id || '');
             });
 
             const enrichedConsumers: Consumer[] = issuedConsumers.map((c: Consumer) => {

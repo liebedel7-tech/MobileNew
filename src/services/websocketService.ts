@@ -286,14 +286,13 @@ class WebSocketServiceClass {
    * Calculates exponential backoff delay with random jitter
    */
   private calculateReconnectDelay(): number {
-    // 1st attempt: 1000ms
-    // 2nd: ~1500ms
-    // 3rd: ~2250ms
-    // 4th: ~3375ms
-    // 5th: ~5000ms
-    // Max cap: 30000ms (30s)
-    const base = Math.min(1000 * Math.pow(1.5, this.reconnectAttempts), 30000);
-    const jitter = Math.floor(Math.random() * 800);
+    // 1st attempt: 2000ms
+    // 2nd: ~3200ms
+    // 3rd: ~5120ms
+    // 4th: ~8192ms
+    // Max cap: 45000ms (45s)
+    const base = Math.min(2000 * Math.pow(1.6, Math.min(this.reconnectAttempts, 8)), 45000);
+    const jitter = Math.floor(Math.random() * 1000);
     return Math.round(base + jitter);
   }
 
