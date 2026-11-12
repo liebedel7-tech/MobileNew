@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, useMotionValue, useSpring, useTransform } from 'motion/react';
 import { 
   ArrowRight, 
   Sparkles, 
@@ -54,32 +53,6 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
 
-  // 3D Motion Physics for Clear Photo Card
-  const containerRef = useRef<HTMLDivElement>(null);
-  const mouseX = useMotionValue(0);
-  const mouseY = useMotionValue(0);
-
-  const springConfig = { damping: 22, stiffness: 140, mass: 0.4 };
-  const smoothMouseX = useSpring(mouseX, springConfig);
-  const smoothMouseY = useSpring(mouseY, springConfig);
-
-  const rotateX = useTransform(smoothMouseY, [-0.5, 0.5], [8, -8]);
-  const rotateY = useTransform(smoothMouseX, [-0.5, 0.5], [-10, 10]);
-
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    if (!rect || rect.width === 0 || rect.height === 0) return;
-    const x = (e.clientX - rect.left) / rect.width - 0.5;
-    const y = (e.clientY - rect.top) / rect.height - 0.5;
-    mouseX.set(x);
-    mouseY.set(y);
-  };
-
-  const handlePointerLeave = () => {
-    mouseX.set(0);
-    mouseY.set(0);
-  };
 
   useEffect(() => {
     const unsub = WebSocketService.subscribeStats((stats) => {
@@ -155,31 +128,8 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
         </div>
 
         {/* Clear Photo Card of Tagoloan Water District */}
-        <div 
-          ref={containerRef}
-          onPointerMove={handlePointerMove}
-          onPointerLeave={handlePointerLeave}
-          style={{ perspective: 1000 }}
-          className="w-full flex justify-center items-center py-1 touch-none select-none"
-        >
-          <motion.div
-            style={{
-              rotateX,
-              rotateY,
-              transformStyle: 'preserve-3d',
-            }}
-            animate={{
-              y: [-2, 2, -2],
-            }}
-            transition={{
-              y: {
-                repeat: Infinity,
-                duration: 5,
-                ease: 'easeInOut',
-              },
-            }}
-            className="relative w-full aspect-[4/3] rounded-2xl bg-slate-900 border border-slate-700/80 p-2 shadow-[0_15px_35px_rgba(14,165,233,0.25)] group cursor-pointer"
-          >
+        <div className="w-full flex justify-center items-center py-1 select-none">
+          <div className="relative w-full aspect-[4/3] rounded-2xl bg-slate-900 border border-slate-700/80 p-2 shadow-[0_15px_35px_rgba(14,165,233,0.25)] group cursor-pointer transition-all duration-300 hover:shadow-[0_20px_40px_rgba(14,165,233,0.35)]">
             {/* Outer Glowing Holographic Halo */}
             <div className="absolute -inset-0.5 rounded-2xl bg-gradient-to-r from-sky-500 via-teal-400 to-blue-600 opacity-40 group-hover:opacity-70 blur-md transition duration-500 -z-10" />
 
@@ -201,10 +151,7 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/20 to-transparent pointer-events-none" />
 
               {/* Top Banner Tag */}
-              <div 
-                style={{ transform: 'translateZ(20px)' }}
-                className="absolute inset-x-2.5 top-2.5 p-2 rounded-xl bg-slate-950/90 backdrop-blur-md border border-sky-500/40 shadow-lg"
-              >
+              <div className="absolute inset-x-2.5 top-2.5 p-2 rounded-xl bg-slate-950/90 backdrop-blur-md border border-sky-500/40 shadow-lg">
                 <div className="flex items-center justify-between text-[10px] font-mono">
                   <span className="flex items-center gap-1.5 font-bold text-sky-400">
                     <OfficialLogo size="xs" />
@@ -217,10 +164,7 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
               </div>
 
               {/* Bottom Photo Overlay */}
-              <div 
-                style={{ transform: 'translateZ(30px)' }}
-                className="absolute left-2.5 bottom-2.5 right-2.5 p-2 rounded-xl bg-slate-900/90 backdrop-blur-md border border-slate-700/80 shadow-xl space-y-0.5 text-center"
-              >
+              <div className="absolute left-2.5 bottom-2.5 right-2.5 p-2 rounded-xl bg-slate-900/90 backdrop-blur-md border border-slate-700/80 shadow-xl space-y-0.5 text-center">
                 <div className="text-[11px] font-bold text-white uppercase tracking-wide">
                   Official Mobile Terminal
                 </div>
@@ -229,7 +173,7 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
                 </div>
               </div>
             </div>
-          </motion.div>
+          </div>
         </div>
 
         {/* Dedicated Landing Sign In & Register Section (Clean & Minimalist) */}

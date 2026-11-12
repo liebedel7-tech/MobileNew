@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { motion } from 'motion/react';
 import { OfficialLogo } from './OfficialLogo';
 import { APP_OFFICIAL_TITLE } from '../constants/branding';
 
@@ -43,12 +42,8 @@ export const AppSplashScreen: React.FC<AppSplashScreenProps> = ({
   }, [onFinish, minDurationMs]);
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.4, ease: 'easeInOut' }}
-      className="fixed inset-0 z-[100] w-full h-full bg-[#07193f] flex flex-col items-center justify-center p-6 select-none overflow-hidden"
+    <div
+      className="fixed inset-0 z-[100] w-full h-full bg-[#07193f] flex flex-col items-center justify-center p-6 select-none overflow-hidden animate-in fade-in duration-300"
       style={{
         background: 'radial-gradient(ellipse at center, #0c2b64 0%, #07193f 60%, #030d24 100%)',
       }}
@@ -60,45 +55,27 @@ export const AppSplashScreen: React.FC<AppSplashScreenProps> = ({
       {/* Center Container */}
       <div className="flex flex-col items-center justify-center text-center space-y-6 max-w-sm px-4">
         {/* Official Logo with Soft Pulse */}
-        <motion.div
-          initial={{ scale: 0.85, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 0.5, ease: 'easeOut' }}
-          className="relative flex items-center justify-center"
-        >
-          {/* Clean Municipal Logo */}
+        <div className="relative flex items-center justify-center transition-transform duration-500 hover:scale-105">
           <OfficialLogo size="2xl" className="shadow-lg" />
-        </motion.div>
+        </div>
 
         {/* Official Name */}
-        <motion.div
-          initial={{ y: 15, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.2, duration: 0.5, ease: 'easeOut' }}
-          className="space-y-1.5"
-        >
+        <div className="space-y-1.5 animate-in slide-in-from-bottom-2 duration-500">
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white uppercase drop-shadow-md">
             {APP_OFFICIAL_TITLE}
           </h1>
-        </motion.div>
+        </div>
 
         {/* Minimalist Loading Bar */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.35, duration: 0.4 }}
-          className="w-56 space-y-2 pt-3"
-        >
+        <div className="w-56 space-y-2 pt-3">
           <div className="h-2 w-full bg-[#030e24] rounded-full overflow-hidden border border-sky-900/60 shadow-inner">
-            <motion.div
-              className="h-full bg-sky-500 rounded-full"
-              initial={{ width: '0%' }}
-              animate={{ width: `${progress}%` }}
-              transition={{ duration: 0.3, ease: 'easeOut' }}
+            <div
+              className="h-full bg-sky-500 rounded-full transition-all duration-300 ease-out"
+              style={{ width: `${progress}%` }}
             />
           </div>
-        </motion.div>
+        </div>
       </div>
-    </motion.div>
+    </div>
   );
 };

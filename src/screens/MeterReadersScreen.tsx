@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 import { 
   Users, 
   UserCheck, 
@@ -450,41 +449,29 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
       </div>
 
       {/* Notifications / Alerts */}
-      <AnimatePresence>
-        {actionSuccessMessage && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="p-3.5 rounded-xl bg-emerald-950/80 border border-emerald-700 text-emerald-300 text-xs font-medium flex items-center justify-between"
-          >
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>{actionSuccessMessage}</span>
-            </div>
-            <button onClick={() => setActionSuccessMessage(null)} className="text-emerald-400 hover:text-white">
-              ✕
-            </button>
-          </motion.div>
-        )}
+      {actionSuccessMessage && (
+        <div className="p-3.5 rounded-xl bg-emerald-950/80 border border-emerald-700 text-emerald-300 text-xs font-medium flex items-center justify-between animate-in fade-in slide-in-from-top-1">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>{actionSuccessMessage}</span>
+          </div>
+          <button onClick={() => setActionSuccessMessage(null)} className="text-emerald-400 hover:text-white cursor-pointer">
+            ✕
+          </button>
+        </div>
+      )}
 
-        {errorMessage && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="p-3.5 rounded-xl bg-rose-950/80 border border-rose-700 text-rose-300 text-xs font-medium flex items-center justify-between"
-          >
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
-              <span>{errorMessage}</span>
-            </div>
-            <button onClick={() => setErrorMessage(null)} className="text-rose-400 hover:text-white">
-              ✕
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {errorMessage && (
+        <div className="p-3.5 rounded-xl bg-rose-950/80 border border-rose-700 text-rose-300 text-xs font-medium flex items-center justify-between animate-in fade-in slide-in-from-top-1">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+          <button onClick={() => setErrorMessage(null)} className="text-rose-400 hover:text-white cursor-pointer">
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Overview Statistics Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3.5">
@@ -772,15 +759,9 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
       )}
 
       {/* ================= MODAL: TERMINATE METER READER ACCOUNT ================= */}
-      <AnimatePresence>
-        {readerToTerminate && (
-          <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-slate-900 border border-rose-800/60 rounded-2xl p-5 max-w-md w-full shadow-2xl space-y-4"
-            >
+      {readerToTerminate && (
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-rose-800/60 rounded-2xl p-5 max-w-md w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-xl bg-rose-950 border border-rose-700 flex items-center justify-center text-rose-400 shrink-0">
                   <AlertTriangle className="w-5 h-5" />
@@ -873,21 +854,14 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
                   <span>{isTerminating ? 'Terminating...' : 'Confirm Termination'}</span>
                 </button>
               </div>
-            </motion.div>
           </div>
-        )}
-      </AnimatePresence>
+        </div>
+      )}
 
       {/* ================= MODAL: ROUTE ASSIGNMENT ================= */}
-      <AnimatePresence>
-        {selectedReaderForEdit && (
-          <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-md w-full shadow-2xl space-y-4"
-            >
+      {selectedReaderForEdit && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-md w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-base font-bold text-white">
@@ -991,21 +965,14 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
                   {isSubmittingRoutes ? 'Saving...' : 'Save Routes'}
                 </button>
               </div>
-            </motion.div>
           </div>
-        )}
-      </AnimatePresence>
+        </div>
+      )}
 
       {/* ================= MODAL: DIRECT METER READER ENROLMENT ================= */}
-      <AnimatePresence>
-        {isAddModalOpen && (
-          <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-md w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto"
-            >
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-md w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-base font-bold text-white flex items-center gap-2">
@@ -1200,10 +1167,9 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
                   </button>
                 </div>
               </form>
-            </motion.div>
           </div>
-        )}
-      </AnimatePresence>
+        </div>
+      )}
     </div>
   );
 };
