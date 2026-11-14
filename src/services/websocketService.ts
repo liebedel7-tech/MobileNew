@@ -42,7 +42,9 @@ class WebSocketServiceClass {
   private reconnectAttempts = 0;
   private reconnectTimeoutId: any = null;
   private heartbeatIntervalId: any = null;
+  private sessionRefreshTimeoutId: any = null;
   private isExplicitlyClosed = false;
+  private isRefreshingSession = false;
   private pingTimestamp = 0;
   private lastPongReceivedTime = 0;
   private outboundQueue: WSEventPacket[] = [];
@@ -156,6 +158,7 @@ class WebSocketServiceClass {
       this.reconnectTimeoutId = null;
     }
     this.stopHeartbeat();
+    this.stopSessionRefresh();
     if (this.socket) {
       try {
         this.socket.close();
@@ -202,6 +205,7 @@ class WebSocketServiceClass {
         // Ping immediately to measure round-trip latency
         this.ping();
         this.startHeartbeat();
+        this.scheduleSessionRefresh();
 
         // Flush queued outbound messages
         this.flushOutboundQueue();
@@ -257,10 +261,21 @@ class WebSocketServiceClass {
 
       this.socket.onclose = (event) => {
         this.stopHeartbeat();
+        this.stopSessionRefresh();
+
+        if (this.isRefreshingSession) {
+          this.isRefreshingSession = false;
+          if (!this.isExplicitlyClosed) {
+            this.connect();
+          }
+          return;
+        }
+
         const reasonStr = event.reason ? ` - ${event.reason}` : '';
+        const isFirstTransientDrop = event.code === 1006 && this.reconnectAttempts === 0;
         this.log(
           `Socket closed (code: ${event.code}${reasonStr}, clean: ${event.wasClean}).`,
-          event.wasClean ? 'info' : 'warn'
+          event.wasClean || isFirstTransientDrop ? 'info' : 'warn'
         );
 
         if (!this.isExplicitlyClosed) {
@@ -270,8 +285,10 @@ class WebSocketServiceClass {
         }
       };
 
-      this.socket.onerror = (error) => {
-        this.log(`Socket error encountered on ${wsUrl}. Will retry via backoff strategy.`, 'warn');
+      this.socket.onerror = () => {
+        if (this.reconnectAttempts >= 1) {
+          this.log(`Socket error encountered on ${wsUrl}. Will retry via backoff strategy.`, 'warn');
+        }
         // onclose will be called by browser after onerror, where scheduleReconnect is triggered
       };
     } catch (err: any) {
@@ -351,6 +368,32 @@ class WebSocketServiceClass {
     if (this.heartbeatIntervalId) {
       clearInterval(this.heartbeatIntervalId);
       this.heartbeatIntervalId = null;
+    }
+  }
+
+  private scheduleSessionRefresh() {
+    this.stopSessionRefresh();
+    // Refresh cleanly at 45 minutes before Cloud Run's 60-minute proxy timeout triggers code 1006
+    this.sessionRefreshTimeoutId = setTimeout(() => {
+      if (this.isExplicitlyClosed || !this.socket || this.socket.readyState !== WebSocket.OPEN) {
+        return;
+      }
+      this.isRefreshingSession = true;
+      this.reconnectAttempts = 0;
+      this.log('Refreshing Central Node WebSocket session before gateway timeout...');
+      try {
+        this.socket.close(1000, 'Scheduled gateway session refresh');
+      } catch {
+        this.isRefreshingSession = false;
+        this.connect();
+      }
+    }, 45 * 60 * 1000);
+  }
+
+  private stopSessionRefresh() {
+    if (this.sessionRefreshTimeoutId) {
+      clearTimeout(this.sessionRefreshTimeoutId);
+      this.sessionRefreshTimeoutId = null;
     }
   }
 
@@ -562,7 +605,9 @@ class WebSocketServiceClass {
 
   public disconnect() {
     this.isExplicitlyClosed = true;
+    this.isRefreshingSession = false;
     this.stopHeartbeat();
+    this.stopSessionRefresh();
     if (this.reconnectTimeoutId) {
       clearTimeout(this.reconnectTimeoutId);
       this.reconnectTimeoutId = null;
