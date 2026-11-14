@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import {
   CheckCircle2,
   Camera,
@@ -43,6 +44,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   onSelectConsumer,
   onStartReading,
 }) => {
+  const shouldReduceMotion = useReducedMotion();
   // Deduplicate consumers by accountNumber with stable route sequence sorting
   const deduplicatedConsumers = React.useMemo(() => {
     const seen = new Set<string>();
@@ -145,12 +147,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             {syncState.isOnline ? (
               <>
                 <Wifi className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="text-emerald-300">Online</span>
+                <span className="text-slate-200">Gateway</span>
               </>
             ) : (
               <>
-                <WifiOff className="w-3.5 h-3.5 text-amber-400" />
-                <span className="text-amber-300">Offline</span>
+                <WifiOff className="w-3.5 h-3.5 text-slate-400" />
+                <span className="text-slate-300">Gateway</span>
               </>
             )}
           </button>
@@ -169,7 +171,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 strokeWidth="7"
                 className="text-slate-800"
               />
-              <circle
+              <motion.circle
                 cx="40"
                 cy="40"
                 r={ringRadius}
@@ -178,8 +180,10 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 strokeWidth="7"
                 strokeLinecap="round"
                 strokeDasharray={ringCircumference}
-                strokeDashoffset={ringOffset}
-                className="text-sky-400 transition-all duration-500"
+                initial={{ strokeDashoffset: ringCircumference }}
+                animate={{ strokeDashoffset: ringOffset }}
+                transition={{ duration: shouldReduceMotion ? 0 : 0.45, ease: [0.16, 1, 0.3, 1] }}
+                className="text-sky-400"
               />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -204,14 +208,15 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
         {/* Focused Primary & Secondary Field Capture CTAs */}
         <div className="flex items-stretch gap-2.5">
-          <button
+          <motion.button
             type="button"
             onClick={() => onNavigate('scan_meter')}
-            className="flex-1 min-h-[50px] px-4 py-3 rounded-2xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-sm transition flex items-center justify-center gap-2 shadow-md shadow-sky-500/20 active:scale-[0.98] cursor-pointer"
+            whileTap={shouldReduceMotion ? undefined : { scale: 0.97 }}
+            className="flex-1 min-h-[50px] px-4 py-3 rounded-2xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-sm transition flex items-center justify-center gap-2 shadow-md shadow-sky-500/20 cursor-pointer"
           >
             <Camera className="w-5 h-5 shrink-0" />
             <span>Scan Meter</span>
-          </button>
+          </motion.button>
 
           <button
             type="button"

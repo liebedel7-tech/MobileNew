@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import {
   Home,
   Users,
@@ -19,6 +20,8 @@ export const WDTBottomNav: React.FC<WDTBottomNavProps> = ({
   onNavigate,
   pendingCount = 0,
 }) => {
+  const shouldReduceMotion = useReducedMotion();
+
   const getMappedActiveTab = (screen: ActiveScreen): ActiveScreen => {
     if (screen === 'consumer_details' || screen === 'reading_entry') return 'consumers';
     if (
@@ -79,10 +82,11 @@ export const WDTBottomNav: React.FC<WDTBottomNavProps> = ({
         const isActive = currentTab === item.id;
 
         return (
-          <button
+          <motion.button
             key={item.id}
             type="button"
             onClick={() => onNavigate(item.id)}
+            whileTap={shouldReduceMotion ? undefined : { scale: 0.92 }}
             className={`min-h-[52px] flex flex-col items-center justify-center gap-1 transition-colors py-1.5 px-0.5 relative touch-manipulation cursor-pointer ${
               isActive
                 ? 'text-sky-400 font-bold'
@@ -90,16 +94,28 @@ export const WDTBottomNav: React.FC<WDTBottomNavProps> = ({
             }`}
           >
             {isActive && (
-              <span className="absolute top-0 left-2.5 right-2.5 h-0.5 bg-sky-400 rounded-full" />
+              <motion.span
+                layoutId="wdt-bottom-nav-indicator"
+                transition={
+                  shouldReduceMotion
+                    ? { duration: 0 }
+                    : { type: 'spring', stiffness: 460, damping: 34 }
+                }
+                className="absolute top-0 left-2.5 right-2.5 h-0.5 bg-sky-400 rounded-full"
+              />
             )}
 
-            <span className={`shrink-0 transition-transform ${isActive ? 'scale-105' : ''}`}>
+            <motion.span
+              animate={shouldReduceMotion ? undefined : { scale: isActive ? 1.08 : 1 }}
+              transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+              className="shrink-0"
+            >
               {item.icon}
-            </span>
+            </motion.span>
             <span className="text-[11px] leading-tight whitespace-nowrap tracking-tight font-semibold">
               {item.label}
             </span>
-          </button>
+          </motion.button>
         );
       })}
     </nav>

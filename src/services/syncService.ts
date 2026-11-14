@@ -316,9 +316,11 @@ export class SyncService {
     }
 
     if (!this.syncState.isOnline) {
-      this.updateState({
-        lastSyncMessage: 'Offline: Data queued locally in device SQLite/IndexedDB.',
-      });
+      if (!isBackground) {
+        this.updateState({
+          lastSyncMessage: 'Offline: Data queued locally in device SQLite/IndexedDB.',
+        });
+      }
       return {
         success: false,
         syncedReadingsCount: 0,
@@ -327,10 +329,17 @@ export class SyncService {
       };
     }
 
-    this.updateState({
-      syncInProgress: true,
-      lastSyncMessage: isBackground ? 'Background syncing...' : 'Connecting to central office...',
-    });
+    const pendingAtStart = await DatabaseHelper.getPendingReadings().catch(() => []);
+    const shouldShowSyncPulse = !isBackground || pendingAtStart.length > 0;
+
+    if (shouldShowSyncPulse) {
+      this.updateState({
+        syncInProgress: true,
+        lastSyncMessage: pendingAtStart.length > 0
+          ? `Uploading ${pendingAtStart.length} reading${pendingAtStart.length === 1 ? '' : 's'}...`
+          : 'Connecting to central office...',
+      });
+    }
 
     let uploadedCount = 0;
     let pulledCount = 0;
@@ -355,11 +364,16 @@ export class SyncService {
 
     try {
       // 1. Get pending readings from local storage
-      const pendingReadings = await DatabaseHelper.getPendingReadings();
+      const pendingReadings = pendingAtStart.length > 0 ? pendingAtStart : await DatabaseHelper.getPendingReadings();
       const batchId = `BATCH-WDT-${Date.now()}`;
 
       if (pendingReadings.length > 0) {
-        this.updateState({ lastSyncMessage: `Uploading ${pendingReadings.length} readings...` });
+        if (!this.syncState.syncInProgress) {
+          this.updateState({
+            syncInProgress: true,
+            lastSyncMessage: `Uploading ${pendingReadings.length} readings...`,
+          });
+        }
         try {
           const uploadRes = await universalApiFetch('/api/readings/batch', {
             method: 'POST',
@@ -392,7 +406,9 @@ export class SyncService {
       }
 
       // 2. Pull latest consumers (strictly for active meter reader's assigned coverage areas)
-      this.updateState({ lastSyncMessage: 'Downloading assigned consumer records...' });
+      if (shouldShowSyncPulse) {
+        this.updateState({ lastSyncMessage: 'Downloading assigned consumer records...' });
+      }
       try {
         const params = new URLSearchParams();
         if (this.activeRoutes && this.activeRoutes.length > 0) {
@@ -536,13 +552,15 @@ export class SyncService {
         ? `Synced ${timeStr} (${uploadedCount} uploaded, ${pulledCount} active consumers)`
         : `Local database verified at ${timeStr} (Offline-ready)`;
 
-      this.updateState({
-        syncInProgress: false,
-        lastSyncTime: new Date().toISOString(),
-        pendingCount: pendingAfter.length,
-        lastSyncMessage: syncSummary,
-        failedCount: 0,
-      });
+      if (shouldShowSyncPulse || uploadedCount > 0 || pendingAfter.length !== this.syncState.pendingCount) {
+        this.updateState({
+          syncInProgress: false,
+          lastSyncTime: new Date().toISOString(),
+          pendingCount: pendingAfter.length,
+          lastSyncMessage: syncSummary,
+          failedCount: 0,
+        });
+      }
 
       return {
         success: true,
@@ -554,12 +572,14 @@ export class SyncService {
       const pendingAfter = await DatabaseHelper.getPendingReadings();
       const cleanMsg = 'Local database synchronized (Offline queue ready)';
 
-      this.updateState({
-        syncInProgress: false,
-        lastSyncMessage: cleanMsg,
-        pendingCount: pendingAfter.length,
-        failedCount: this.syncState.failedCount + 1,
-      });
+      if (shouldShowSyncPulse || pendingAfter.length !== this.syncState.pendingCount) {
+        this.updateState({
+          syncInProgress: false,
+          lastSyncMessage: cleanMsg,
+          pendingCount: pendingAfter.length,
+          failedCount: this.syncState.failedCount + 1,
+        });
+      }
 
       return {
         success: false,

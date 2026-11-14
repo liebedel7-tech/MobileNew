@@ -137,10 +137,78 @@ export function App() {
   }>({});
 
   const currentUserRef = useRef<StaffUser | null>(currentUser);
+  const lastAlertFingerprintRef = useRef<{ key: string; at: number } | null>(null);
+  const lastSyncMetaRef = useRef<{ lastSyncTime: string | null; pendingCount: number }>({
+    lastSyncTime: null,
+    pendingCount: 0,
+  });
 
   useEffect(() => {
     currentUserRef.current = currentUser;
   }, [currentUser]);
+
+  // Auto-dismiss transient header alerts after 5.5s so banners never linger indefinitely
+  useEffect(() => {
+    if (!liveAdminAlert) return;
+    const timer = setTimeout(() => {
+      setLiveAdminAlert(null);
+    }, 5500);
+    return () => clearTimeout(timer);
+  }, [liveAdminAlert]);
+
+  const pushAdminAlert = useCallback(
+    (
+      alert: {
+        type: 'status_deactivated' | 'status_activated' | 'meter_deactivated' | 'meter_activated' | 'id_issued' | 'reading_approved';
+        title: string;
+        message: string;
+      },
+      dedupeKey: string
+    ) => {
+      const user = currentUserRef.current;
+      if (!user) return;
+      const now = Date.now();
+      const fingerprint = `${alert.type}:${dedupeKey}`.toLowerCase();
+      if (
+        lastAlertFingerprintRef.current &&
+        lastAlertFingerprintRef.current.key === fingerprint &&
+        now - lastAlertFingerprintRef.current.at < 15000
+      ) {
+        return;
+      }
+      lastAlertFingerprintRef.current = { key: fingerprint, at: now };
+      setLiveAdminAlert({
+        ...alert,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      });
+    },
+    []
+  );
+
+  const isEventInReaderScope = useCallback((payload: any): boolean => {
+    const user = currentUserRef.current;
+    if (!user) return false;
+    const routes = user.assignedRoutes && user.assignedRoutes.length > 0
+      ? user.assignedRoutes
+      : user.zone
+      ? [user.zone]
+      : [];
+    if (routes.length === 0) return true;
+    const targetArea = (
+      payload?.barangay ||
+      payload?.routeCode ||
+      payload?.consumer?.barangay ||
+      ''
+    )
+      .toString()
+      .toLowerCase()
+      .trim();
+    if (!targetArea) return true;
+    return routes.some((r) => {
+      const rl = r.toLowerCase().trim();
+      return targetArea.includes(rl) || rl.includes(targetArea);
+    });
+  }, []);
 
   // Initialize DB, WebSocket and background services
   useEffect(() => {
@@ -174,9 +242,23 @@ export function App() {
 
     initApp();
 
-    // Subscribe to SyncService
+    // Subscribe to SyncService (reload lists only when sync finishes or pending count changes)
     const unsubscribeSync = SyncService.subscribe((state) => {
       setSyncState(state);
+      const prevMeta = lastSyncMetaRef.current;
+      const hasCompletedSyncChange =
+        !state.syncInProgress &&
+        (state.lastSyncTime !== prevMeta.lastSyncTime || state.pendingCount !== prevMeta.pendingCount);
+
+      if (!hasCompletedSyncChange) {
+        return;
+      }
+
+      lastSyncMetaRef.current = {
+        lastSyncTime: state.lastSyncTime,
+        pendingCount: state.pendingCount,
+      };
+
       const user = currentUserRef.current;
       if (user) {
         const routes = user.assignedRoutes || (user.zone ? [user.zone] : undefined);
@@ -231,17 +313,21 @@ export function App() {
           return prev;
         });
 
-        // 3. Trigger Real-time Alert Banner
-        setLiveAdminAlert({
-          type: isDeactivated ? 'meter_deactivated' : 'meter_activated',
-          title: isDeactivated
-            ? `⚠️ Water Meter Deactivated: Tag #${payload.meterNumber}`
-            : `✅ Water Meter Restored to Active: Tag #${payload.meterNumber}`,
-          message: isDeactivated
-            ? `Admin changed meter status to ${payload.newStatus?.toUpperCase()} (${payload.remarks || 'No remarks provided'}). This consumer is now unavailable for field readings.`
-            : `Admin restored meter to Active. The consumer is once again available for field readings.`,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        });
+        // 3. Trigger Real-time Alert Banner only if within reader's assigned route
+        if (isEventInReaderScope(payload)) {
+          pushAdminAlert(
+            {
+              type: isDeactivated ? 'meter_deactivated' : 'meter_activated',
+              title: isDeactivated
+                ? `Water Meter Deactivated: Tag #${payload.meterNumber}`
+                : `Water Meter Active: Tag #${payload.meterNumber}`,
+              message: isDeactivated
+                ? `Status set to ${payload.newStatus?.toUpperCase()} (${payload.remarks || 'Unavailable for readings'}).`
+                : `Admin restored meter to Active for field readings.`,
+            },
+            `meter:${payload.meterNumber || payload.accountNumber}:${newStatus}`
+          );
+        }
       } else if (event.type === 'CONSUMER_STATUS_CHANGED') {
         const payload = event.payload;
         const newStatus = (payload.newStatus || '').toLowerCase();
@@ -270,17 +356,21 @@ export function App() {
           return prev;
         });
 
-        // 3. Trigger Real-time Alert Banner
-        setLiveAdminAlert({
-          type: isDeactivated ? 'status_deactivated' : 'status_activated',
-          title: isDeactivated
-            ? `🚫 Consumer Account Deactivated: #${payload.accountNumber}`
-            : `✅ Consumer Account Activated: #${payload.accountNumber}`,
-          message: isDeactivated
-            ? `Admin marked account as ${payload.newStatus}. This consumer is now unavailable for field readings.`
-            : `Admin restored account to Active. Consumer is now available for field readings.`,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        });
+        // 3. Trigger Real-time Alert Banner only if within reader's assigned route
+        if (isEventInReaderScope(payload)) {
+          pushAdminAlert(
+            {
+              type: isDeactivated ? 'status_deactivated' : 'status_activated',
+              title: isDeactivated
+                ? `Account Deactivated: #${payload.accountNumber}`
+                : `Account Activated: #${payload.accountNumber}`,
+              message: isDeactivated
+                ? `Admin marked account as ${payload.newStatus}. Unavailable for readings.`
+                : `Admin restored account to Active.`,
+            },
+            `consumer:${payload.accountNumber || payload.consumerId}:${newStatus}`
+          );
+        }
       } else if (event.type === 'CONSUMER_ACTIVATED_FOR_READER' || event.type === 'CONSUMER_UPDATED' || event.type === 'CONSUMER_REGISTRY_UPDATED') {
         const user = currentUserRef.current;
         const routes = user?.assignedRoutes || (user?.zone ? [user.zone] : undefined);
@@ -293,13 +383,15 @@ export function App() {
           DatabaseHelper.getConsumersForReader(routes).then(setConsumers).catch(() => {});
         }
 
-        if (event.type === 'CONSUMER_ACTIVATED_FOR_READER' && event.payload?.consumer) {
-          setLiveAdminAlert({
-            type: 'id_issued',
-            title: `✅ New Consumer Activated: #${event.payload.consumer.accountNumber}`,
-            message: `Admin issued Account Number and Meter Tag #${event.payload.consumer.meterNumber || event.payload.consumer.meterSerial} for ${event.payload.consumer.name}. Synchronized to route.`,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          });
+        if (event.type === 'CONSUMER_ACTIVATED_FOR_READER' && event.payload?.consumer && isEventInReaderScope(event.payload.consumer)) {
+          pushAdminAlert(
+            {
+              type: 'id_issued',
+              title: `New Consumer Activated: #${event.payload.consumer.accountNumber}`,
+              message: `Tag #${event.payload.consumer.meterNumber || event.payload.consumer.meterSerial} issued for ${event.payload.consumer.name}.`,
+            },
+            `id_issued:${event.payload.consumer.accountNumber}`
+          );
         }
       } else if (
         event.type === 'READER_ACCOUNT_TERMINATED' || 
@@ -336,13 +428,14 @@ export function App() {
           setCurrentUser(null);
           setActiveScreen('login');
         } else {
-          // Another reader account was deactivated: routes are now automatically available
-          setLiveAdminAlert({
-            type: 'status_deactivated',
-            title: '⚡ Route Automatically Released & Available',
-            message: `Account for ${p.name || 'reader'} was deactivated. Assigned coverage routes have been automatically freed for assignment.`,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          });
+          pushAdminAlert(
+            {
+              type: 'status_deactivated',
+              title: 'Route Released & Available',
+              message: `Account for ${p.name || 'reader'} was deactivated. Assigned routes are now freed.`,
+            },
+            `reader_terminated:${termId || p.name || 'staff'}`
+          );
           reloadData();
         }
       } else if (event.type === 'READING_APPROVED_BILL_ISSUED' || event.type === 'READING_APPROVED') {
@@ -384,12 +477,16 @@ export function App() {
           window.dispatchEvent(new CustomEvent('twd:reading_approved', { detail: p }));
         } catch {}
 
-        setLiveAdminAlert({
-          type: 'reading_approved',
-          title: `✅ Reading Approved by Admin: #${p.accountNumber || 'Verified'}`,
-          message: `Admin verified present reading (${p.currentReading ?? '✓'} cu.m.) for ${p.consumerName || 'Account'}. Status updated to APPROVED, billing statement issued & baseline saved.`,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        });
+        if (isEventInReaderScope(p)) {
+          pushAdminAlert(
+            {
+              type: 'reading_approved',
+              title: `Reading Approved: #${p.accountNumber || 'Verified'}`,
+              message: `Admin verified reading (${p.currentReading ?? '✓'} cu.m.) for ${p.consumerName || 'Account'}.`,
+            },
+            `reading_approved:${p.readingId || p.accountNumber || readingKey}`
+          );
+        }
       } else if (event.type === 'READING_REJECTED_REINSPECT' || event.type === 'READING_REJECTED') {
         const p = event.payload || {};
         const readingKey = p.readingId || p.accountNumber || (p.reading && (p.reading.id || p.reading.accountNumber));
@@ -406,20 +503,16 @@ export function App() {
           window.dispatchEvent(new CustomEvent('twd:reading_rejected', { detail: p }));
         } catch {}
 
-        setLiveAdminAlert({
-          type: 'status_deactivated',
-          title: `⚠️ Reading Flagged: #${p.accountNumber}`,
-          message: `Admin requested re-inspection: ${p.reason || 'Reading index or photo verification needed'}.`,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        });
-      } else if (event.type === 'READER_REGISTERED_ACTIVE') {
-        const p = event.payload || {};
-        setLiveAdminAlert({
-          type: 'status_activated',
-          title: `⚡ Reader Enrolled: ${p.reader?.name || 'Field Staff'}`,
-          message: `Auto-synced into Central Admin Meter Readers module (${p.reader?.employeeId || ''}). Status ACTIVE.`,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        });
+        if (isEventInReaderScope(p)) {
+          pushAdminAlert(
+            {
+              type: 'status_deactivated',
+              title: `Reading Flagged: #${p.accountNumber}`,
+              message: `Admin requested re-inspection: ${p.reason || 'Verification needed'}.`,
+            },
+            `reading_rejected:${p.readingId || p.accountNumber || readingKey}`
+          );
+        }
       }
     });
 
@@ -469,16 +562,21 @@ export function App() {
       metadata: customProcess?.metadata || {},
     });
 
-    // 2. Trigger sleek module loading screen with process telemetry
-    setLoadingProcess({
-      type: customProcess?.type || 'module_transition',
-      targetModule: targetScreen,
-      title: customProcess?.title || '',
-      subtitle: customProcess?.subtitle || '',
-      steps: customProcess?.steps,
-      durationMs: customProcess?.durationMs || 280,
-      metadata: customProcess?.metadata,
-    });
+    // 2. Trigger ModuleLoadingScreen only for explicit heavy async processes (login, logout, batch_sync, save_reading, reset_database);
+    // standard screen navigation uses responsive framer-motion ScreenTransition immediately
+    if (customProcess && customProcess.type && customProcess.type !== 'module_transition') {
+      setLoadingProcess({
+        type: customProcess.type,
+        targetModule: targetScreen,
+        title: customProcess.title || '',
+        subtitle: customProcess.subtitle || '',
+        steps: customProcess.steps,
+        durationMs: customProcess.durationMs || 260,
+        metadata: customProcess.metadata,
+      });
+    } else {
+      setActiveScreen(targetScreen);
+    }
   };
 
   const handleFinishLoadingProcess = () => {
@@ -578,6 +676,7 @@ export function App() {
     currentUserRef.current = null;
     SyncService.setActiveRoutes([]);
     SyncService.setActiveReader(null);
+    setLiveAdminAlert(null);
     setCurrentUser(null);
     setConsumers([]);
 
@@ -861,7 +960,7 @@ export function App() {
 
       {/* Real-time Administrator Event Alert Banner (Swipe-to-dismiss via framer-motion) */}
       <AnimatePresence>
-        {liveAdminAlert && (
+        {currentUser && liveAdminAlert && activeScreen !== 'scan_meter' && (
           <SwipeableAlertBanner
             key={`${liveAdminAlert.type}-${liveAdminAlert.timestamp}`}
             onDismiss={() => setLiveAdminAlert(null)}

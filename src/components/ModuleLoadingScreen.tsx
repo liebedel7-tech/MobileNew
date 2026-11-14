@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { ActiveScreen, StaffUser } from '../types';
 import { OfficialLogo } from './OfficialLogo';
 
@@ -24,6 +25,7 @@ export const ModuleLoadingScreen: React.FC<ModuleLoadingScreenProps> = ({
   onFinished,
 }) => {
   const [progress, setProgress] = useState<number>(30);
+  const shouldReduceMotion = useReducedMotion();
 
   useEffect(() => {
     if (!processInfo) return;
@@ -50,39 +52,55 @@ export const ModuleLoadingScreen: React.FC<ModuleLoadingScreenProps> = ({
     };
   }, [processInfo, onFinished]);
 
-  if (!processInfo) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 backdrop-blur-sm p-4 select-none animate-in fade-in duration-100">
-      <div className="w-full max-w-xs bg-slate-900/95 border border-slate-800 rounded-2xl p-5 shadow-2xl space-y-3.5 text-center">
-        {/* Logo & Spinner */}
-        <div className="flex justify-center items-center relative py-1">
-          <OfficialLogo size="sm" />
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <Loader2 className="w-11 h-11 text-sky-400 animate-spin opacity-50" />
-          </div>
-        </div>
+    <AnimatePresence>
+      {processInfo && (
+        <motion.div
+          key="module-loading-overlay"
+          initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0 }}
+          transition={{ duration: shouldReduceMotion ? 0 : 0.14 }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 backdrop-blur-sm p-4 select-none"
+        >
+          <motion.div
+            initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, scale: 0.95, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: 4 }}
+            transition={{ duration: shouldReduceMotion ? 0 : 0.18, ease: [0.16, 1, 0.3, 1] }}
+            className="w-full max-w-xs bg-slate-900/95 border border-slate-800 rounded-2xl p-5 shadow-2xl space-y-3.5 text-center"
+          >
+            {/* Logo & Spinner */}
+            <div className="flex justify-center items-center relative py-1">
+              <OfficialLogo size="sm" />
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <Loader2 className="w-11 h-11 text-sky-400 animate-spin opacity-50" />
+              </div>
+            </div>
 
-        {/* Titles */}
-        <div className="space-y-1">
-          <h2 className="text-sm font-bold text-white tracking-tight">
-            {processInfo.title || 'Loading Module...'}
-          </h2>
-          {processInfo.subtitle && (
-            <p className="text-xs text-slate-400 font-mono truncate px-1">
-              {processInfo.subtitle}
-            </p>
-          )}
-        </div>
+            {/* Titles */}
+            <div className="space-y-1">
+              <h2 className="text-sm font-bold text-white tracking-tight">
+                {processInfo.title || 'Loading Module...'}
+              </h2>
+              {processInfo.subtitle && (
+                <p className="text-xs text-slate-400 font-mono truncate px-1">
+                  {processInfo.subtitle}
+                </p>
+              )}
+            </div>
 
-        {/* Streamlined Progress Bar */}
-        <div className="w-full bg-slate-800/80 h-1.5 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-sky-500 rounded-full transition-all duration-150 ease-out"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-      </div>
-    </div>
+            {/* Compositor-Only Progress Bar */}
+            <div className="w-full bg-slate-800/80 h-1.5 rounded-full overflow-hidden">
+              <motion.div
+                className="h-full w-full origin-left bg-sky-500 rounded-full"
+                animate={{ scaleX: progress / 100 }}
+                transition={{ duration: shouldReduceMotion ? 0 : 0.15, ease: 'easeOut' }}
+              />
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };

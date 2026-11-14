@@ -13,7 +13,7 @@ export const MobileFrameWrapper: React.FC<MobileFrameWrapperProps> = ({
   if (!isMobileChassis) {
     return (
       <div className="h-[100dvh] w-full bg-slate-950 text-slate-100 flex flex-col items-center justify-start overflow-hidden overscroll-none [overscroll-behavior:none]">
-        <div className="w-full max-w-md h-full flex flex-col bg-slate-950 shadow-2xl overflow-hidden relative overscroll-none [overscroll-behavior:none]">
+        <div className="w-full max-w-5xl h-full flex flex-col bg-slate-950 shadow-2xl overflow-hidden relative overscroll-none [overscroll-behavior:none]">
           {children}
         </div>
       </div>
