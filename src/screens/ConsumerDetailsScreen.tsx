@@ -289,44 +289,47 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
             )}
           </div>
 
-          {/* 3-Column Odometer Breakdown with Fixed Dimensions */}
-          <div className="grid grid-cols-3 gap-2 bg-slate-950/80 rounded-xl p-3 border border-slate-800/80 text-center font-mono min-h-[72px] h-[72px] items-center">
-            <div className="flex flex-col justify-center min-w-[75px] h-full">
-              <span className="text-[10px] sm:text-xs uppercase font-bold text-slate-400 tracking-wider block min-h-[16px] leading-tight">
-                PREVIOUS BASELINE
+          {/* 3-Column Odometer Breakdown */}
+          <div className="grid grid-cols-3 divide-x divide-slate-800/80 bg-slate-950/80 rounded-xl py-2.5 px-1 border border-slate-800/80 text-center font-mono">
+            <div className="min-w-0 px-1.5 flex flex-col items-center justify-center">
+              <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wide">
+                Previous
               </span>
-              <span className="text-xs sm:text-sm font-bold text-slate-200 block min-h-[22px] leading-tight mt-0.5 truncate">
-                {formatOdometerReading(consumer.currentMonthReading.previousReading ?? consumer.previousReading)} cu.m.
+              <span className="text-sm font-bold text-slate-200 tabular-nums mt-0.5">
+                {formatOdometerReading(consumer.currentMonthReading.previousReading ?? consumer.previousReading)}
               </span>
+              <span className="text-[10px] text-slate-500">cu.m.</span>
             </div>
 
-            <div className="flex flex-col justify-center min-w-[75px] h-full">
-              <span className="text-[10px] sm:text-xs uppercase font-bold text-sky-400 tracking-wider block min-h-[16px] leading-tight">
-                PRESENT INDEX
+            <div className="min-w-0 px-1.5 flex flex-col items-center justify-center">
+              <span className="text-[10px] uppercase font-semibold text-sky-400 tracking-wide">
+                Present
               </span>
-              <span className="text-xs sm:text-sm font-black text-sky-300 block min-h-[22px] leading-tight mt-0.5 truncate">
-                {formatOdometerReading(consumer.currentMonthReading.currentReading)} cu.m.
+              <span className="text-sm font-bold text-sky-300 tabular-nums mt-0.5">
+                {formatOdometerReading(consumer.currentMonthReading.currentReading)}
               </span>
+              <span className="text-[10px] text-slate-500">cu.m.</span>
             </div>
 
-            <div className="flex flex-col justify-center min-w-[75px] h-full">
-              <span className="text-[10px] sm:text-xs uppercase font-bold text-emerald-400 tracking-wider block min-h-[16px] leading-tight">
-                CONSUMPTION
+            <div className="min-w-0 px-1.5 flex flex-col items-center justify-center">
+              <span className="text-[10px] uppercase font-semibold text-emerald-400 tracking-wide">
+                Consumed
               </span>
-              <span className="text-xs sm:text-sm font-black text-emerald-400 block min-h-[22px] leading-tight mt-0.5 truncate">
-                +{consumer.currentMonthReading.consumption} cu.m.
+              <span className="text-sm font-bold text-emerald-400 tabular-nums mt-0.5">
+                +{consumer.currentMonthReading.consumption}
               </span>
+              <span className="text-[10px] text-slate-500">cu.m.</span>
             </div>
           </div>
 
           <div className="flex items-center justify-between gap-2 pt-1">
-            <span className="text-[11px] text-slate-400 font-mono">
+            <span className="text-[11px] text-slate-400 font-mono truncate">
               Field Reader: <strong className="text-slate-200">{consumer.currentMonthReading.readerName || 'Field Reader'}</strong>
             </span>
             <button
               type="button"
               onClick={() => onStartReading(consumer)}
-              className="px-3 py-1 bg-slate-800 hover:bg-slate-750 border border-slate-700 text-sky-300 rounded-lg text-xs font-semibold transition active:scale-95 cursor-pointer"
+              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-sky-300 rounded-lg text-xs font-semibold transition active:scale-95 cursor-pointer shrink-0 whitespace-nowrap"
             >
               Update / Adjust
             </button>
@@ -334,9 +337,9 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
         </div>
       ) : (
         <div className="bg-amber-950/20 border border-amber-800/60 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 min-w-0">
             <Clock className="w-5 h-5 text-amber-400 shrink-0" />
-            <div>
+            <div className="min-w-0">
               <div className="font-bold text-xs text-amber-300">
                 Awaiting Present Reading
               </div>
@@ -349,7 +352,7 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
           <button
             type="button"
             onClick={() => onStartReading(consumer)}
-            className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold rounded-xl text-xs transition flex items-center justify-center gap-1.5 shrink-0 shadow-sm active:scale-95 cursor-pointer"
+            className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold rounded-xl text-xs transition flex items-center justify-center gap-1.5 shrink-0 shadow-sm active:scale-95 cursor-pointer whitespace-nowrap"
           >
             <FileText className="w-3.5 h-3.5" />
             <span>Enter Present Reading</span>
@@ -364,7 +367,7 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
             <History className="w-4 h-4 text-sky-400" />
             <span>Meter Readings History Chain</span>
           </div>
-          <span className="text-[11px] font-mono text-slate-500">
+          <span className="text-[11px] font-mono text-slate-500 shrink-0">
             {consumerReadings.length} Record(s)
           </span>
         </div>
@@ -382,7 +385,6 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
             {consumerReadings.map((reading) => {
               const isApproved = isReadingApproved(reading);
               const isRejected = isReadingRejected(reading);
-              const isPending = isReadingPending(reading);
               const billAmount = reading.billCalculation?.totalAmountDue
                 ? reading.billCalculation.totalAmountDue.toFixed(2)
                 : (reading.consumption * 28).toFixed(2);
@@ -397,7 +399,7 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
                       {reading.readingDate} {reading.readingTime}
                     </span>
                     <span
-                      className={`text-xs font-bold px-2.5 py-0.5 rounded-lg flex items-center gap-1 ${
+                      className={`text-[11px] font-bold px-2.5 py-0.5 rounded-lg flex items-center gap-1 whitespace-nowrap ${
                         isApproved
                           ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
                           : isRejected
@@ -413,40 +415,40 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
                       ) : isRejected ? (
                         <>
                           <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
-                          <span>Flagged / Rejected</span>
+                          <span>Flagged</span>
                         </>
                       ) : (
                         <>
                           <Clock className="w-3.5 h-3.5 text-amber-400" />
-                          <span>Pending Admin Approval</span>
+                          <span>Pending Approval</span>
                         </>
                       )}
                     </span>
                   </div>
 
-                  {/* 4-Column Progression Grid with Fixed Dimensions */}
-                  <div className="bg-slate-900/90 rounded-xl p-2.5 border border-slate-800/80 grid grid-cols-2 sm:grid-cols-4 gap-2 text-center font-mono min-h-[64px] items-center">
-                    <div className="min-w-[65px] h-full flex flex-col justify-center">
-                      <span className="text-xs uppercase font-semibold text-slate-400 block min-h-[16px]">PREVIOUS</span>
-                      <span className="text-sm font-bold text-slate-200 block mt-0.5 min-h-[20px] truncate">
+                  {/* 4-Column Progression Grid */}
+                  <div className="bg-slate-900/90 rounded-xl p-2.5 border border-slate-800/80 grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-center font-mono items-center">
+                    <div className="min-w-0 flex flex-col justify-center">
+                      <span className="text-[10px] uppercase font-semibold text-slate-400">Previous</span>
+                      <span className="text-sm font-bold text-slate-200 tabular-nums mt-0.5">
                         {formatOdometerReading(reading.previousReading)} cu.m.
                       </span>
                     </div>
-                    <div className="min-w-[65px] h-full flex flex-col justify-center">
-                      <span className="text-xs uppercase font-semibold text-sky-400 block min-h-[16px]">PRESENT</span>
-                      <span className="text-sm font-black text-sky-300 block mt-0.5 min-h-[20px] truncate">
+                    <div className="min-w-0 flex flex-col justify-center">
+                      <span className="text-[10px] uppercase font-semibold text-sky-400">Present</span>
+                      <span className="text-sm font-bold text-sky-300 tabular-nums mt-0.5">
                         {formatOdometerReading(reading.currentReading)} cu.m.
                       </span>
                     </div>
-                    <div className="min-w-[65px] h-full flex flex-col justify-center">
-                      <span className="text-xs uppercase font-semibold text-emerald-400 block min-h-[16px]">CONSUMPTION</span>
-                      <span className="text-sm font-black text-emerald-400 block mt-0.5 min-h-[20px] truncate">
+                    <div className="min-w-0 flex flex-col justify-center">
+                      <span className="text-[10px] uppercase font-semibold text-emerald-400">Consumed</span>
+                      <span className="text-sm font-bold text-emerald-400 tabular-nums mt-0.5">
                         +{reading.consumption} cu.m.
                       </span>
                     </div>
-                    <div className="min-w-[65px] h-full flex flex-col justify-center">
-                      <span className="text-xs uppercase font-semibold text-amber-400 block min-h-[16px]">BILLED AMOUNT</span>
-                      <span className="text-sm font-black text-amber-300 block mt-0.5 min-h-[20px] truncate">
+                    <div className="min-w-0 flex flex-col justify-center">
+                      <span className="text-[10px] uppercase font-semibold text-amber-400">Billed</span>
+                      <span className="text-sm font-bold text-amber-300 tabular-nums mt-0.5">
                         ₱{billAmount}
                       </span>
                     </div>

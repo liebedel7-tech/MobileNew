@@ -1,10 +1,11 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { 
-  ArrowLeft, 
-  Search, 
-  History, 
-  CheckCircle2, 
-  Clock, 
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { List, useDynamicRowHeight, type RowComponentProps } from 'react-window';
+import {
+  ArrowLeft,
+  Search,
+  History,
+  CheckCircle2,
+  Clock,
   AlertCircle,
   RefreshCw,
   ShieldCheck,
@@ -12,14 +13,15 @@ import {
   Lock
 } from 'lucide-react';
 import { MeterReading, ActiveScreen, Consumer } from '../types';
-import { 
-  formatOdometerReading, 
-  parseReadingTimestamp, 
-  isValidatedForFieldReading, 
-  isConsumerDisconnected, 
-  isConsumerUnverified 
+import {
+  formatOdometerReading,
+  parseReadingTimestamp,
+  isValidatedForFieldReading,
+  isConsumerDisconnected,
+  isConsumerUnverified
 } from '../constants/routes';
 import { SyncService } from '../services/syncService';
+import { SwipeableAlertBanner, AnimatePresence } from '../components/SwipeDismiss';
 
 export const isReadingApproved = (r: MeterReading) => r.approvalStatus === 'approved' || r.status === 'APPROVED';
 export const isReadingRejected = (r: MeterReading) => r.approvalStatus === 'rejected' || r.status === 'REJECTED';
@@ -62,98 +64,96 @@ export const ReadingHistoryRow: React.FC<ReadingHistoryRowProps> = React.memo(
             ? `Account is ${isAccountDisconnected ? 'disconnected' : 'unverified'} in Central Admin. Reading history is locked until activated.`
             : 'Consumer record not loaded'
         }
-        className={`bg-slate-900 border rounded-2xl p-3.5 sm:p-4 space-y-2.5 shadow-sm transition ${
+        className={`reading-card bg-slate-900 border rounded-2xl p-3.5 sm:p-4 space-y-2.5 shadow-sm transition ${
           isAccountActiveAndVerified
             ? 'border-slate-800/90 hover:border-sky-500/80 hover:bg-slate-900/90 cursor-pointer active:scale-[0.99]'
             : 'border-slate-800/80 opacity-75 cursor-not-allowed select-none'
         }`}
       >
-        {/* Header Row: Account Tag & Mutually Exclusive Status */}
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <span className="font-mono text-xs font-bold text-sky-400 bg-sky-950/80 px-2.5 py-0.5 rounded border border-sky-800/60">
+        {/* Header Row: Account Number & Status */}
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-mono text-xs font-bold text-sky-400 shrink-0">
             {reading.accountNumber}
           </span>
 
           {isPending && (
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-950/80 text-amber-400 border border-amber-800/60 flex items-center gap-1">
+            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-amber-950/80 text-amber-300 border border-amber-800/70 flex items-center gap-1 shrink-0 whitespace-nowrap">
               <Clock className="w-3 h-3" />
-              <span>Pending Admin Approval</span>
+              <span>Pending Approval</span>
             </span>
           )}
 
           {isApproved && (
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 flex items-center gap-1">
+            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-emerald-950/80 text-emerald-300 border border-emerald-800/70 flex items-center gap-1 shrink-0 whitespace-nowrap">
               <CheckCircle2 className="w-3 h-3" />
               <span>Approved</span>
             </span>
           )}
 
           {isRejected && (
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-rose-950/80 text-rose-400 border border-rose-800/60 flex items-center gap-1">
+            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-rose-950/80 text-rose-300 border border-rose-800/70 flex items-center gap-1 shrink-0 whitespace-nowrap">
               <AlertCircle className="w-3 h-3" />
-              <span>Flagged / Rejected</span>
+              <span>Flagged</span>
             </span>
           )}
         </div>
 
-        {/* Consumer Name & Meter Tag Wrapper with Fixed Height and Min Dimensions */}
-        <div className="flex items-center justify-between gap-2 min-h-[28px] h-7 w-full overflow-hidden">
-          <div className="min-w-0 flex-1 h-full flex items-center">
-            <h4 className="font-bold text-sm text-white tracking-tight truncate w-full" title={reading.consumerName}>
-              {reading.consumerName}
-            </h4>
-          </div>
-          <div className="min-w-[120px] max-w-[160px] h-full flex items-center justify-end shrink-0">
-            <span className="text-xs font-mono text-slate-400 truncate text-right">
-              Tag: {reading.meterSerial}
-            </span>
+        {/* Consumer Name & Meter Tag (Stacks cleanly without clipping or overlap) */}
+        <div className="space-y-0.5">
+          <h4 className="font-bold text-sm sm:text-base text-white tracking-tight leading-snug break-words">
+            {reading.consumerName}
+          </h4>
+          <div className="text-xs font-mono text-slate-400">
+            Meter Tag: <span className="text-slate-300">{reading.meterSerial}</span>
           </div>
         </div>
 
-        {/* Standardized 3-Column Odometer Breakdown with Fixed Dimensions & Zero Layout Shift */}
-        <div className="grid grid-cols-3 gap-2 bg-slate-950/80 rounded-xl p-3 border border-slate-800/70 text-center font-mono min-h-[72px] h-[72px] items-center">
-          <div className="flex flex-col justify-center min-w-[75px] h-full">
-            <span className="text-xs uppercase font-bold text-slate-400 tracking-wider block min-h-[16px] leading-tight">
-              PREVIOUS
+        {/* Clean 3-Column Odometer Breakdown (Zero Overlap on 360px Viewports) */}
+        <div className="grid grid-cols-3 divide-x divide-slate-800/80 bg-slate-950/80 rounded-xl py-2.5 px-1 border border-slate-800/70 text-center font-mono">
+          <div className="min-w-0 px-1.5 flex flex-col items-center justify-center">
+            <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wide">
+              Previous
             </span>
-            <span className="text-sm sm:text-base font-bold text-slate-200 block min-h-[24px] leading-tight mt-1 truncate">
-              {formatOdometerReading(reading.previousReading)} cu.m.
+            <span className="text-sm sm:text-base font-bold text-slate-200 tabular-nums mt-0.5">
+              {formatOdometerReading(reading.previousReading)}
             </span>
+            <span className="text-[10px] text-slate-500">cu.m.</span>
           </div>
 
-          <div className="flex flex-col justify-center min-w-[75px] h-full">
-            <span className="text-xs uppercase font-bold text-sky-400 tracking-wider block min-h-[16px] leading-tight">
-              PRESENT
+          <div className="min-w-0 px-1.5 flex flex-col items-center justify-center">
+            <span className="text-[10px] uppercase font-semibold text-sky-400 tracking-wide">
+              Present
             </span>
-            <span className="text-sm sm:text-base font-black text-sky-300 block min-h-[24px] leading-tight mt-1 truncate">
-              {formatOdometerReading(reading.currentReading)} cu.m.
+            <span className="text-sm sm:text-base font-bold text-sky-300 tabular-nums mt-0.5">
+              {formatOdometerReading(reading.currentReading)}
             </span>
+            <span className="text-[10px] text-slate-500">cu.m.</span>
           </div>
 
-          {/* Consumption Container with Fixed Height and Min Dimensions */}
-          <div className="flex flex-col justify-center min-w-[75px] h-full">
-            <span className="text-xs uppercase font-bold text-emerald-400 tracking-wider block min-h-[16px] leading-tight">
-              CONSUMPTION
+          <div className="min-w-0 px-1.5 flex flex-col items-center justify-center">
+            <span className="text-[10px] uppercase font-semibold text-emerald-400 tracking-wide">
+              Consumed
             </span>
-            <span className="text-sm sm:text-base font-black text-emerald-400 block min-h-[24px] leading-tight mt-1 truncate">
-              +{reading.consumption} cu.m.
+            <span className="text-sm sm:text-base font-bold text-emerald-400 tabular-nums mt-0.5">
+              +{reading.consumption}
             </span>
+            <span className="text-[10px] text-slate-500">cu.m.</span>
           </div>
         </div>
 
         {/* Footer Metadata & Clickable Ledger Cue */}
-        <div className="flex items-center justify-between gap-2 flex-wrap text-[10.5px] text-slate-400 font-mono pt-0.5">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <div className="flex items-center justify-between gap-2 flex-wrap text-xs text-slate-400 pt-0.5">
+          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 font-mono text-[11px]">
             <span>{reading.readingDate} {reading.readingTime}</span>
             <span className="text-slate-600">·</span>
-            <span>Reader: {reading.readerName || reading.readerId}</span>
-            
+            <span>{reading.readerName || reading.readerId}</span>
+
             {isApproved && (
               <>
                 <span className="text-slate-600">·</span>
                 <span className="text-emerald-400 font-semibold flex items-center gap-1">
                   <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                  <span>Admin Verified ({reading.approvedBy || 'Supervisor'})</span>
+                  <span>Verified ({reading.approvedBy || 'Supervisor'})</span>
                 </span>
               </>
             )}
@@ -167,19 +167,19 @@ export const ReadingHistoryRow: React.FC<ReadingHistoryRowProps> = React.memo(
           </div>
 
           {isAccountActiveAndVerified ? (
-            <span className="text-sky-400 hover:text-sky-300 font-sans font-semibold text-xs flex items-center gap-1">
-              <span>Past Readings Ledger</span>
+            <span className="text-sky-400 hover:text-sky-300 font-sans font-semibold text-xs flex items-center gap-0.5 shrink-0 whitespace-nowrap">
+              <span>Past Readings</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </span>
           ) : isAccountDisconnected ? (
-            <span className="text-rose-400 font-sans font-semibold text-[11px] flex items-center gap-1">
+            <span className="text-rose-400 font-sans font-semibold text-xs flex items-center gap-1 shrink-0 whitespace-nowrap">
               <Lock className="w-3 h-3" />
-              <span>Disconnected (Locked)</span>
+              <span>Disconnected</span>
             </span>
           ) : isAccountUnverified ? (
-            <span className="text-amber-400 font-sans font-semibold text-[11px] flex items-center gap-1">
+            <span className="text-amber-400 font-sans font-semibold text-xs flex items-center gap-1 shrink-0 whitespace-nowrap">
               <Lock className="w-3 h-3" />
-              <span>Unverified in Admin</span>
+              <span>Unverified</span>
             </span>
           ) : null}
         </div>
@@ -187,7 +187,6 @@ export const ReadingHistoryRow: React.FC<ReadingHistoryRowProps> = React.memo(
     );
   },
   (prevProps, nextProps) => {
-    // Only re-render if the specific reading or consumer props change
     const r1 = prevProps.reading;
     const r2 = nextProps.reading;
     const c1 = prevProps.consumer;
@@ -205,7 +204,6 @@ export const ReadingHistoryRow: React.FC<ReadingHistoryRowProps> = React.memo(
     if (r1.readingDate !== r2.readingDate) return false;
     if (r1.readingTime !== r2.readingTime) return false;
 
-    // Check consumer status differences
     if (c1?.id !== c2?.id) return false;
     if (c1?.meterStatus !== c2?.meterStatus) return false;
     if (c1?.status !== c2?.status) return false;
@@ -221,9 +219,43 @@ export const ReadingHistoryRow: React.FC<ReadingHistoryRowProps> = React.memo(
 
 ReadingHistoryRow.displayName = 'ReadingHistoryRow';
 
+interface HistoryRowCustomProps {
+  readings: MeterReading[];
+  consumerMap: Map<string, Consumer>;
+  onSelectConsumer?: (consumer: Consumer) => void;
+}
+
+const VirtualizedReadingRow = ({
+  ariaAttributes,
+  index,
+  style,
+  readings,
+  consumerMap,
+  onSelectConsumer,
+}: RowComponentProps<HistoryRowCustomProps>) => {
+  const reading = readings[index];
+  if (!reading) return null;
+
+  const accKey = (reading.accountNumber || '').trim().toLowerCase();
+  const idKey = (reading.consumerId || '').toLowerCase();
+  const tagKey = (reading.meterSerial || '').trim().toLowerCase();
+  const consumer = consumerMap.get(accKey) || consumerMap.get(idKey) || consumerMap.get(tagKey);
+
+  return (
+    <div {...ariaAttributes} style={style} className="pb-3">
+      <ReadingHistoryRow
+        reading={reading}
+        consumer={consumer}
+        onSelectConsumer={onSelectConsumer}
+      />
+    </div>
+  );
+};
+
 interface HistoryScreenProps {
   readings: MeterReading[];
   consumers?: Consumer[];
+  scrollContainer?: HTMLElement | null;
   onNavigate: (screen: ActiveScreen) => void;
   onSelectConsumer?: (consumer: Consumer) => void;
   onReload?: () => void;
@@ -232,6 +264,7 @@ interface HistoryScreenProps {
 export const HistoryScreen: React.FC<HistoryScreenProps> = ({
   readings,
   consumers = [],
+  scrollContainer,
   onNavigate,
   onSelectConsumer,
   onReload,
@@ -241,14 +274,15 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
   const [isCheckingApprovals, setIsCheckingApprovals] = useState(false);
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
 
-  // Auto-sync approvals from Central Admin once on screen mount
   useEffect(() => {
     let isMounted = true;
-    SyncService.syncNow(true).then(() => {
-      if (isMounted && onReload) {
-        onReload();
-      }
-    }).catch(() => {});
+    SyncService.syncNow(true)
+      .then(() => {
+        if (isMounted && onReload) {
+          onReload();
+        }
+      })
+      .catch(() => {});
 
     return () => {
       isMounted = false;
@@ -272,7 +306,6 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
     }
   };
 
-  // Fast O(1) consumer lookup map to avoid linear scans during row rendering
   const consumerMap = useMemo(() => {
     const map = new Map<string, Consumer>();
     for (const c of consumers) {
@@ -283,8 +316,6 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
     return map;
   }, [consumers]);
 
-  // Deduplicate readings by account number so each consumer name appears strictly once (latest reading)
-  // with rock-solid deterministic sorting to guarantee zero layout shifts or name swapping
   const deduplicatedReadings = useMemo(() => {
     const sorted = [...readings].sort((a, b) => {
       const timeA = parseReadingTimestamp(a);
@@ -292,7 +323,6 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
       if (timeB !== timeA) {
         return timeB - timeA;
       }
-      // Deterministic tie-breaker: sort alphabetically by account number then reading id
       const accA = a.accountNumber || a.consumerName || a.id;
       const accB = b.accountNumber || b.consumerName || b.id;
       return accA.localeCompare(accB);
@@ -335,6 +365,25 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
     });
   }, [deduplicatedReadings, searchTerm, filterApproval]);
 
+  const dynamicRowHeight = useDynamicRowHeight({
+    defaultRowHeight: 225,
+    key: `${filterApproval}-${searchTerm.trim()}-${filteredReadings.length}`,
+  });
+
+  const getReadingRowKey = useCallback(
+    (index: number, data: HistoryRowCustomProps) => data.readings[index]?.id ?? index,
+    []
+  );
+
+  const historyRowProps = useMemo<HistoryRowCustomProps>(
+    () => ({
+      readings: filteredReadings,
+      consumerMap,
+      onSelectConsumer,
+    }),
+    [filteredReadings, consumerMap, onSelectConsumer]
+  );
+
   return (
     <div className="p-3.5 sm:p-5 max-w-4xl mx-auto w-full space-y-3.5 pb-20">
       {/* Top Header & Screen Breadcrumb */}
@@ -342,7 +391,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
         <button
           type="button"
           onClick={() => onNavigate('dashboard')}
-          className="flex items-center gap-1.5 text-xs font-semibold text-sky-400 hover:text-sky-300 transition active:scale-95"
+          className="flex items-center gap-1.5 text-xs font-semibold text-sky-400 hover:text-sky-300 transition active:scale-95 py-1.5 cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Dashboard</span>
@@ -353,28 +402,35 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
             type="button"
             onClick={handleManualCheckApprovals}
             disabled={isCheckingApprovals}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-950/80 hover:bg-sky-900 border border-sky-800/80 text-sky-300 text-xs font-semibold transition disabled:opacity-50 active:scale-95 cursor-pointer shadow-sm"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-sky-950/80 hover:bg-sky-900 border border-sky-800/80 text-sky-300 text-xs font-semibold transition disabled:opacity-50 active:scale-95 cursor-pointer shadow-sm whitespace-nowrap"
             title="Check Central Admin for newly approved readings"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isCheckingApprovals ? 'animate-spin text-sky-400' : ''}`} />
             <span>{isCheckingApprovals ? 'Syncing...' : 'Sync Approvals'}</span>
           </button>
 
-          <span className="text-xs font-mono text-slate-400">
+          <span className="text-xs font-mono text-slate-400 tabular-nums">
             Total: <strong className="text-white">{deduplicatedReadings.length}</strong>
           </span>
         </div>
       </div>
 
-      {/* Sync Feedback Toast */}
-      {syncFeedback && (
-        <div className="p-2.5 rounded-xl bg-emerald-950/80 border border-emerald-800 text-emerald-300 text-xs flex items-center justify-between animate-in fade-in slide-in-from-top-1 shadow-sm">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>{syncFeedback}</span>
-          </div>
-        </div>
-      )}
+      {/* Sync Feedback Toast (Swipeable to Dismiss) */}
+      <AnimatePresence>
+        {syncFeedback && (
+          <SwipeableAlertBanner
+            key="history-sync-feedback"
+            onDismiss={() => setSyncFeedback(null)}
+            showCloseButton
+            className="p-2.5 rounded-xl bg-emerald-950/80 border border-emerald-800 text-emerald-300 text-xs flex items-center justify-between gap-2 shadow-sm"
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span className="break-words">{syncFeedback}</span>
+            </div>
+          </SwipeableAlertBanner>
+        )}
+      </AnimatePresence>
 
       {/* Title Section */}
       <div>
@@ -382,16 +438,16 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
           Readings History
         </h2>
         <p className="text-xs text-slate-400 mt-0.5">
-          Chronological field records and central administrative approval verification
+          Latest reading per account and admin verification status
         </p>
       </div>
 
-      {/* Segmented Filter Control */}
+      {/* Segmented Filter Control (Single-Line Tabs Without Clipping) */}
       <div className="grid grid-cols-4 gap-1 p-1 bg-slate-900 border border-slate-800 rounded-xl select-none">
         <button
           type="button"
           onClick={() => setFilterApproval('ALL')}
-          className={`py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold transition text-center ${
+          className={`py-2 px-1 rounded-lg text-[11px] sm:text-xs font-semibold transition text-center whitespace-nowrap truncate cursor-pointer ${
             filterApproval === 'ALL'
               ? 'bg-sky-600 text-white shadow-sm'
               : 'text-slate-400 hover:text-white'
@@ -403,40 +459,37 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
         <button
           type="button"
           onClick={() => setFilterApproval('pending')}
-          className={`py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold transition text-center flex items-center justify-center gap-1 ${
+          className={`py-2 px-1 rounded-lg text-[11px] sm:text-xs font-semibold transition text-center whitespace-nowrap truncate cursor-pointer ${
             filterApproval === 'pending'
               ? 'bg-amber-500 text-slate-950 font-bold shadow-sm'
               : 'text-slate-400 hover:text-amber-300'
           }`}
         >
-          <Clock className="w-3 h-3 hidden sm:inline" />
-          <span>Pending ({pendingCount})</span>
+          Pending ({pendingCount})
         </button>
 
         <button
           type="button"
           onClick={() => setFilterApproval('approved')}
-          className={`py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold transition text-center flex items-center justify-center gap-1 ${
+          className={`py-2 px-1 rounded-lg text-[11px] sm:text-xs font-semibold transition text-center whitespace-nowrap truncate cursor-pointer ${
             filterApproval === 'approved'
               ? 'bg-emerald-600 text-white font-bold shadow-sm'
               : 'text-slate-400 hover:text-emerald-300'
           }`}
         >
-          <CheckCircle2 className="w-3 h-3 hidden sm:inline" />
-          <span>Approved ({approvedCount})</span>
+          Approved ({approvedCount})
         </button>
 
         <button
           type="button"
           onClick={() => setFilterApproval('rejected')}
-          className={`py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold transition text-center flex items-center justify-center gap-1 ${
+          className={`py-2 px-1 rounded-lg text-[11px] sm:text-xs font-semibold transition text-center whitespace-nowrap truncate cursor-pointer ${
             filterApproval === 'rejected'
               ? 'bg-rose-600 text-white font-bold shadow-sm'
               : 'text-slate-400 hover:text-rose-300'
           }`}
         >
-          <AlertCircle className="w-3 h-3 hidden sm:inline" />
-          <span>Flagged ({rejectedCount})</span>
+          Flagged ({rejectedCount})
         </button>
       </div>
 
@@ -449,13 +502,13 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
           type="text"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Search by Account No, Name, or Meter Serial..."
-          className="w-full h-10 bg-slate-900 border border-slate-700/80 rounded-xl pl-9 pr-4 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 transition shadow-inner font-sans"
+          placeholder="Search Account No, Name, or Meter Tag..."
+          className="w-full h-11 bg-slate-900 border border-slate-700/80 rounded-xl pl-10 pr-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 transition shadow-inner font-sans"
         />
       </div>
 
-      {/* Readings Cards List */}
-      <div className="space-y-3">
+      {/* Virtualized Readings Cards List (react-window v2 + memoized ReadingHistoryRow) */}
+      <div>
         {filteredReadings.length === 0 ? (
           <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-8 text-center text-slate-400 space-y-2">
             <History className="w-8 h-8 mx-auto text-slate-500" />
@@ -465,21 +518,16 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
             </p>
           </div>
         ) : (
-          filteredReadings.map((reading) => {
-            const accKey = (reading.accountNumber || '').trim().toLowerCase();
-            const idKey = (reading.consumerId || '').toLowerCase();
-            const tagKey = (reading.meterSerial || '').trim().toLowerCase();
-            const consumer = consumerMap.get(accKey) || consumerMap.get(idKey) || consumerMap.get(tagKey);
-
-            return (
-              <ReadingHistoryRow
-                key={reading.id}
-                reading={reading}
-                consumer={consumer}
-                onSelectConsumer={onSelectConsumer}
-              />
-            );
-          })
+          <List
+            rowComponent={VirtualizedReadingRow}
+            rowCount={filteredReadings.length}
+            rowHeight={dynamicRowHeight}
+            rowProps={historyRowProps}
+            rowKey={getReadingRowKey}
+            overscanCount={4}
+            defaultHeight={520}
+            scrollElement={scrollContainer !== undefined ? scrollContainer : 'window'}
+          />
         )}
       </div>
     </div>

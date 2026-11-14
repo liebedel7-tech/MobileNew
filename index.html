@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>Tagoloan Water District Meter Reader</title>
     <meta name="description" content="Official mobile and field meter reading application for Tagoloan Water District with offline-first persistence, OCR meter recognition, tiered billing calculation, GPS verification, and server sync." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     
     <!-- Mobile & Android WebAPK Configuration -->
     <link rel="manifest" href="/manifest.json" />
@@ -32,8 +35,8 @@
       // Register service worker to enable PWA installability and offline caching
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', function() {
-          navigator.serviceWorker.register('/sw.js').then(function(reg) {
-            console.log('[TWD-PWA] Service worker registered successfully:', reg.scope);
+          navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).then(function(reg) {
+            reg.update().catch(function() {});
           }).catch(function(err) {
             console.warn('[TWD-PWA] Service worker registration failed:', err);
           });

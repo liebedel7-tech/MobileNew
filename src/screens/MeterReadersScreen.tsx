@@ -35,6 +35,7 @@ import {
   calculateLocationOccupancies, 
   areLocationsEqual
 } from '../constants/routes';
+import { SwipeableAlertBanner, SwipeableModalCard, AnimatePresence } from '../components/SwipeDismiss';
 
 interface MeterReadersScreenProps {
   currentUser: StaffUser | null;
@@ -448,30 +449,38 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
         </div>
       </div>
 
-      {/* Notifications / Alerts */}
-      {actionSuccessMessage && (
-        <div className="p-3.5 rounded-xl bg-emerald-950/80 border border-emerald-700 text-emerald-300 text-xs font-medium flex items-center justify-between animate-in fade-in slide-in-from-top-1">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>{actionSuccessMessage}</span>
-          </div>
-          <button onClick={() => setActionSuccessMessage(null)} className="text-emerald-400 hover:text-white cursor-pointer">
-            ✕
-          </button>
-        </div>
-      )}
+      {/* Notifications / Alerts (Swipe-to-Dismiss) */}
+      <AnimatePresence>
+        {actionSuccessMessage && (
+          <SwipeableAlertBanner
+            key="readers-success-alert"
+            onDismiss={() => setActionSuccessMessage(null)}
+            showCloseButton
+            closeButtonClassName="text-emerald-400 hover:text-white cursor-pointer p-1 shrink-0"
+            className="p-3.5 rounded-xl bg-emerald-950/80 border border-emerald-700 text-emerald-300 text-xs font-medium flex items-center justify-between gap-2"
+          >
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>{actionSuccessMessage}</span>
+            </div>
+          </SwipeableAlertBanner>
+        )}
 
-      {errorMessage && (
-        <div className="p-3.5 rounded-xl bg-rose-950/80 border border-rose-700 text-rose-300 text-xs font-medium flex items-center justify-between animate-in fade-in slide-in-from-top-1">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
-            <span>{errorMessage}</span>
-          </div>
-          <button onClick={() => setErrorMessage(null)} className="text-rose-400 hover:text-white cursor-pointer">
-            ✕
-          </button>
-        </div>
-      )}
+        {errorMessage && (
+          <SwipeableAlertBanner
+            key="readers-error-alert"
+            onDismiss={() => setErrorMessage(null)}
+            showCloseButton
+            closeButtonClassName="text-rose-400 hover:text-white cursor-pointer p-1 shrink-0"
+            className="p-3.5 rounded-xl bg-rose-950/80 border border-rose-700 text-rose-300 text-xs font-medium flex items-center justify-between gap-2"
+          >
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+              <span>{errorMessage}</span>
+            </div>
+          </SwipeableAlertBanner>
+        )}
+      </AnimatePresence>
 
       {/* Overview Statistics Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3.5">
@@ -759,9 +768,14 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
       )}
 
       {/* ================= MODAL: TERMINATE METER READER ACCOUNT ================= */}
-      {readerToTerminate && (
-        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-rose-800/60 rounded-2xl p-5 max-w-md w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+      <AnimatePresence>
+        {readerToTerminate && (
+          <SwipeableModalCard
+            key="readers-terminate-modal"
+            onDismiss={() => setReaderToTerminate(null)}
+            backdropClassName="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4"
+            cardClassName="bg-slate-900 border border-rose-800/60 rounded-2xl p-5 max-w-md w-full shadow-2xl space-y-4"
+          >
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-xl bg-rose-950 border border-rose-700 flex items-center justify-center text-rose-400 shrink-0">
                   <AlertTriangle className="w-5 h-5" />
@@ -854,14 +868,19 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
                   <span>{isTerminating ? 'Terminating...' : 'Confirm Termination'}</span>
                 </button>
               </div>
-          </div>
-        </div>
-      )}
+          </SwipeableModalCard>
+        )}
+      </AnimatePresence>
 
       {/* ================= MODAL: ROUTE ASSIGNMENT ================= */}
-      {selectedReaderForEdit && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-md w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+      <AnimatePresence>
+        {selectedReaderForEdit && (
+          <SwipeableModalCard
+            key="readers-routes-modal"
+            onDismiss={() => setSelectedReaderForEdit(null)}
+            backdropClassName="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4"
+            cardClassName="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-md w-full shadow-2xl space-y-4"
+          >
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-base font-bold text-white">
@@ -965,14 +984,19 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
                   {isSubmittingRoutes ? 'Saving...' : 'Save Routes'}
                 </button>
               </div>
-          </div>
-        </div>
-      )}
+          </SwipeableModalCard>
+        )}
+      </AnimatePresence>
 
       {/* ================= MODAL: DIRECT METER READER ENROLMENT ================= */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-md w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
+      <AnimatePresence>
+        {isAddModalOpen && (
+          <SwipeableModalCard
+            key="readers-enrol-modal"
+            onDismiss={() => setIsAddModalOpen(false)}
+            backdropClassName="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4"
+            cardClassName="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-md w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto"
+          >
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-base font-bold text-white flex items-center gap-2">
@@ -1167,9 +1191,9 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
                   </button>
                 </div>
               </form>
-          </div>
-        </div>
-      )}
+          </SwipeableModalCard>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

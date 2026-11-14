@@ -19,6 +19,7 @@ import { DownloadApkModal } from './components/DownloadApkModal';
 import { ScreenTransition } from './components/ScreenTransition';
 import { ModuleLoadingScreen, LoadingProcessInfo } from './components/ModuleLoadingScreen';
 import { AppSplashScreen } from './components/AppSplashScreen';
+import { SwipeableAlertBanner, SwipeableModalCard, AnimatePresence } from './components/SwipeDismiss';
 
 // Screens
 import { LandingScreen } from './screens/LandingScreen';
@@ -104,6 +105,7 @@ export function App() {
   const [loadingProcess, setLoadingProcess] = useState<LoadingProcessInfo | null>(null);
   const [isBootSplash, setIsBootSplash] = useState<boolean>(true);
   const [loginInitialMode, setLoginInitialMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
+  const [mainScrollElement, setMainScrollElement] = useState<HTMLElement | null>(null);
 
   // Clear any stale legacy hash from previous sessions only if not logged in
   useEffect(() => {
@@ -449,6 +451,11 @@ export function App() {
   ) => {
     if (activeScreen === targetScreen && !customProcess) return;
 
+    // Ensure opening camera scanner generically starts in clean Tag Scan mode (not locked to a prior consumer)
+    if (targetScreen === 'scan_meter' && !customProcess?.metadata?.preserveConsumer) {
+      setSelectedConsumer(null);
+    }
+
     if (currentUser && targetScreen !== 'login' && targetScreen !== 'landing') {
       try {
         localStorage.setItem('twd_active_screen_v1', targetScreen);
@@ -607,9 +614,7 @@ export function App() {
   };
 
   const handleScanMeter = (consumer?: Consumer) => {
-    if (consumer) {
-      setSelectedConsumer(consumer);
-    }
+    setSelectedConsumer(consumer || null);
 
     WebSocketService.notifyProcessEvent('CAMERA_SCAN_INIT', 'STARTING', {
       consumerId: consumer?.id,
@@ -620,6 +625,7 @@ export function App() {
       title: 'Booting Optical Odometer Vision Sensor',
       subtitle: 'Configuring 6-Crop Multi-ROI & 5-Digit Detection',
       durationMs: 350,
+      metadata: { preserveConsumer: Boolean(consumer) },
     });
   };
 
@@ -853,35 +859,38 @@ export function App() {
         />
       )}
 
-      {/* Real-time Administrator Event Alert Banner */}
-      {liveAdminAlert && (
-        <div className={`px-4 py-2.5 text-xs flex items-center justify-between border-b shrink-0 animate-in slide-in-from-top-2 z-30 ${
-          liveAdminAlert.type.includes('deactivated')
-            ? 'bg-rose-950/90 border-rose-800 text-rose-200'
-            : liveAdminAlert.type === 'id_issued'
-            ? 'bg-sky-950/90 border-sky-800 text-sky-200'
-            : 'bg-emerald-950/90 border-emerald-800 text-emerald-200'
-        }`}>
-          <div className="flex items-center gap-2 min-w-0 pr-2">
-            <span className={`w-2 h-2 rounded-full shrink-0 ${
-              liveAdminAlert.type.includes('deactivated') ? 'bg-rose-400' : 'bg-emerald-400'
-            }`} />
-            <div className="truncate">
-              <strong className="block text-white text-xs">{liveAdminAlert.title}</strong>
-              <span className="text-xs opacity-90 truncate block">{liveAdminAlert.message}</span>
-            </div>
-          </div>
-          <button
-            onClick={() => setLiveAdminAlert(null)}
-            className="p-1 hover:bg-white/10 rounded-lg text-white font-bold text-xs shrink-0 cursor-pointer"
+      {/* Real-time Administrator Event Alert Banner (Swipe-to-dismiss via framer-motion) */}
+      <AnimatePresence>
+        {liveAdminAlert && (
+          <SwipeableAlertBanner
+            key={`${liveAdminAlert.type}-${liveAdminAlert.timestamp}`}
+            onDismiss={() => setLiveAdminAlert(null)}
+            showCloseButton
+            closeButtonClassName="p-1 hover:bg-white/10 rounded-lg text-white font-bold text-xs shrink-0 cursor-pointer"
+            className={`px-4 py-2.5 text-xs flex items-center justify-between gap-2 border-b shrink-0 z-30 ${
+              liveAdminAlert.type.includes('deactivated')
+                ? 'bg-rose-950/90 border-rose-800 text-rose-200'
+                : liveAdminAlert.type === 'id_issued'
+                ? 'bg-sky-950/90 border-sky-800 text-sky-200'
+                : 'bg-emerald-950/90 border-emerald-800 text-emerald-200'
+            }`}
           >
-            ✕
-          </button>
-        </div>
-      )}
+            <div className="flex items-center gap-2 min-w-0 pr-2">
+              <span className={`w-2 h-2 rounded-full shrink-0 ${
+                liveAdminAlert.type.includes('deactivated') ? 'bg-rose-400' : 'bg-emerald-400'
+              }`} />
+              <div className="truncate">
+                <strong className="block text-white text-xs">{liveAdminAlert.title}</strong>
+                <span className="text-xs opacity-90 truncate block">{liveAdminAlert.message}</span>
+              </div>
+            </div>
+          </SwipeableAlertBanner>
+        )}
+      </AnimatePresence>
 
       {/* Main Dynamic View with Flutter Material 3 Screen Transitions */}
       <main
+        ref={setMainScrollElement}
         className={`flex-1 min-h-0 flex flex-col bg-slate-950 ${
           activeScreen === 'scan_meter'
             ? 'h-full overflow-hidden p-0 m-0 [overscroll-behavior:none]'
@@ -916,6 +925,7 @@ export function App() {
               <ConsumersScreen
                 consumers={consumers}
                 currentUser={currentUser}
+                scrollContainer={mainScrollElement}
                 onSelectConsumer={(c: Consumer) => {
                   setSelectedConsumer(c);
                   navigateTo('consumer_details', {
@@ -943,6 +953,7 @@ export function App() {
                 <ConsumersScreen
                   consumers={consumers}
                   currentUser={currentUser}
+                  scrollContainer={mainScrollElement}
                   onSelectConsumer={(c: Consumer) => {
                     setSelectedConsumer(c);
                     navigateTo('consumer_details', {
@@ -976,6 +987,7 @@ export function App() {
                 <ConsumersScreen
                   consumers={consumers}
                   currentUser={currentUser}
+                  scrollContainer={mainScrollElement}
                   onSelectConsumer={(c: Consumer) => {
                     setSelectedConsumer(c);
                     navigateTo('reading_entry', {
@@ -994,10 +1006,11 @@ export function App() {
             <ScreenErrorBoundary screenName="Camera OCR Viewfinder" onRecoverToDashboard={() => navigateTo('dashboard')}>
               <ScanMeterScreen
                 consumer={selectedConsumer}
+                consumers={consumers}
                 currentUser={currentUser}
                 onNavigate={navigateTo}
                 onOCRComplete={handleOCRComplete}
-                onSelectConsumer={(c: Consumer) => setSelectedConsumer(c)}
+                onSelectConsumer={(c: Consumer | null) => setSelectedConsumer(c)}
                 onSaveReading={handleSaveReading}
                 onReloadData={reloadData}
               />
@@ -1021,6 +1034,7 @@ export function App() {
               <HistoryScreen
                 readings={readings}
                 consumers={consumers}
+                scrollContainer={mainScrollElement}
                 onSelectConsumer={(c: Consumer) => {
                   setSelectedConsumer(c);
                   navigateTo('consumer_details', {
@@ -1104,18 +1118,29 @@ export function App() {
         />
       )}
 
-      {/* Android APK & Mobile Installation Modal */}
-      {isApkModalOpen && (
-        <DownloadApkModal
-          onClose={() => setIsApkModalOpen(false)}
-          deferredPrompt={deferredInstallPrompt}
-        />
-      )}
+      {/* Android APK & Mobile Installation Modal (Swipeable to Dismiss) */}
+      <AnimatePresence>
+        {isApkModalOpen && (
+          <DownloadApkModal
+            key="download-apk-modal"
+            onClose={() => setIsApkModalOpen(false)}
+            deferredPrompt={deferredInstallPrompt}
+          />
+        )}
+      </AnimatePresence>
 
-      {/* 🚫 FULL-SCREEN LOCKOUT MODAL WHEN READER TERMINATED BY CENTRAL ADMIN */}
-      {terminatedLockout && (
-        <div className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-xl flex items-center justify-center p-4">
-          <div className="bg-slate-900 border-2 border-rose-500 w-full max-w-sm rounded-2xl p-5 shadow-2xl text-center space-y-4 animate-in zoom-in-95">
+      {/* FULL-SCREEN LOCKOUT MODAL WHEN READER TERMINATED BY CENTRAL ADMIN */}
+      <AnimatePresence>
+        {terminatedLockout && (
+          <SwipeableModalCard
+            key="terminated-lockout-modal"
+            onDismiss={() => {
+              setTerminatedLockout(null);
+              setActiveScreen('login');
+            }}
+            backdropClassName="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-xl flex items-center justify-center p-4"
+            cardClassName="bg-slate-900 border-2 border-rose-500 w-full max-w-sm rounded-2xl p-5 shadow-2xl text-center space-y-4"
+          >
             <div className="w-16 h-16 rounded-2xl bg-rose-950/80 border-2 border-rose-500 flex items-center justify-center mx-auto text-rose-400 shadow-lg shadow-rose-950/50">
               <Ban className="w-8 h-8 text-rose-400" />
             </div>
@@ -1154,9 +1179,9 @@ export function App() {
             >
               Exit to Login Screen
             </button>
-          </div>
-        </div>
-      )}
+          </SwipeableModalCard>
+        )}
+      </AnimatePresence>
     </MobileFrameWrapper>
   );
 }

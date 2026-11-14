@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { MeterReading, SyncState, ActiveScreen } from '../types';
 import { formatOdometerReading } from '../constants/routes';
+import { SwipeableAlertBanner, AnimatePresence } from '../components/SwipeDismiss';
 
 interface BatchSubmissionScreenProps {
   pendingReadings: MeterReading[];
@@ -84,7 +85,7 @@ export const BatchSubmissionScreen: React.FC<BatchSubmissionScreenProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center space-x-3">
             <div
-              className={`w-11 h-11 rounded-xl flex items-center justify-center ${
+              className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${
                 pendingReadings.length > 0
                   ? 'bg-amber-950 text-amber-400 border border-amber-800'
                   : 'bg-emerald-950 text-emerald-400 border border-emerald-800'
@@ -97,14 +98,14 @@ export const BatchSubmissionScreen: React.FC<BatchSubmissionScreenProps> = ({
               )}
             </div>
 
-            <div>
+            <div className="min-w-0">
               <div className="font-extrabold text-sm text-white">
                 {pendingReadings.length} Readings in Offline Queue
               </div>
               <p className="text-xs text-slate-400">
                 {syncState.isOnline
                   ? 'Connection to Central Server is established.'
-                  : 'Offline mode active. Data safely stored locally in encrypted SQLite vault.'}
+                  : 'Offline mode active. Data safely stored locally.'}
               </p>
             </div>
           </div>
@@ -112,7 +113,7 @@ export const BatchSubmissionScreen: React.FC<BatchSubmissionScreenProps> = ({
           <button
             onClick={handleSubmitBatch}
             disabled={isSubmitting || pendingReadings.length === 0 || !syncState.isOnline}
-            className="px-5 py-3 bg-sky-600 hover:bg-sky-500 disabled:opacity-40 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-sky-600/30 flex items-center justify-center gap-2 transition hover:scale-[1.01] active:scale-[0.99]"
+            className="px-5 py-3 bg-sky-600 hover:bg-sky-500 disabled:opacity-40 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-sky-600/30 flex items-center justify-center gap-2 transition hover:scale-[1.01] active:scale-[0.99] whitespace-nowrap cursor-pointer"
           >
             <Send className={`w-4 h-4 ${isSubmitting ? 'animate-spin' : ''}`} />
             <span>
@@ -123,36 +124,43 @@ export const BatchSubmissionScreen: React.FC<BatchSubmissionScreenProps> = ({
           </button>
         </div>
 
-        {submitResult && (
-          <div className="p-3 bg-sky-950/70 border border-sky-800 rounded-xl text-xs text-sky-200">
-            {submitResult}
-          </div>
-        )}
+        <AnimatePresence>
+          {submitResult && (
+            <SwipeableAlertBanner
+              key="batch-submit-result"
+              onDismiss={() => setSubmitResult(null)}
+              showCloseButton
+              className="p-3 bg-sky-950/70 border border-sky-800 rounded-xl text-xs text-sky-200 flex items-center justify-between gap-2"
+            >
+              <span>{submitResult}</span>
+            </SwipeableAlertBanner>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Tabs */}
-      <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs font-semibold">
+      <div className="grid grid-cols-2 gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs font-semibold">
         <button
           onClick={() => setActiveTab('PENDING')}
-          className={`flex-1 py-2 rounded-lg transition flex items-center justify-center gap-2 ${
+          className={`py-2 px-2 rounded-lg transition flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer ${
             activeTab === 'PENDING'
               ? 'bg-sky-600 text-white'
               : 'text-slate-400 hover:text-white'
           }`}
         >
-          <Clock className="w-4 h-4" />
-          <span>Pending Upload Queue ({pendingReadings.length})</span>
+          <Clock className="w-3.5 h-3.5 shrink-0" />
+          <span>Pending ({pendingReadings.length})</span>
         </button>
         <button
           onClick={() => setActiveTab('SYNCED')}
-          className={`flex-1 py-2 rounded-lg transition flex items-center justify-center gap-2 ${
+          className={`py-2 px-2 rounded-lg transition flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer ${
             activeTab === 'SYNCED'
               ? 'bg-emerald-600 text-white'
               : 'text-slate-400 hover:text-white'
           }`}
         >
-          <CheckCircle2 className="w-4 h-4" />
-          <span>Synced Batches ({syncedReadings.length})</span>
+          <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+          <span>Synced ({syncedReadings.length})</span>
         </button>
       </div>
 
@@ -171,24 +179,24 @@ export const BatchSubmissionScreen: React.FC<BatchSubmissionScreenProps> = ({
             pendingReadings.map((reading) => (
               <div
                 key={reading.id}
-                className="bg-slate-900 border border-amber-900/40 rounded-2xl p-3.5 flex items-center justify-between shadow-sm"
+                className="bg-slate-900 border border-amber-900/40 rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-sm"
               >
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-2">
+                <div className="space-y-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
                     <span className="font-mono text-xs font-extrabold text-sky-400">
                       {reading.accountNumber}
                     </span>
-                    <span className="text-[10px] font-bold text-amber-400 bg-amber-950 px-2 py-0.5 rounded border border-amber-800">
-                      QUEUED
+                    <span className="text-[11px] font-bold text-amber-300 bg-amber-950 px-2 py-0.5 rounded border border-amber-800 sm:hidden">
+                      Awaiting Sync
                     </span>
                   </div>
-                  <h4 className="font-bold text-xs text-white">{reading.consumerName}</h4>
-                  <div className="text-[11px] text-slate-400 font-mono">
-                    PREVIOUS: {formatOdometerReading(reading.previousReading)} cu.m. • PRESENT: {formatOdometerReading(reading.currentReading)} cu.m. • CONSUMPTION: +{reading.consumption} cu.m.
+                  <h4 className="font-bold text-sm text-white leading-snug">{reading.consumerName}</h4>
+                  <div className="text-xs text-slate-400 font-mono tabular-nums">
+                    Prev: {formatOdometerReading(reading.previousReading)} · Pres: {formatOdometerReading(reading.currentReading)} · Used: +{reading.consumption} cu.m.
                   </div>
                 </div>
 
-                <span className="text-[11px] font-mono text-amber-400 bg-amber-950 px-2.5 py-1 rounded-lg border border-amber-800 font-bold">
+                <span className="hidden sm:inline-flex text-xs font-mono text-amber-300 bg-amber-950 px-2.5 py-1 rounded-lg border border-amber-800 font-bold shrink-0 whitespace-nowrap">
                   Awaiting Sync
                 </span>
               </div>
@@ -203,24 +211,24 @@ export const BatchSubmissionScreen: React.FC<BatchSubmissionScreenProps> = ({
             syncedReadings.map((reading) => (
               <div
                 key={reading.id}
-                className="bg-slate-900 border border-emerald-900/40 rounded-2xl p-3.5 flex items-center justify-between shadow-sm"
+                className="bg-slate-900 border border-emerald-900/40 rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-sm"
               >
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-2">
+                <div className="space-y-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
                     <span className="font-mono text-xs font-extrabold text-sky-400">
                       {reading.accountNumber}
                     </span>
-                    <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950 px-2 py-0.5 rounded border border-emerald-800">
-                      SYNCED
+                    <span className="text-[11px] font-bold text-emerald-300 bg-emerald-950 px-2 py-0.5 rounded border border-emerald-800 sm:hidden">
+                      Uploaded
                     </span>
                   </div>
-                  <h4 className="font-bold text-xs text-white">{reading.consumerName}</h4>
-                  <div className="text-[11px] text-slate-400 font-mono">
-                    Batch: {reading.batchId || 'SYNC-AUTO'} • {reading.readingDate}
+                  <h4 className="font-bold text-sm text-white leading-snug">{reading.consumerName}</h4>
+                  <div className="text-xs text-slate-400 font-mono">
+                    Batch: {reading.batchId || 'SYNC-AUTO'} · {reading.readingDate}
                   </div>
                 </div>
 
-                <span className="text-[11px] font-mono text-emerald-400 bg-emerald-950 px-2.5 py-1 rounded-lg border border-emerald-800 font-bold">
+                <span className="hidden sm:inline-flex text-xs font-mono text-emerald-300 bg-emerald-950 px-2.5 py-1 rounded-lg border border-emerald-800 font-bold shrink-0 whitespace-nowrap">
                   Uploaded
                 </span>
               </div>

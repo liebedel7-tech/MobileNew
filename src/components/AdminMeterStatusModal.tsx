@@ -29,6 +29,7 @@ import {
 import { universalApiFetch } from '../services/apiConfig';
 import { WebSocketService } from '../services/websocketService';
 import { formatOdometerReading } from '../constants/routes';
+import { SwipeableAlertBanner, SwipeableModalCard, AnimatePresence } from './SwipeDismiss';
 
 export interface AdminMeterStatusModalProps {
   isOpen: boolean;
@@ -133,8 +134,6 @@ export const AdminMeterStatusModal: React.FC<AdminMeterStatusModalProps> = ({
 
     return () => unsub();
   }, [isOpen]);
-
-  if (!isOpen) return null;
 
   // 1. Handle Reading Approval
   const handleApproveReading = async (readingId: string) => {
@@ -364,10 +363,15 @@ export const AdminMeterStatusModal: React.FC<AdminMeterStatusModalProps> = ({
   const terminatedReadersCount = readers.filter(r => r.status === 'terminated').length;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
-      <div className="bg-slate-900 border border-slate-700 w-full max-w-4xl rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden animate-in zoom-in-95">
-        
-        {/* Header */}
+    <AnimatePresence>
+      {isOpen && (
+        <SwipeableModalCard
+          key="admin-hub-modal"
+          onDismiss={onClose}
+          backdropClassName="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 overflow-y-auto"
+          cardClassName="bg-slate-900 border border-slate-700 w-full max-w-4xl rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden"
+        >
+          {/* Header */}
         <div className="px-4 py-3.5 border-b border-slate-800 bg-slate-950/80 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-sky-950 border border-sky-600/60 flex items-center justify-center text-sky-400">
@@ -404,13 +408,20 @@ export const AdminMeterStatusModal: React.FC<AdminMeterStatusModalProps> = ({
           </div>
         </div>
 
-        {/* Live Feedback Toast */}
-        {actionMessage && (
-          <div className="px-4 py-2 bg-sky-950/90 border-b border-sky-800 text-xs font-semibold text-sky-200 animate-in slide-in-from-top-1 flex items-center justify-between">
-            <span>{actionMessage}</span>
-            <button onClick={() => setActionMessage(null)} className="text-slate-400 hover:text-white">✕</button>
-          </div>
-        )}
+        {/* Live Feedback Toast (Swipeable to Dismiss) */}
+        <AnimatePresence>
+          {actionMessage && (
+            <SwipeableAlertBanner
+              key="admin-action-toast"
+              onDismiss={() => setActionMessage(null)}
+              showCloseButton
+              closeButtonClassName="text-slate-400 hover:text-white cursor-pointer shrink-0 p-1"
+              className="px-4 py-2 bg-sky-950/90 border-b border-sky-800 text-xs font-semibold text-sky-200 flex items-center justify-between gap-2"
+            >
+              <span>{actionMessage}</span>
+            </SwipeableAlertBanner>
+          )}
+        </AnimatePresence>
 
         {/* Tab Navigation */}
         <div className="flex border-b border-slate-800 bg-slate-950 px-3 pt-2 gap-1 overflow-x-auto text-xs font-semibold">
@@ -1032,9 +1043,14 @@ export const AdminMeterStatusModal: React.FC<AdminMeterStatusModalProps> = ({
         {/* ============================================================== */}
         {/* SUB-MODAL: CONFIRM READER TERMINATION                          */}
         {/* ============================================================== */}
-        {terminatingReader && (
-          <div className="fixed inset-0 z-60 bg-black/85 flex items-center justify-center p-4">
-            <div className="bg-slate-900 border-2 border-rose-600 w-full max-w-md rounded-2xl p-4 space-y-3 text-white animate-in zoom-in-95 shadow-2xl">
+        <AnimatePresence>
+          {terminatingReader && (
+            <SwipeableModalCard
+              key="admin-terminate-reader-modal"
+              onDismiss={() => setTerminatingReader(null)}
+              backdropClassName="fixed inset-0 z-60 bg-black/85 flex items-center justify-center p-4"
+              cardClassName="bg-slate-900 border-2 border-rose-600 w-full max-w-md rounded-2xl p-4 space-y-3 text-white shadow-2xl"
+            >
               <div className="flex items-center gap-2.5">
                 <div className="w-10 h-10 rounded-xl bg-rose-950 border border-rose-600 flex items-center justify-center text-rose-400 shrink-0">
                   <Ban className="w-5 h-5" />
@@ -1087,16 +1103,21 @@ export const AdminMeterStatusModal: React.FC<AdminMeterStatusModalProps> = ({
                   <span>{isUpdating ? 'Terminating...' : 'Confirm Termination'}</span>
                 </button>
               </div>
-            </div>
-          </div>
-        )}
+            </SwipeableModalCard>
+          )}
+        </AnimatePresence>
 
         {/* ============================================================== */}
         {/* SUB-MODAL: CONFIRM READING REJECTION / FLAG                    */}
         {/* ============================================================== */}
-        {rejectingReading && (
-          <div className="fixed inset-0 z-60 bg-black/85 flex items-center justify-center p-4">
-            <div className="bg-slate-900 border-2 border-amber-600 w-full max-w-md rounded-2xl p-4 space-y-3 text-white animate-in zoom-in-95 shadow-2xl">
+        <AnimatePresence>
+          {rejectingReading && (
+            <SwipeableModalCard
+              key="admin-reject-reading-modal"
+              onDismiss={() => setRejectingReading(null)}
+              backdropClassName="fixed inset-0 z-60 bg-black/85 flex items-center justify-center p-4"
+              cardClassName="bg-slate-900 border-2 border-amber-600 w-full max-w-md rounded-2xl p-4 space-y-3 text-white shadow-2xl"
+            >
               <div className="flex items-center gap-2.5">
                 <div className="w-10 h-10 rounded-xl bg-amber-950 border border-amber-600 flex items-center justify-center text-amber-400 shrink-0">
                   <AlertTriangle className="w-5 h-5" />
@@ -1142,11 +1163,12 @@ export const AdminMeterStatusModal: React.FC<AdminMeterStatusModalProps> = ({
                   <span>{isUpdating ? 'Flagging...' : 'Confirm Flag'}</span>
                 </button>
               </div>
-            </div>
-          </div>
-        )}
+            </SwipeableModalCard>
+          )}
+        </AnimatePresence>
 
-      </div>
-    </div>
+        </SwipeableModalCard>
+      )}
+    </AnimatePresence>
   );
 };

@@ -16,7 +16,8 @@ import {
   Lock,
   Unlock,
   CheckCircle2,
-  Shield
+  Shield,
+  History
 } from 'lucide-react';
 import { ActiveScreen, StaffUser, SyncState } from '../types';
 import { WebSocketService, WSTelemetryStats } from '../services/websocketService';
@@ -72,7 +73,7 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
   return (
     <div className="flex-1 flex flex-col bg-slate-950 text-slate-100 selection:bg-sky-500 selection:text-slate-950 pb-8">
       {/* Mobile Top Navigation Header */}
-      <header className="sticky top-0 z-40 bg-slate-950/90 backdrop-blur-md border-b border-slate-800/80 px-4 py-2.5">
+      <header className="sticky top-0 z-40 bg-slate-950/90 backdrop-blur-md border-b border-slate-800/80 px-4 py-2.5 pt-[calc(0.625rem+env(safe-area-inset-top))]">
         <div className="flex items-center justify-between">
           {/* Official District Brand Emblem */}
           <div className="flex items-center gap-2.5">
@@ -385,17 +386,12 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
               >
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-xl bg-sky-500/10 border border-sky-500/30 text-sky-400 flex items-center justify-center shrink-0">
-                    <FileText className="w-4 h-4" />
+                    <History className="w-4 h-4" />
                   </div>
                   <div className="text-left">
-                    <div className="flex items-center gap-1.5">
-                      <h3 className="text-xs font-bold text-white group-hover:text-sky-300 transition">
-                        Reading Logs & History
-                      </h3>
-                      <span className="px-1.5 py-0.2 rounded-full bg-sky-500/20 text-sky-300 text-[9px] font-mono font-bold">
-                        Logs
-                      </span>
-                    </div>
+                    <h3 className="text-xs font-bold text-white group-hover:text-sky-300 transition">
+                      Reading Logs &amp; History
+                    </h3>
                     <p className="text-[10px] text-slate-400">
                       Audit history, bill summaries & sync records
                     </p>

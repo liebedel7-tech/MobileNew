@@ -17,6 +17,7 @@ import {
 import { OfficialLogo } from './OfficialLogo';
 import { APP_OFFICIAL_TITLE, APP_OFFICIAL_BADGE } from '../constants/branding';
 import { useDeviceInstallStatus, markAppAsInstalled } from '../services/installService';
+import { SwipeableModalCard } from './SwipeDismiss';
 
 interface DownloadApkModalProps {
   onClose: () => void;
@@ -93,8 +94,11 @@ export const DownloadApkModal: React.FC<DownloadApkModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-      <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl flex flex-col max-h-[92vh]">
+    <SwipeableModalCard
+      onDismiss={onClose}
+      backdropClassName="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+      cardClassName="bg-slate-900 border border-slate-700 rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl flex flex-col max-h-[92vh]"
+    >
         {/* Modal Top Header */}
         <div className="p-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -334,7 +338,6 @@ export const DownloadApkModal: React.FC<DownloadApkModalProps> = ({
             Close
           </button>
         </div>
-      </div>
-    </div>
+    </SwipeableModalCard>
   );
 };
