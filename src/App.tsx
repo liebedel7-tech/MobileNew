@@ -87,6 +87,7 @@ export function App() {
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [syncState, setSyncState] = useState<SyncState>(SyncService.getSyncState());
   const [selectedConsumer, setSelectedConsumer] = useState<Consumer | null>(null);
+  const [consumerDetailsOrigin, setConsumerDetailsOrigin] = useState<ActiveScreen>('consumers');
   const [isMobileChassis, setIsMobileChassis] = useState<boolean>(true);
   const [isApkModalOpen, setIsApkModalOpen] = useState<boolean>(false);
   const [liveAdminAlert, setLiveAdminAlert] = useState<{
@@ -706,7 +707,7 @@ export function App() {
     });
 
     navigateTo('reading_entry', {
-      title: 'Opening Consumer Billing Terminal',
+      title: 'Opening Meter Reading Terminal',
       subtitle: `${consumer.name} • ${consumer.accountNumber}`,
       durationMs: 320,
     });
@@ -775,6 +776,7 @@ export function App() {
       if (prev.id === reading.consumerId || prev.accountNumber === reading.accountNumber) {
         return {
           ...prev,
+          previousReading: reading.previousReading,
           isReadThisMonth: true,
           currentMonthReading: reading,
         };
@@ -1006,6 +1008,7 @@ export function App() {
                 syncState={syncState}
                 onNavigate={navigateTo}
                 onSelectConsumer={(c: Consumer) => {
+                  setConsumerDetailsOrigin('dashboard');
                   setSelectedConsumer(c);
                   navigateTo('consumer_details', {
                     title: 'Loading Consumer Profile',
@@ -1023,9 +1026,11 @@ export function App() {
             <ScreenErrorBoundary screenName="Consumers Directory" onRecoverToDashboard={() => navigateTo('dashboard')}>
               <ConsumersScreen
                 consumers={consumers}
+                readings={readings}
                 currentUser={currentUser}
                 scrollContainer={mainScrollElement}
                 onSelectConsumer={(c: Consumer) => {
+                  setConsumerDetailsOrigin('consumers');
                   setSelectedConsumer(c);
                   navigateTo('consumer_details', {
                     title: 'Loading Consumer Profile',
@@ -1047,13 +1052,23 @@ export function App() {
                   onStartReading={handleStartReading}
                   onScanMeter={handleScanMeter}
                   onNavigate={navigateTo}
+                  onBack={() => navigateTo(consumerDetailsOrigin)}
+                  backLabel={
+                    consumerDetailsOrigin === 'history'
+                      ? 'Readings History'
+                      : consumerDetailsOrigin === 'dashboard'
+                      ? 'Dashboard'
+                      : 'Consumers Directory'
+                  }
                 />
               ) : (
                 <ConsumersScreen
                   consumers={consumers}
+                  readings={readings}
                   currentUser={currentUser}
                   scrollContainer={mainScrollElement}
                   onSelectConsumer={(c: Consumer) => {
+                    setConsumerDetailsOrigin('consumers');
                     setSelectedConsumer(c);
                     navigateTo('consumer_details', {
                       title: 'Loading Consumer Profile',
@@ -1085,6 +1100,7 @@ export function App() {
               ) : (
                 <ConsumersScreen
                   consumers={consumers}
+                  readings={readings}
                   currentUser={currentUser}
                   scrollContainer={mainScrollElement}
                   onSelectConsumer={(c: Consumer) => {
@@ -1135,6 +1151,7 @@ export function App() {
                 consumers={consumers}
                 scrollContainer={mainScrollElement}
                 onSelectConsumer={(c: Consumer) => {
+                  setConsumerDetailsOrigin('history');
                   setSelectedConsumer(c);
                   navigateTo('consumer_details', {
                     title: 'Loading Consumer Profile',

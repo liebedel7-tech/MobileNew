@@ -472,8 +472,13 @@ export class SyncService {
                 return false;
               });
 
+              const mergedPrev = currentCycleReading?.previousReading !== undefined
+                ? Math.max(Number(c.previousReading || 0), Number(currentCycleReading.previousReading))
+                : Number(c.previousReading || 0);
+
               return {
                 ...c,
+                previousReading: mergedPrev,
                 isReadThisMonth: !!currentCycleReading,
                 currentMonthReading: currentCycleReading,
               };
@@ -523,7 +528,7 @@ export class SyncService {
           if (Array.isArray(sReadings) && sReadings.length > 0) {
             for (const sr of sReadings) {
               if (sr.approvalStatus === 'approved' || sr.status === 'APPROVED' || sr.status === 'approved') {
-                await DatabaseHelper.updateReadingApprovalStatus(sr.accountNumber || sr.id, 'approved', {
+                await DatabaseHelper.updateReadingApprovalStatus(sr.id || sr.accountNumber, 'approved', {
                   accountNumber: sr.accountNumber,
                   approvedBy: sr.approvedBy || 'Admin Supervisor',
                   approvedAt: sr.approvedAt || sr.receivedAt || new Date().toISOString(),
@@ -532,7 +537,7 @@ export class SyncService {
                   consumption: sr.consumption,
                 });
               } else if (sr.approvalStatus === 'rejected') {
-                await DatabaseHelper.updateReadingApprovalStatus(sr.accountNumber || sr.id, 'rejected', {
+                await DatabaseHelper.updateReadingApprovalStatus(sr.id || sr.accountNumber, 'rejected', {
                   accountNumber: sr.accountNumber,
                   rejectionReason: sr.rejectionReason,
                 });

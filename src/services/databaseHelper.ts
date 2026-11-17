@@ -214,41 +214,59 @@ export class DatabaseHelper {
     });
 
     return uniqueConsumers.map((consumer) => {
-      // Find active current-cycle reading (pending or newly entered reading)
-      const currentReading = sortedReadings.find((r) => {
-        const matchesAccount =
-          r.consumerId === consumer.id ||
-          (Boolean(r.accountNumber) &&
-            Boolean(consumer.accountNumber) &&
-            r.accountNumber.trim().toLowerCase() === consumer.accountNumber.trim().toLowerCase());
-        if (!matchesAccount) return false;
+      const accountReadings = sortedReadings.filter((r) => {
+        const matchesId = Boolean(r.consumerId && consumer.id && r.consumerId === consumer.id);
+        const matchesAcc = Boolean(
+          r.accountNumber &&
+            consumer.accountNumber &&
+            r.accountNumber.trim().toLowerCase() === consumer.accountNumber.trim().toLowerCase()
+        );
+        return matchesId || matchesAcc;
+      });
 
-        // Is it a pending reading awaiting admin approval?
+      const nonRejectedReadings = accountReadings.filter(
+        (r) => r.approvalStatus !== 'rejected' && r.status !== 'REJECTED'
+      );
+      const latestReading = nonRejectedReadings[0] || accountReadings[0];
+
+      // Determine whether this consumer has a reading for the active cycle:
+      // 1. Any pending reading (pending_approval / PENDING_SYNC)
+      // 2. Consumer explicitly marked isReadThisMonth with a matching reading
+      // 3. A newer approved reading whose currentReading exceeds consumer.previousReading
+      const currentReading = nonRejectedReadings.find((r) => {
         const isPending =
           r.approvalStatus === 'pending_approval' ||
           r.status === 'PENDING_SYNC';
         if (isPending) return true;
 
-        // If it is an approved reading, it is the present reading for this consumer ONLY if:
-        // 1. consumer was explicitly marked isReadThisMonth in this session/device, OR
-        // 2. reading's currentReading is strictly greater than the consumer's initial previousReading baseline
         if (consumer.isReadThisMonth && (r.status === 'APPROVED' || r.approvalStatus === 'approved')) {
           return true;
         }
 
-        // If the reading's currentReading equals consumer.previousReading, that reading was the previous cycle baseline!
-        if (r.currentReading === consumer.previousReading && (r.status === 'APPROVED' || r.approvalStatus === 'approved')) {
-          return false;
+        if (r.currentReading > Number(consumer.previousReading || 0) && (r.status === 'APPROVED' || r.approvalStatus === 'approved')) {
+          return true;
         }
 
         return false;
       });
 
       if (currentReading) {
+        const effectiveBaseline =
+          currentReading.previousReading !== undefined
+            ? currentReading.previousReading
+            : Number(consumer.previousReading || 0);
         return {
           ...consumer,
+          previousReading: Math.max(Number(consumer.previousReading || 0), effectiveBaseline),
           isReadThisMonth: true,
           currentMonthReading: currentReading,
+        };
+      }
+
+      if (latestReading && latestReading.currentReading > Number(consumer.previousReading || 0)) {
+        return {
+          ...consumer,
+          previousReading: latestReading.currentReading,
         };
       }
 
@@ -483,8 +501,9 @@ export class DatabaseHelper {
         const cleanAcc = (reading.accountNumber || '').trim().toLowerCase();
         const cleanMeter = (reading.meterSerial || reading.meterNumber || '').trim().toLowerCase();
 
-        // Check if an unapproved pending reading already exists for this water meter or account
-        const existing = all.find((r) => {
+        // Check only for an exact ID match or an identical pending value (idempotent retry),
+        // NEVER overwrite an older distinct reading (e.g. 10 cu.m.) when a newer reading (e.g. 20 cu.m.) arrives!
+        const existingSameReading = all.find((r) => {
           if (r.id === reading.id) return true;
           const isPending =
             r.approvalStatus === 'pending_approval' ||
@@ -492,41 +511,58 @@ export class DatabaseHelper {
           if (!isPending) return false;
           const rAcc = (r.accountNumber || '').trim().toLowerCase();
           const rMeter = (r.meterSerial || r.meterNumber || '').trim().toLowerCase();
-          return (cleanAcc && rAcc === cleanAcc) || (cleanMeter && rMeter === cleanMeter);
+          const sameConsumer = (cleanAcc && rAcc === cleanAcc) || (cleanMeter && rMeter === cleanMeter);
+          return sameConsumer && Number(r.currentReading) === Number(reading.currentReading);
         });
 
-        // Always reuse existing reading ID to edit/update in place without duplicating records
-        const targetReading: MeterReading = existing
-          ? { ...existing, ...reading, id: existing.id }
-          : reading;
+        // If consumer already has prior readings (approved or pending) with a different value,
+        // ensure the latest non-rejected reading is treated as the baseline if caller didn't pass a higher baseline.
+        const priorAccountReadings = all
+          .filter((r) => {
+            if (existingSameReading && r.id === existingSameReading.id) return false;
+            if (r.id === reading.id) return false;
+            if (r.approvalStatus === 'rejected' || r.status === 'REJECTED') return false;
+            const rAcc = (r.accountNumber || '').trim().toLowerCase();
+            const rMeter = (r.meterSerial || r.meterNumber || '').trim().toLowerCase();
+            return (cleanAcc && rAcc === cleanAcc) || (cleanMeter && rMeter === cleanMeter);
+          })
+          .sort((a, b) => parseReadingTimestamp(b) - parseReadingTimestamp(a));
+
+        const latestPrior = priorAccountReadings[0];
+        let baselinePrev = Number(reading.previousReading || 0);
+        let computedConsumption = Number(reading.consumption ?? 0);
+
+        if (!existingSameReading && latestPrior && Number(latestPrior.currentReading) > baselinePrev) {
+          const priorVal = Number(latestPrior.currentReading);
+          if (Number(reading.currentReading) >= priorVal) {
+            baselinePrev = priorVal;
+            computedConsumption = Number(reading.currentReading) - priorVal;
+          } else if (priorVal >= 90000 && Number(reading.currentReading) < 10000) {
+            baselinePrev = priorVal;
+            computedConsumption = (100000 - priorVal) + Number(reading.currentReading);
+          }
+        }
+
+        const targetReading: MeterReading = existingSameReading
+          ? { ...existingSameReading, ...reading, id: existingSameReading.id }
+          : {
+              ...reading,
+              previousReading: baselinePrev,
+              consumption: computedConsumption,
+            };
 
         readingStore.put(targetReading);
 
-        // Purge only stale unapproved duplicate records in IndexedDB for this account, NEVER delete historical approved records!
-        if (cleanAcc) {
-          all.forEach((r) => {
-            if (r.id !== targetReading.id) {
-              const isPending =
-                r.approvalStatus === 'pending_approval' ||
-                r.status === 'PENDING_SYNC';
-              const rAcc = (r.accountNumber || '').trim().toLowerCase();
-              if (isPending && rAcc === cleanAcc) {
-                try {
-                  readingStore.delete(r.id);
-                } catch {}
-              }
-            }
-          });
-        }
-
-        // Update consumer's status for this month
+        // Update consumer's status for this month with the new baseline -> present reading pair
         const consumerReq = consumerStore.get(targetReading.consumerId);
         consumerReq.onsuccess = () => {
           if (consumerReq.result) {
             const updatedConsumer: Consumer = {
               ...consumerReq.result,
+              previousReading: targetReading.previousReading,
               isReadThisMonth: true,
               currentMonthReading: targetReading,
+              lastSyncDate: new Date().toISOString(),
             };
             consumerStore.put(updatedConsumer);
           } else {
@@ -538,8 +574,10 @@ export class DatabaseHelper {
                 if (accReq.result) {
                   const updatedConsumer: Consumer = {
                     ...accReq.result,
+                    previousReading: targetReading.previousReading,
                     isReadThisMonth: true,
                     currentMonthReading: targetReading,
+                    lastSyncDate: new Date().toISOString(),
                   };
                   consumerStore.put(updatedConsumer);
                 }
@@ -627,6 +665,55 @@ export class DatabaseHelper {
       };
 
       request.onerror = () => reject(request.error || new Error('Failed to retrieve approved reading'));
+    });
+  }
+
+  /**
+   * Retrieves the latest non-rejected reading recorded for a consumer/meter (approved OR pending).
+   * Used so any existing reading (e.g. 10 cu.m.) immediately acts as the baseline for the next reading (e.g. 20 cu.m.).
+   */
+  static async getLatestRecordedReading(accountNumber: string, meterNumber?: string): Promise<MeterReading | null> {
+    const db = await this.getDB();
+    const cleanAcc = (accountNumber || '').trim().toLowerCase();
+    const cleanMeter = (meterNumber || '').trim().toLowerCase();
+
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('readings', 'readonly');
+      const store = tx.objectStore('readings');
+      const request = store.getAll();
+
+      request.onsuccess = () => {
+        const all: MeterReading[] = request.result || [];
+        const validReadings = all.filter((r) => {
+          if (r.approvalStatus === 'rejected' || r.status === 'REJECTED') return false;
+          const rAcc = (r.accountNumber || '').trim().toLowerCase();
+          const rMeter = (r.meterSerial || r.meterNumber || '').trim().toLowerCase();
+
+          return (
+            (cleanAcc && rAcc === cleanAcc) ||
+            (cleanMeter && (rMeter === cleanMeter || rMeter.includes(cleanMeter) || cleanMeter.includes(rMeter)))
+          );
+        });
+
+        if (validReadings.length === 0) {
+          resolve(null);
+          return;
+        }
+
+        validReadings.sort((a, b) => {
+          const timeB = parseReadingTimestamp(b);
+          const timeA = parseReadingTimestamp(a);
+          if (timeB !== timeA) return timeB - timeA;
+          if (Number(b.currentReading) !== Number(a.currentReading)) {
+            return Number(b.currentReading) - Number(a.currentReading);
+          }
+          return (b.id || '').localeCompare(a.id || '');
+        });
+
+        resolve(validReadings[0]);
+      };
+
+      request.onerror = () => reject(request.error || new Error('Failed to retrieve latest reading'));
     });
   }
 
@@ -788,38 +875,52 @@ export class DatabaseHelper {
       readingReq.onsuccess = () => {
         const allReadings: MeterReading[] = readingReq.result || [];
         
-        // Find ALL readings matching this consumer / account or id
-        const matchingReadings = allReadings.filter(
-          (r) =>
-            (cleanKey && (
-              (r.id && r.id.toLowerCase() === cleanKey) ||
-              (r.accountNumber && r.accountNumber.toLowerCase() === cleanKey) ||
-              (r.consumerId && r.consumerId.toLowerCase() === cleanKey)
-            )) ||
-            (cleanAccount && r.accountNumber && r.accountNumber.toLowerCase() === cleanAccount)
-        );
+        // Match ONLY the target reading — NEVER overwrite past cycle history rows!
+        const exactIdMatch = cleanKey
+          ? allReadings.find((r) => r.id && r.id.toLowerCase() === cleanKey)
+          : undefined;
+
+        const accountCandidates = allReadings
+          .filter(
+            (r) =>
+              (cleanKey && (
+                (r.accountNumber && r.accountNumber.toLowerCase() === cleanKey) ||
+                (r.consumerId && r.consumerId.toLowerCase() === cleanKey)
+              )) ||
+              (cleanAccount && r.accountNumber && r.accountNumber.toLowerCase() === cleanAccount)
+          )
+          .sort((a, b) => parseReadingTimestamp(b) - parseReadingTimestamp(a));
+
+        const targetReading =
+          exactIdMatch ||
+          accountCandidates.find(
+            (r) =>
+              r.approvalStatus === 'pending_approval' ||
+              r.status === 'PENDING_SYNC' ||
+              (r.status as string) === 'PENDING_APPROVAL'
+          ) ||
+          (details?.currentReading !== undefined
+            ? accountCandidates.find((r) => Number(r.currentReading) === Number(details.currentReading))
+            : accountCandidates[0]);
 
         const nowIso = details?.approvedAt || new Date().toISOString();
         const adminName = details?.approvedBy || 'Admin Supervisor';
 
-        if (matchingReadings.length > 0) {
-          // Update all matching readings for this account to APPROVED/REJECTED so there are never dual statuses!
-          matchingReadings.forEach((rItem, idx) => {
-            const updatedReading: MeterReading = {
-              ...rItem,
-              approvalStatus,
-              status: approvalStatus === 'approved' ? 'APPROVED' : 'REJECTED',
-              approvedAt: approvalStatus === 'approved' ? nowIso : rItem.approvedAt,
-              approvedBy: approvalStatus === 'approved' ? adminName : rItem.approvedBy,
-              remarks: details?.rejectionReason || rItem.remarks,
-              currentReading: details?.currentReading !== undefined ? details.currentReading : rItem.currentReading,
-              previousReading: details?.previousReading !== undefined ? details.previousReading : rItem.previousReading,
-              consumption: details?.consumption !== undefined ? details.consumption : rItem.consumption,
-            };
+        if (targetReading) {
+          const updatedReading: MeterReading = {
+            ...targetReading,
+            approvalStatus,
+            status: approvalStatus === 'approved' ? 'APPROVED' : 'REJECTED',
+            approvedAt: approvalStatus === 'approved' ? nowIso : targetReading.approvedAt,
+            approvedBy: approvalStatus === 'approved' ? adminName : targetReading.approvedBy,
+            remarks: details?.rejectionReason || targetReading.remarks,
+            currentReading: details?.currentReading !== undefined ? details.currentReading : targetReading.currentReading,
+            previousReading: details?.previousReading !== undefined ? details.previousReading : targetReading.previousReading,
+            consumption: details?.consumption !== undefined ? details.consumption : targetReading.consumption,
+          };
 
-            readingStore.put(updatedReading);
-            if (idx === 0) matchedReading = updatedReading;
-          });
+          readingStore.put(updatedReading);
+          matchedReading = updatedReading;
 
           // Find linked consumer to save approved data & advance baseline
           const consumerReq = consumerStore.getAll();
@@ -870,8 +971,13 @@ export class DatabaseHelper {
               const curr = details.currentReading;
               const cons = details.consumption !== undefined ? details.consumption : Math.max(0, curr - prev);
               
+              const syntheticId =
+                readingIdOrAccountNumber && cleanKey !== cleanAccount
+                  ? readingIdOrAccountNumber
+                  : `RDG-APP-${matchedConsumer.accountNumber.replace(/[^a-zA-Z0-9]/g, '')}-${curr}`;
+
               const syntheticReading: MeterReading = {
-                id: `RDG-APP-${matchedConsumer.accountNumber.replace(/[^a-zA-Z0-9]/g, '')}`,
+                id: syntheticId,
                 consumerId: matchedConsumer.id,
                 accountNumber: matchedConsumer.accountNumber,
                 consumerName: matchedConsumer.name,

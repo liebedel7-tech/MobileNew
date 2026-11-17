@@ -30,51 +30,82 @@ export const isReadingPending = (r: MeterReading) => !isReadingApproved(r) && !i
 export interface ReadingHistoryRowProps {
   reading: MeterReading;
   consumer?: Consumer;
+  accountReadingCount: number;
   onSelectConsumer?: (consumer: Consumer) => void;
 }
 
+const buildFallbackConsumerFromReading = (reading: MeterReading): Consumer => ({
+  id: reading.consumerId || `CON-${reading.accountNumber}`,
+  accountNumber: reading.accountNumber,
+  name: reading.consumerName || 'Water Consumer',
+  address: reading.barangay ? `Brgy. ${reading.barangay}, Tagoloan` : 'Tagoloan, Misamis Oriental',
+  barangay: reading.barangay || 'Poblacion',
+  routeCode: reading.routeCode || 'R-01',
+  sequenceNo: 0,
+  category: 'Residential',
+  rateCode: 'RES-01',
+  meterSerial: reading.meterSerial || 'TAG-N/A',
+  meterNumber: reading.meterSerial || 'TAG-N/A',
+  meterSize: '1/2"',
+  meterStatus: 'active',
+  status: 'Active',
+  previousReading: reading.previousReading ?? 0,
+  previousReadingDate: reading.readingDate,
+  averageConsumption: reading.consumption ?? 0,
+  gpsCoordinates: reading.gpsCoordinates || { lat: 8.5382, lng: 124.7568 },
+  isReadThisMonth: true,
+  currentMonthReading: reading,
+  lastSyncDate: new Date().toISOString(),
+});
+
 /**
  * Memoized single reading row component.
- * Prevents visual jitter and avoids re-rendering unaffected cards across the list
- * when an individual reading status is updated or approved.
+ * Displays the latest reading summary per consumer account so the list never duplicates accounts,
+ * while tapping the row or consumer name opens that account's complete reading history.
  */
 export const ReadingHistoryRow: React.FC<ReadingHistoryRowProps> = React.memo(
-  ({ reading, consumer, onSelectConsumer }) => {
+  ({ reading, consumer, accountReadingCount, onSelectConsumer }) => {
     const isApproved = isReadingApproved(reading);
     const isRejected = isReadingRejected(reading);
     const isPending = isReadingPending(reading);
 
-    const isAccountActiveAndVerified = Boolean(consumer && isValidatedForFieldReading(consumer));
     const isAccountDisconnected = Boolean(consumer && isConsumerDisconnected(consumer));
     const isAccountUnverified = Boolean(consumer && isConsumerUnverified(consumer));
 
     const handleRowClick = () => {
-      if (isAccountActiveAndVerified && consumer && onSelectConsumer) {
-        onSelectConsumer(consumer);
-      }
+      if (!onSelectConsumer) return;
+      onSelectConsumer(consumer || buildFallbackConsumerFromReading(reading));
     };
 
     return (
       <div
+        role="button"
+        tabIndex={0}
         onClick={handleRowClick}
-        title={
-          isAccountActiveAndVerified && consumer
-            ? `Click to view ${consumer.name}'s complete past readings history`
-            : consumer
-            ? `Account is ${isAccountDisconnected ? 'disconnected' : 'unverified'} in Central Admin. Reading history is locked until activated.`
-            : 'Consumer record not loaded'
-        }
-        className={`reading-card bg-slate-900 border rounded-2xl p-3.5 sm:p-4 space-y-2.5 shadow-sm transition ${
-          isAccountActiveAndVerified
-            ? 'border-slate-800/90 hover:border-sky-500/80 hover:bg-slate-900/90 cursor-pointer active:scale-[0.99]'
-            : 'border-slate-800/80 opacity-75 cursor-not-allowed select-none'
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleRowClick();
+          }
+        }}
+        title={`Click to view ${reading.consumerName}'s complete reading history (${accountReadingCount} record${accountReadingCount === 1 ? '' : 's'})`}
+        className={`reading-card bg-slate-900 border rounded-2xl p-3.5 sm:p-4 space-y-2.5 shadow-sm transition cursor-pointer active:scale-[0.99] ${
+          isAccountDisconnected || isAccountUnverified
+            ? 'border-slate-800/80 hover:border-amber-500/70'
+            : 'border-slate-800/90 hover:border-sky-500/80 hover:bg-slate-900/90'
         }`}
       >
-        {/* Header Row: Account Number & Status */}
+        {/* Header Row: Account Number + Clean Reading Count & Status */}
         <div className="flex items-center justify-between gap-2">
-          <span className="font-mono text-xs font-bold text-sky-400 shrink-0">
-            {reading.accountNumber}
-          </span>
+          <div className="flex items-center gap-1.5 min-w-0 text-xs">
+            <span className="font-mono font-bold text-sky-400 shrink-0">
+              {reading.accountNumber}
+            </span>
+            <span className="text-slate-600">·</span>
+            <span className="font-mono text-slate-400 shrink-0 tabular-nums">
+              {accountReadingCount} {accountReadingCount === 1 ? 'reading' : 'readings'}
+            </span>
+          </div>
 
           {isPending && (
             <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-amber-950/80 text-amber-300 border border-amber-800/70 flex items-center gap-1 shrink-0 whitespace-nowrap">
@@ -100,7 +131,7 @@ export const ReadingHistoryRow: React.FC<ReadingHistoryRowProps> = React.memo(
 
         {/* Consumer Name & Meter Tag (Stacks cleanly without clipping or overlap) */}
         <div className="space-y-0.5">
-          <h4 className="font-bold text-sm sm:text-base text-white tracking-tight leading-snug break-words">
+          <h4 className="font-bold text-sm sm:text-base text-white tracking-tight leading-snug break-words group-hover:text-sky-300">
             {reading.consumerName}
           </h4>
           <div className="text-xs font-mono text-slate-400">
@@ -166,22 +197,18 @@ export const ReadingHistoryRow: React.FC<ReadingHistoryRowProps> = React.memo(
             )}
           </div>
 
-          {isAccountActiveAndVerified ? (
+          <div className="flex items-center gap-2 shrink-0 ml-auto">
+            {(isAccountDisconnected || isAccountUnverified) && (
+              <span className="text-rose-400 font-sans font-semibold text-[11px] flex items-center gap-1 whitespace-nowrap">
+                <Lock className="w-3 h-3" />
+                <span>{isAccountDisconnected ? 'Disconnected' : 'Unverified'}</span>
+              </span>
+            )}
             <span className="text-sky-400 hover:text-sky-300 font-sans font-semibold text-xs flex items-center gap-0.5 shrink-0 whitespace-nowrap">
-              <span>Past Readings</span>
+              <span>Account History</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </span>
-          ) : isAccountDisconnected ? (
-            <span className="text-rose-400 font-sans font-semibold text-xs flex items-center gap-1 shrink-0 whitespace-nowrap">
-              <Lock className="w-3 h-3" />
-              <span>Disconnected</span>
-            </span>
-          ) : isAccountUnverified ? (
-            <span className="text-amber-400 font-sans font-semibold text-xs flex items-center gap-1 shrink-0 whitespace-nowrap">
-              <Lock className="w-3 h-3" />
-              <span>Unverified</span>
-            </span>
-          ) : null}
+          </div>
         </div>
       </div>
     );
@@ -203,6 +230,7 @@ export const ReadingHistoryRow: React.FC<ReadingHistoryRowProps> = React.memo(
     if (r1.remarks !== r2.remarks) return false;
     if (r1.readingDate !== r2.readingDate) return false;
     if (r1.readingTime !== r2.readingTime) return false;
+    if (prevProps.accountReadingCount !== nextProps.accountReadingCount) return false;
 
     if (c1?.id !== c2?.id) return false;
     if (c1?.meterStatus !== c2?.meterStatus) return false;
@@ -222,6 +250,7 @@ ReadingHistoryRow.displayName = 'ReadingHistoryRow';
 interface HistoryRowCustomProps {
   readings: MeterReading[];
   consumerMap: Map<string, Consumer>;
+  readingsCountMap: Map<string, number>;
   onSelectConsumer?: (consumer: Consumer) => void;
 }
 
@@ -231,6 +260,7 @@ const VirtualizedReadingRow = ({
   style,
   readings,
   consumerMap,
+  readingsCountMap,
   onSelectConsumer,
 }: RowComponentProps<HistoryRowCustomProps>) => {
   const reading = readings[index];
@@ -240,12 +270,15 @@ const VirtualizedReadingRow = ({
   const idKey = (reading.consumerId || '').toLowerCase();
   const tagKey = (reading.meterSerial || '').trim().toLowerCase();
   const consumer = consumerMap.get(accKey) || consumerMap.get(idKey) || consumerMap.get(tagKey);
+  const countKey = accKey || idKey || reading.id;
+  const accountReadingCount = readingsCountMap.get(countKey) || 1;
 
   return (
     <div {...ariaAttributes} style={style} className="pb-3">
       <ReadingHistoryRow
         reading={reading}
         consumer={consumer}
+        accountReadingCount={accountReadingCount}
         onSelectConsumer={onSelectConsumer}
       />
     </div>
@@ -316,7 +349,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
     return map;
   }, [consumers]);
 
-  const deduplicatedReadings = useMemo(() => {
+  const { deduplicatedReadings, readingsCountMap } = useMemo(() => {
     const sorted = [...readings].sort((a, b) => {
       const timeA = parseReadingTimestamp(a);
       const timeB = parseReadingTimestamp(b);
@@ -328,16 +361,29 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
       return accA.localeCompare(accB);
     });
 
-    const seen = new Set<string>();
+    const seenAccounts = new Set<string>();
+    const seenReadingIds = new Set<string>();
+    const counts = new Map<string, number>();
     const list: MeterReading[] = [];
+
     for (const r of sorted) {
-      const key = (r.accountNumber || '').trim().toLowerCase() || (r.consumerId || '').trim().toLowerCase() || r.id;
-      if (!seen.has(key)) {
-        seen.add(key);
+      if (r.id && seenReadingIds.has(r.id)) continue;
+      if (r.id) seenReadingIds.add(r.id);
+
+      const key =
+        (r.accountNumber || '').trim().toLowerCase() ||
+        (r.consumerId || '').trim().toLowerCase() ||
+        r.id;
+
+      counts.set(key, (counts.get(key) || 0) + 1);
+
+      if (!seenAccounts.has(key)) {
+        seenAccounts.add(key);
         list.push(r);
       }
     }
-    return list;
+
+    return { deduplicatedReadings: list, readingsCountMap: counts };
   }, [readings]);
 
   const pendingCount = deduplicatedReadings.filter(isReadingPending).length;
@@ -379,9 +425,10 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
     () => ({
       readings: filteredReadings,
       consumerMap,
+      readingsCountMap,
       onSelectConsumer,
     }),
-    [filteredReadings, consumerMap, onSelectConsumer]
+    [filteredReadings, consumerMap, readingsCountMap, onSelectConsumer]
   );
 
   return (
@@ -438,7 +485,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
           Readings History
         </h2>
         <p className="text-xs text-slate-400 mt-0.5">
-          Latest reading per account and admin verification status
+          One row per account · tap any account to view its full reading history
         </p>
       </div>
 

@@ -28,6 +28,8 @@ interface ConsumerDetailsScreenProps {
   onStartReading: (consumer: Consumer) => void;
   onScanMeter: (consumer: Consumer) => void;
   onNavigate: (screen: ActiveScreen) => void;
+  onBack?: () => void;
+  backLabel?: string;
 }
 
 export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
@@ -36,8 +38,11 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
   onStartReading,
   onScanMeter,
   onNavigate,
+  onBack,
+  backLabel = 'Consumers Directory',
 }) => {
-  // Consumer's readings sorted newest first
+  const seenIds = new Set<string>();
+  // Consumer's readings sorted newest first (deduplicated by reading ID)
   const consumerReadings = (readings || [])
     .filter((r) => {
       const matchId = Boolean(r.consumerId && consumer.id && r.consumerId.toLowerCase() === consumer.id.toLowerCase());
@@ -46,13 +51,16 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
           consumer.accountNumber &&
           r.accountNumber.trim().toLowerCase() === consumer.accountNumber.trim().toLowerCase()
       );
-      return matchId || matchAcc;
+      if (!matchId && !matchAcc) return false;
+      if (r.id && seenIds.has(r.id)) return false;
+      if (r.id) seenIds.add(r.id);
+      return true;
     })
     .sort((a, b) => {
       const timeA = parseReadingTimestamp(a);
       const timeB = parseReadingTimestamp(b);
       if (timeB !== timeA) return timeB - timeA;
-      return (a.id || '').localeCompare(b.id || '');
+      return (b.id || '').localeCompare(a.id || '');
     });
 
   const isReadyForReading = isValidatedForFieldReading(consumer);
@@ -60,13 +68,19 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
 
   const isReadingApproved = (r: MeterReading) => r.approvalStatus === 'approved' || r.status === 'APPROVED';
   const isReadingRejected = (r: MeterReading) => r.approvalStatus === 'rejected' || r.status === 'REJECTED';
-  const isReadingPending = (r: MeterReading) => !isReadingApproved(r) && !isReadingRejected(r);
 
-  const pendingReading = consumer.currentMonthReading && isReadingPending(consumer.currentMonthReading)
-    ? consumer.currentMonthReading
-    : consumerReadings.find(isReadingPending);
+  const latestRecorded =
+    consumerReadings.find((r) => !isReadingRejected(r)) ||
+    (consumer.currentMonthReading && !isReadingRejected(consumer.currentMonthReading)
+      ? consumer.currentMonthReading
+      : undefined);
 
-  const isPendingApproval = !!pendingReading;
+  const activeBaseline = latestRecorded ? latestRecorded.currentReading : consumer.previousReading;
+  const activeBaselineDate = latestRecorded
+    ? `${latestRecorded.readingDate}${latestRecorded.readingTime ? ` ${latestRecorded.readingTime}` : ''}`
+    : consumer.previousReadingDate;
+
+  const displayedCurrentReading = latestRecorded || consumer.currentMonthReading;
 
   return (
     <div className="p-3.5 sm:p-5 max-w-4xl mx-auto w-full space-y-3.5 pb-20">
@@ -74,11 +88,11 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
       <div className="flex items-center justify-between gap-2">
         <button
           type="button"
-          onClick={() => onNavigate('consumers')}
-          className="flex items-center gap-1.5 text-xs font-semibold text-sky-400 hover:text-sky-300 transition active:scale-95 cursor-pointer"
+          onClick={() => (onBack ? onBack() : onNavigate('consumers'))}
+          className="flex items-center gap-1.5 text-xs font-semibold text-sky-400 hover:text-sky-300 transition active:scale-95 cursor-pointer py-1"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Consumers Directory</span>
+          <span>{backLabel}</span>
         </button>
 
         <div className="flex items-center gap-1.5">
@@ -126,57 +140,50 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
         </div>
 
         {/* Primary Action Buttons Bar */}
-        <div>
+        <div className="space-y-2.5">
           {!isReadyForReading ? (
             <div className="p-3 bg-rose-950/50 text-rose-300 border border-rose-800/80 rounded-xl text-xs font-semibold flex items-center gap-2">
               <Lock className="w-4 h-4 text-rose-400 shrink-0" />
               <span>Reading Prohibited: Account or Water Meter has been deactivated by Admin.</span>
             </div>
-          ) : isPendingApproval ? (
-            <div className="p-3.5 bg-amber-950/60 border border-amber-600/70 rounded-2xl text-xs space-y-2.5 shadow-sm text-amber-200">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 font-bold text-amber-300">
-                  <Clock className="w-4 h-4 text-amber-400 shrink-0" />
-                  <span>Reading Pending Admin Approval</span>
-                </div>
-                <span className="text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-md">
-                  Awaiting Verification
-                </span>
-              </div>
-              <p className="text-[11.5px] leading-relaxed text-amber-200/90">
-                A present reading of <strong className="text-white font-mono">{formatOdometerReading(pendingReading?.currentReading)} cu.m.</strong> was logged on {pendingReading?.readingDate} {pendingReading?.readingTime || ''} and is awaiting central admin verification. Under Tagoloan Water District policy, you cannot read or send another reading until the admin approves this reading. Once approved, this present reading will become the baseline for the next reading.
-              </p>
-              <div className="pt-1 flex items-center gap-2">
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-2.5">
                 <button
                   type="button"
-                  onClick={() => onNavigate('history')}
-                  className="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold border border-amber-500/40 flex items-center gap-1.5 transition text-xs cursor-pointer active:scale-95 shadow-sm"
+                  onClick={() => onScanMeter(consumer)}
+                  className="h-11 px-3 bg-slate-800 hover:bg-slate-750 text-sky-300 border border-slate-700/80 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition active:scale-95 shadow-sm cursor-pointer"
                 >
-                  <span>View in Reading Logs</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
+                  <Camera className="w-4 h-4 text-sky-400" />
+                  <span>Scan Camera OCR</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onStartReading(consumer)}
+                  className="h-11 px-3 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-md shadow-sky-600/25 transition active:scale-95 cursor-pointer"
+                >
+                  <FileText className="w-4 h-4" />
+                  <span>{latestRecorded ? 'Enter New Reading' : 'Enter Reading'}</span>
                 </button>
               </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-2.5">
-              <button
-                type="button"
-                onClick={() => onScanMeter(consumer)}
-                className="h-11 px-3 bg-slate-800 hover:bg-slate-750 text-sky-300 border border-slate-700/80 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition active:scale-95 shadow-sm cursor-pointer"
-              >
-                <Camera className="w-4 h-4 text-sky-400" />
-                <span>Scan Camera OCR</span>
-              </button>
 
-              <button
-                type="button"
-                onClick={() => onStartReading(consumer)}
-                className="h-11 px-3 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-md shadow-sky-600/25 transition active:scale-95 cursor-pointer"
-              >
-                <FileText className="w-4 h-4" />
-                <span>Enter Reading</span>
-              </button>
-            </div>
+              {latestRecorded && (
+                <div className="px-3 py-2 bg-sky-950/40 border border-sky-800/60 rounded-xl text-[11.5px] text-sky-200 flex items-center justify-between gap-2 flex-wrap">
+                  <span>
+                    Latest recorded reading <strong className="font-mono text-white">{formatOdometerReading(latestRecorded.currentReading)} cu.m.</strong> is now the active baseline for the next reading.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onNavigate('history')}
+                    className="text-sky-400 hover:text-sky-300 font-semibold flex items-center gap-0.5 cursor-pointer shrink-0"
+                  >
+                    <span>All Accounts</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -223,13 +230,13 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
 
           <div className="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800/80">
             <span className="text-slate-500 block text-[9.5px] uppercase font-bold tracking-wider">
-              PREVIOUS READING
+              {latestRecorded ? 'ACTIVE BASELINE' : 'PREVIOUS READING'}
             </span>
-            <span className="font-bold text-slate-200 text-xs sm:text-sm block mt-0.5">
-              {formatOdometerReading(consumer.previousReading)} cu.m.
+            <span className="font-bold text-slate-200 text-xs sm:text-sm block mt-0.5 tabular-nums">
+              {formatOdometerReading(activeBaseline)} cu.m.
             </span>
             <span className="text-[10px] text-slate-400 block mt-0.5 truncate">
-              {consumer.previousReadingDate || 'Prior cycle'}
+              {activeBaselineDate || 'Prior cycle'}
             </span>
           </div>
 
@@ -255,28 +262,28 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
         )}
       </div>
 
-      {/* Current Month Reading Status Card */}
-      {consumer.currentMonthReading ? (
+      {/* Latest Reading Summary Card */}
+      {displayedCurrentReading ? (
         <div className="bg-emerald-950/30 border border-emerald-700/60 rounded-2xl p-4 sm:p-5 space-y-3 shadow-sm">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
               <div>
                 <h3 className="font-bold text-xs sm:text-sm text-emerald-300">
-                  Present Reading Logged
+                  Latest Reading Logged
                 </h3>
                 <span className="text-[10.5px] text-slate-400 font-mono">
-                  {consumer.currentMonthReading.readingDate} at {consumer.currentMonthReading.readingTime}
+                  {displayedCurrentReading.readingDate} at {displayedCurrentReading.readingTime}
                 </span>
               </div>
             </div>
 
-            {isReadingApproved(consumer.currentMonthReading) ? (
+            {isReadingApproved(displayedCurrentReading) ? (
               <span className="text-[10px] font-mono text-emerald-300 bg-emerald-950 px-2 py-0.5 rounded border border-emerald-700 font-bold flex items-center gap-1">
                 <CheckCircle2 className="w-3 h-3 text-emerald-400" />
                 <span>Approved by Admin</span>
               </span>
-            ) : isReadingRejected(consumer.currentMonthReading) ? (
+            ) : isReadingRejected(displayedCurrentReading) ? (
               <span className="text-[10px] font-mono text-rose-300 bg-rose-950 px-2 py-0.5 rounded border border-rose-700 font-bold flex items-center gap-1">
                 <AlertCircle className="w-3 h-3 text-rose-400" />
                 <span>Flagged / Rejected</span>
@@ -296,7 +303,7 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
                 Previous
               </span>
               <span className="text-sm font-bold text-slate-200 tabular-nums mt-0.5">
-                {formatOdometerReading(consumer.currentMonthReading.previousReading ?? consumer.previousReading)}
+                {formatOdometerReading(displayedCurrentReading.previousReading ?? consumer.previousReading)}
               </span>
               <span className="text-[10px] text-slate-500">cu.m.</span>
             </div>
@@ -306,7 +313,7 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
                 Present
               </span>
               <span className="text-sm font-bold text-sky-300 tabular-nums mt-0.5">
-                {formatOdometerReading(consumer.currentMonthReading.currentReading)}
+                {formatOdometerReading(displayedCurrentReading.currentReading)}
               </span>
               <span className="text-[10px] text-slate-500">cu.m.</span>
             </div>
@@ -316,7 +323,7 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
                 Consumed
               </span>
               <span className="text-sm font-bold text-emerald-400 tabular-nums mt-0.5">
-                +{consumer.currentMonthReading.consumption}
+                +{displayedCurrentReading.consumption}
               </span>
               <span className="text-[10px] text-slate-500">cu.m.</span>
             </div>
@@ -324,15 +331,17 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
 
           <div className="flex items-center justify-between gap-2 pt-1">
             <span className="text-[11px] text-slate-400 font-mono truncate">
-              Field Reader: <strong className="text-slate-200">{consumer.currentMonthReading.readerName || 'Field Reader'}</strong>
+              Field Reader: <strong className="text-slate-200">{displayedCurrentReading.readerName || 'Field Reader'}</strong>
             </span>
-            <button
-              type="button"
-              onClick={() => onStartReading(consumer)}
-              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-sky-300 rounded-lg text-xs font-semibold transition active:scale-95 cursor-pointer shrink-0 whitespace-nowrap"
-            >
-              Update / Adjust
-            </button>
+            {isReadyForReading && (
+              <button
+                type="button"
+                onClick={() => onStartReading(consumer)}
+                className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-semibold transition active:scale-95 cursor-pointer shrink-0 whitespace-nowrap"
+              >
+                Enter New Reading
+              </button>
+            )}
           </div>
         </div>
       ) : (
@@ -385,9 +394,6 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
             {consumerReadings.map((reading) => {
               const isApproved = isReadingApproved(reading);
               const isRejected = isReadingRejected(reading);
-              const billAmount = reading.billCalculation?.totalAmountDue
-                ? reading.billCalculation.totalAmountDue.toFixed(2)
-                : (reading.consumption * 28).toFixed(2);
 
               return (
                 <div
@@ -426,31 +432,28 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
                     </span>
                   </div>
 
-                  {/* 4-Column Progression Grid */}
-                  <div className="bg-slate-900/90 rounded-xl p-2.5 border border-slate-800/80 grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-center font-mono items-center">
-                    <div className="min-w-0 flex flex-col justify-center">
-                      <span className="text-[10px] uppercase font-semibold text-slate-400">Previous</span>
+                  {/* 3-Column Readings-Only Progression Grid */}
+                  <div className="bg-slate-900/90 rounded-xl py-2.5 px-1 border border-slate-800/80 grid grid-cols-3 divide-x divide-slate-800/80 text-center font-mono items-center">
+                    <div className="min-w-0 px-1.5 flex flex-col justify-center">
+                      <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wide">Previous</span>
                       <span className="text-sm font-bold text-slate-200 tabular-nums mt-0.5">
-                        {formatOdometerReading(reading.previousReading)} cu.m.
+                        {formatOdometerReading(reading.previousReading)}
                       </span>
+                      <span className="text-[10px] text-slate-500">cu.m.</span>
                     </div>
-                    <div className="min-w-0 flex flex-col justify-center">
-                      <span className="text-[10px] uppercase font-semibold text-sky-400">Present</span>
+                    <div className="min-w-0 px-1.5 flex flex-col justify-center">
+                      <span className="text-[10px] uppercase font-semibold text-sky-400 tracking-wide">Present</span>
                       <span className="text-sm font-bold text-sky-300 tabular-nums mt-0.5">
-                        {formatOdometerReading(reading.currentReading)} cu.m.
+                        {formatOdometerReading(reading.currentReading)}
                       </span>
+                      <span className="text-[10px] text-slate-500">cu.m.</span>
                     </div>
-                    <div className="min-w-0 flex flex-col justify-center">
-                      <span className="text-[10px] uppercase font-semibold text-emerald-400">Consumed</span>
+                    <div className="min-w-0 px-1.5 flex flex-col justify-center">
+                      <span className="text-[10px] uppercase font-semibold text-emerald-400 tracking-wide">Consumed</span>
                       <span className="text-sm font-bold text-emerald-400 tabular-nums mt-0.5">
-                        +{reading.consumption} cu.m.
+                        +{reading.consumption}
                       </span>
-                    </div>
-                    <div className="min-w-0 flex flex-col justify-center">
-                      <span className="text-[10px] uppercase font-semibold text-amber-400">Billed</span>
-                      <span className="text-sm font-bold text-amber-300 tabular-nums mt-0.5">
-                        ₱{billAmount}
-                      </span>
+                      <span className="text-[10px] text-slate-500">cu.m.</span>
                     </div>
                   </div>
 

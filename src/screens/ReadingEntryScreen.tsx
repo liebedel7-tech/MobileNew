@@ -70,7 +70,7 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
   const [currentReading, setCurrentReading] = useState<string>(
     initialReadingValue !== undefined && initialReadingValue !== null
       ? cleanOdometerInput(String(initialReadingValue))
-      : (consumer.currentMonthReading?.currentReading !== undefined ? cleanOdometerInput(String(consumer.currentMonthReading.currentReading)) : '')
+      : ''
   );
   const [meterCondition, setMeterCondition] = useState<MeterCondition>('NORMAL');
   const [remarks, setRemarks] = useState('');
@@ -83,9 +83,9 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
   const [isCapturingGPS, setIsCapturingGPS] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Authoritative Baseline & Existing Pending Reading from Database
-  const [approvedRecord, setApprovedRecord] = useState<MeterReading | null>(null);
-  const [pendingRecord, setPendingRecord] = useState<MeterReading | null>(null);
+  // Authoritative Baseline (latest existing reading becomes baseline for next reading)
+  const [latestBaselineRecord, setLatestBaselineRecord] = useState<MeterReading | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   // Post-Save Flow State
   const [savedReading, setSavedReading] = useState<MeterReading | null>(null);
@@ -112,53 +112,31 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
     };
   }, []);
 
-  // Retrieve Latest Approved Reading Baseline and Any Existing Pending Record
+  // Retrieve latest existing reading so it acts as the baseline for the next reading
   useEffect(() => {
     let isMounted = true;
     const acc = consumer.accountNumber;
     const meter = consumer.meterNumber || consumer.meterSerial;
 
-    Promise.all([
-      DatabaseHelper.getLatestApprovedReading(acc, meter),
-      DatabaseHelper.getPendingReadingForMeter(acc, meter),
-    ])
-      .then(([latestApproved, existingPending]) => {
+    DatabaseHelper.getLatestRecordedReading(acc, meter)
+      .then((latest) => {
         if (!isMounted) return;
-        setApprovedRecord(latestApproved);
-        setPendingRecord(existingPending);
-
-        // If an existing pending reading exists and reader hasn't typed a new value, pre-fill for seamless in-place edit
-        if (existingPending && (initialReadingValue === undefined || initialReadingValue === null)) {
-          if (existingPending.currentReading !== undefined) {
-            setCurrentReading(cleanOdometerInput(String(existingPending.currentReading)));
-          }
-          if (existingPending.photoUrl && !initialPhotoUrl) {
-            setPhotoUrl(existingPending.photoUrl);
-          }
-          if (existingPending.remarks) {
-            setRemarks(existingPending.remarks);
-          }
-          if (existingPending.meterCondition) {
-            setMeterCondition(existingPending.meterCondition);
-          }
-        }
+        setLatestBaselineRecord(latest);
       })
       .catch((err) => console.warn('Baseline lookup note:', err));
 
     return () => {
       isMounted = false;
     };
-  }, [consumer.id, consumer.accountNumber, consumer.meterNumber, consumer.meterSerial, initialReadingValue, initialPhotoUrl]);
+  }, [consumer.id, consumer.accountNumber, consumer.meterNumber, consumer.meterSerial]);
 
   // Find next unread consumer on route
   const nextConsumer = useMemo(() => {
     if (!allConsumers || allConsumers.length === 0) return null;
     const currentIndex = allConsumers.findIndex((c) => c.id === consumer.id);
-    // Find next unread consumer after current
     for (let i = currentIndex + 1; i < allConsumers.length; i++) {
       if (!allConsumers[i].isReadThisMonth) return allConsumers[i];
     }
-    // Loop back from beginning if none after
     for (let i = 0; i < currentIndex; i++) {
       if (!allConsumers[i].isReadThisMonth) return allConsumers[i];
     }
@@ -169,11 +147,12 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
   useEffect(() => {
     const defaultVal = initialReadingValue !== undefined && initialReadingValue !== null
       ? cleanOdometerInput(String(initialReadingValue))
-      : (consumer.currentMonthReading?.currentReading !== undefined ? cleanOdometerInput(String(consumer.currentMonthReading.currentReading)) : '');
+      : '';
     setCurrentReading(defaultVal);
-    setPhotoUrl(initialPhotoUrl || consumer.currentMonthReading?.photoUrl);
-    setMeterCondition(consumer.currentMonthReading?.meterCondition || 'NORMAL');
-    setRemarks(consumer.currentMonthReading?.remarks || '');
+    setPhotoUrl(initialPhotoUrl);
+    setMeterCondition('NORMAL');
+    setRemarks('');
+    setValidationError(null);
     setSavedReading(null);
     setSendSuccess(false);
     setSendFeedback(null);
@@ -184,7 +163,7 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
         accuracy: 4,
       });
     }
-  }, [consumer.id, consumer.currentMonthReading, initialReadingValue, initialPhotoUrl]);
+  }, [consumer.id, initialReadingValue, initialPhotoUrl]);
 
   // Capture GPS on mount
   useEffect(() => {
@@ -221,7 +200,7 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
             : null
         );
         setSendSuccess(true);
-        setSendFeedback('✓ Reading has been officially APPROVED by Admin! Baseline advanced & billing statement issued.');
+        setSendFeedback('✓ Reading has been officially APPROVED by Admin! Baseline updated.');
       }
     };
 
@@ -258,16 +237,19 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
 
   const numReading = parseOdometerReading(currentReading);
 
-  // Authoritative Previous Reading: latest approved reading present value, or consumer baseline, or 00000
+  // Authoritative Previous Reading (Baseline): latest existing reading for this consumer becomes baseline (e.g. 10 -> next reading 20 consumes 10)
   const prevReading = useMemo(() => {
-    if (approvedRecord && approvedRecord.currentReading !== undefined) {
-      return parseOdometerReading(approvedRecord.currentReading);
+    if (latestBaselineRecord && latestBaselineRecord.currentReading !== undefined) {
+      return parseOdometerReading(latestBaselineRecord.currentReading);
+    }
+    if (consumer.currentMonthReading?.currentReading !== undefined) {
+      return parseOdometerReading(consumer.currentMonthReading.currentReading);
     }
     if (consumer.previousReading !== undefined && consumer.previousReading !== null) {
       return parseOdometerReading(consumer.previousReading);
     }
     return 0;
-  }, [approvedRecord, consumer.previousReading]);
+  }, [latestBaselineRecord, consumer.currentMonthReading, consumer.previousReading]);
 
   // Sequential consumption calculation with 5-digit mechanical rollover support
   const consumptionResult = useMemo(() => {
@@ -300,43 +282,32 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
   const isReadyForReading = isValidatedForFieldReading(consumer);
   const deactivationReason = getConsumerDeactivationReason(consumer);
 
-  const isPendingUnapproved = Boolean(
-    pendingRecord &&
-    pendingRecord.approvalStatus !== 'approved' &&
-    pendingRecord.status !== 'APPROVED'
-  );
-
   // Handle Save Locally & Dispatch to Admin
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (isPendingUnapproved) {
-      alert(`Reading Pending Admin Approval: A reading (${pendingRecord?.currentReading} cu.m.) has already been recorded for Account #${consumer.accountNumber} and is awaiting central admin verification. You cannot submit another reading until it is approved.`);
-      return;
-    }
+    setValidationError(null);
 
     if (!isReadyForReading) {
-      alert(`Cannot Submit: This account or water meter is deactivated by Admin.\n\nReason: ${deactivationReason}`);
+      setValidationError(`Cannot submit: Account or water meter is deactivated (${deactivationReason || 'Inactive'}).`);
       return;
     }
 
     if (!currentReading || isNaN(Number(currentReading))) {
-      alert('Please enter a valid present reading value.');
+      setValidationError('Please enter a valid present reading value.');
       return;
     }
 
     if (!consumptionResult.isValid) {
-      alert(
+      setValidationError(
         consumptionResult.error ||
-        `Validation Error: Present reading (${numReading} cu.m.) cannot be less than Previous reading (${prevReading} cu.m.).\n\nPlease check the meter dial and enter the correct reading.`
+        `Present reading (${numReading} cu.m.) cannot be less than baseline reading (${prevReading} cu.m.).`
       );
       return;
     }
 
     setIsSaving(true);
     const now = new Date();
-    // Re-use existing pending record ID to modify in place rather than creating duplicate records!
-    const readingId = pendingRecord?.id || `WDT-RDG-${Date.now()}-${consumer.accountNumber.replace(/-/g, '')}`;
+    const readingId = `WDT-RDG-${Date.now()}-${consumer.accountNumber.replace(/-/g, '')}`;
 
     const newReading: MeterReading = {
       id: readingId,
@@ -366,12 +337,13 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
       anomalyReason: anomalyInfo.reason,
     };
 
-    // 1. Save locally to device DB
+    // 1. Save locally to device DB (preserving prior readings in consumer history)
     await onSaveReading(newReading);
+    setLatestBaselineRecord(newReading);
 
     await LoggerService.log(
-      pendingRecord ? 'PENDING_READING_UPDATED' : 'READING_CONFIRMED_SENT',
-      `Meter reading ${numReading} cu.m. (${consumption} cu.m. consumed) ${pendingRecord ? 'updated' : 'recorded'} for Acc #${consumer.accountNumber}. Status: Pending Admin Approval.`,
+      'READING_CONFIRMED_SENT',
+      `Meter reading ${numReading} cu.m. (Baseline ${prevReading} cu.m., +${consumption} cu.m. consumed) recorded for Acc #${consumer.accountNumber}.`,
       user?.id || 'RDR-001',
       user?.name || 'Field Staff'
     );
@@ -386,7 +358,7 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
           newReading.status = 'APPROVED';
           newReading.approvedAt = syncResult.reading.approvedAt;
           newReading.approvedBy = syncResult.reading.approvedBy;
-          setSendFeedback('✓ Reading verified & APPROVED by Admin! Baseline advanced & billing statement issued.');
+          setSendFeedback('✓ Reading verified & APPROVED by Admin! Baseline updated.');
         } else {
           setSendFeedback('Reading successfully transmitted to Central Admin for review & approval.');
         }
@@ -432,7 +404,7 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
             approvedAt: result.reading.approvedAt,
             approvedBy: result.reading.approvedBy,
           } : null);
-          setSendFeedback('✓ Reading has been officially APPROVED by Admin! Baseline advanced & billing statement issued.');
+          setSendFeedback('✓ Reading has been officially APPROVED by Admin! Baseline updated.');
         } else {
           setSendFeedback('Reading successfully submitted to Central Admin Dashboard for review & approval.');
         }
@@ -518,7 +490,7 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
             <p className="text-xs text-slate-400 max-w-md mx-auto mt-1">
               {isApproved ? (
                 <>
-                  Meter reading was <strong className="text-emerald-400 font-mono">Approved by Admin</strong>. Consumer baseline has been advanced and billing statement issued.
+                  Meter reading was <strong className="text-emerald-400 font-mono">Approved by Admin</strong>. Consumer baseline has been updated.
                 </>
               ) : isRejected ? (
                 <>
@@ -746,14 +718,14 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
           </div>
           <div className="bg-slate-950/60 p-1.5 rounded-lg border border-slate-800/80">
             <span className="text-[10px] text-slate-500 uppercase block font-sans">
-              {approvedRecord ? 'Approved Prev' : 'Initial Baseline'}
+              Baseline (Previous)
             </span>
             <strong className="text-slate-200 font-bold block">{formatOdometerReading(prevReading)} cu.m.</strong>
           </div>
           <div className="bg-slate-950/60 p-1.5 rounded-lg border border-slate-800/80">
             <span className="text-[10px] text-slate-500 uppercase block font-sans">Prev Consumed</span>
             <strong className="text-sky-400 font-bold block">
-              {approvedRecord?.consumption ?? consumer.previousConsumption ?? consumer.averageConsumption} cu.m.
+              {latestBaselineRecord?.consumption ?? consumer.previousConsumption ?? consumer.averageConsumption} cu.m.
             </strong>
           </div>
         </div>
@@ -764,7 +736,7 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
             <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
             <div className="space-y-1">
               <span className="font-bold text-rose-300 block text-sm">
-                🚫 Deactivated by Admin — Not Available for Field Reading
+                Deactivated by Admin — Not Available for Field Reading
               </span>
               <p className="text-xs text-rose-200">
                 {deactivationReason || 'This water meter or account is deactivated in Central Admin.'}
@@ -777,48 +749,25 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
         )}
       </div>
 
-      {/* ⚠️ Single Pending Record Enforced Notice */}
-      {isPendingUnapproved && pendingRecord && (
-        <div className="bg-amber-950/60 border border-amber-600/70 rounded-2xl p-4 shadow-lg space-y-3">
-          <div className="flex items-start gap-3">
-            <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 shrink-0 mt-0.5">
-              <Clock className="w-5 h-5" />
-            </div>
-            <div className="space-y-1.5 flex-1">
-              <div className="flex flex-wrap items-center justify-between gap-1">
-                <span className="font-bold text-amber-300 text-sm">
-                  Reading Pending Admin Approval — Cannot Read or Send New Reading
-                </span>
-                <span className="text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-md">
-                  Awaiting Verification
-                </span>
-              </div>
-              <p className="text-xs text-amber-200/90 leading-relaxed">
-                A present reading of <strong className="text-white font-mono">{formatOdometerReading(pendingRecord.currentReading)} cu.m.</strong> was logged on {pendingRecord.readingDate} {pendingRecord.readingTime || ''} and is currently awaiting central admin verification.
-              </p>
-              <div className="text-[11px] text-amber-300/90 bg-amber-950/80 p-2.5 rounded-xl border border-amber-800/60 space-y-1">
-                <p className="font-bold text-amber-200">District Policy Gate:</p>
-                <p>Under Tagoloan Water District policy, field readers cannot take or send another reading for this account until the admin approves this reading. Once approved, this present reading will become the baseline for subsequent readings.</p>
-              </div>
-              <div className="pt-2 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => onNavigate('history')}
-                  className="px-3.5 py-2 bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold rounded-xl text-xs flex items-center gap-1.5 transition active:scale-95 shadow-sm cursor-pointer"
-                >
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>View in Reading Logs</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onNavigate('consumers')}
-                  className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-xl text-xs transition active:scale-95 cursor-pointer"
-                >
-                  Back to Directory
-                </button>
-              </div>
-            </div>
+      {/* Baseline Rollover Info Notice when consumer already has a prior reading */}
+      {latestBaselineRecord && (
+        <div className="bg-sky-950/40 border border-sky-800/60 rounded-2xl p-3.5 text-xs text-sky-200 flex items-start gap-2.5">
+          <Clock className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
+          <div className="space-y-0.5 min-w-0">
+            <span className="font-bold text-sky-300 block">
+              Active Baseline: {formatOdometerReading(latestBaselineRecord.currentReading)} cu.m.
+            </span>
+            <p className="text-[11px] text-slate-300 leading-relaxed">
+              This account&apos;s previous reading ({formatOdometerReading(latestBaselineRecord.currentReading)} cu.m. from {latestBaselineRecord.readingDate}) is set as the baseline. The new reading you enter becomes the Present Reading and computes consumption automatically.
+            </p>
           </div>
+        </div>
+      )}
+
+      {validationError && (
+        <div className="p-3 bg-rose-950/70 border border-rose-700 rounded-xl text-xs text-rose-200 flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+          <span>{validationError}</span>
         </div>
       )}
 
@@ -1043,12 +992,7 @@ export const ReadingEntryScreen: React.FC<ReadingEntryScreenProps> = ({
         </div>
 
         {/* Action Confirm & Send Button */}
-        {isPendingUnapproved ? (
-          <div className="w-full font-black py-4 rounded-2xl bg-amber-950/70 border border-amber-800 text-amber-300 flex items-center justify-center gap-2 text-sm uppercase tracking-wider cursor-not-allowed">
-            <Clock className="w-4 h-4 text-amber-400" />
-            <span>Reading Pending Admin Approval (Cannot Re-Read)</span>
-          </div>
-        ) : !isReadyForReading ? (
+        {!isReadyForReading ? (
           <div className="w-full font-black py-4 rounded-2xl bg-rose-950/70 border border-rose-800 text-rose-300 flex items-center justify-center gap-2 text-sm uppercase tracking-wider cursor-not-allowed">
             <Lock className="w-4 h-4 text-rose-400" />
             <span>Reading Prohibited (Deactivated by Admin)</span>

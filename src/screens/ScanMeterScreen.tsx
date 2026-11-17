@@ -204,25 +204,17 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
     prevInitialConsumerRef.current = initialConsumer;
   }, [initialConsumer, scanStep]);
 
-  // Verify if selected consumer has a reading pending admin approval or an approved baseline
+  // Load latest recorded reading as the active baseline for the selected consumer
   useEffect(() => {
     let isMounted = true;
     if (selectedConsumer && scanStep !== 'SUBMITTED') {
-      Promise.all([
-        DatabaseHelper.getPendingReadingForMeter(selectedConsumer.accountNumber, selectedConsumer.meterNumber || selectedConsumer.meterSerial),
-        DatabaseHelper.getLatestApprovedReading(selectedConsumer.accountNumber, selectedConsumer.meterNumber || selectedConsumer.meterSerial),
-      ]).then(([pending, approved]) => {
+      DatabaseHelper.getLatestRecordedReading(
+        selectedConsumer.accountNumber,
+        selectedConsumer.meterNumber || selectedConsumer.meterSerial
+      ).then((latest) => {
         if (!isMounted) return;
-        setLatestApprovedReading(approved);
-        const isPending = pending && pending.approvalStatus !== 'approved' && pending.status !== 'APPROVED';
-        if (isPending) {
-          setPendingApprovalBlock({
-            consumer: selectedConsumer,
-            pendingReading: pending,
-          });
-        } else {
-          setPendingApprovalBlock(null);
-        }
+        setLatestApprovedReading(latest);
+        setPendingApprovalBlock(null);
       });
     } else if (!selectedConsumer) {
       setPendingApprovalBlock(null);
@@ -235,9 +227,13 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
 
   const effectiveBaselineReading = useMemo(() => {
     if (!selectedConsumer) return 0;
-    return latestApprovedReading
-      ? latestApprovedReading.currentReading
-      : (selectedConsumer.previousReading || 0);
+    if (latestApprovedReading && latestApprovedReading.currentReading !== undefined) {
+      return latestApprovedReading.currentReading;
+    }
+    if (selectedConsumer.currentMonthReading?.currentReading !== undefined) {
+      return selectedConsumer.currentMonthReading.currentReading;
+    }
+    return selectedConsumer.previousReading || 0;
   }, [selectedConsumer, latestApprovedReading]);
 
   // Audio / Haptic feedback for smart tag or reading match
@@ -662,7 +658,7 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
 
   const handleAcceptRealTimeReading = () => {
     if (liveReadingValue !== null && selectedConsumer) {
-      const prev = selectedConsumer.previousReading || 0;
+      const prev = effectiveBaselineReading;
       const isNormal = liveReadingValue >= prev;
       const isRollover = prev >= 90000 && liveReadingValue < 10000;
       if (prev > 0 && !isNormal && !isRollover) {
@@ -830,23 +826,16 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
 
     const currentReading = ocrResult.readingValue;
 
-    // Retrieve Authoritative Approved Baseline and Existing Pending Record
-    const latestApproved = await DatabaseHelper.getLatestApprovedReading(
-      selectedConsumer.accountNumber,
-      selectedConsumer.meterNumber || selectedConsumer.meterSerial
-    );
-    const existingPending = await DatabaseHelper.getPendingReadingForMeter(
+    // Retrieve latest recorded reading so it becomes the baseline for this new reading
+    const latestRecorded = await DatabaseHelper.getLatestRecordedReading(
       selectedConsumer.accountNumber,
       selectedConsumer.meterNumber || selectedConsumer.meterSerial
     );
 
-    const isPendingUnapproved = existingPending && existingPending.approvalStatus !== 'approved' && existingPending.status !== 'APPROVED';
-    if (isPendingUnapproved) {
-      setPendingApprovalBlock({ consumer: selectedConsumer, pendingReading: existingPending });
-      return;
-    }
-
-    const previousReading = latestApproved ? latestApproved.currentReading : (selectedConsumer.previousReading || 0);
+    const previousReading =
+      latestRecorded && latestRecorded.currentReading !== undefined
+        ? latestRecorded.currentReading
+        : (selectedConsumer.previousReading || 0);
     const calc = CalculationService.calculateConsumption(previousReading, currentReading);
 
     if (!calc.isValid) {
@@ -869,7 +858,12 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
       setAllConsumers((prevList) =>
         prevList.map((c) =>
           c.id === submittedConsumer.id || c.accountNumber === submittedConsumer.accountNumber
-            ? { ...c, isReadThisMonth: true, currentMonthReading: record }
+            ? {
+                ...c,
+                previousReading: record.previousReading,
+                isReadThisMonth: true,
+                currentMonthReading: record,
+              }
             : c
         )
       );
@@ -884,8 +878,10 @@ export const ScanMeterScreen: React.FC<ScanMeterScreenProps> = ({
 
       const location = await LocationService.getCurrentLocation();
 
-      // Re-use existing pending record ID to prevent duplicate pending records
-      const recordId = existingPending?.id || `MR-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
+      const recordId =
+        latestRecorded && Number(latestRecorded.currentReading) === Number(currentReading)
+          ? latestRecorded.id
+          : `MR-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
 
       readingRecord = {
         id: recordId,

@@ -14,52 +14,62 @@ import {
   Lock,
   X
 } from 'lucide-react';
-import { Consumer, ActiveScreen, StaffUser } from '../types';
+import { Consumer, ActiveScreen, StaffUser, MeterReading } from '../types';
 import {
   TAGOLOAN_BARANGAYS,
   isValidatedForFieldReading,
   getConsumerDeactivationReason,
   isConsumerDisconnected,
   formatOdometerReading,
+  parseReadingTimestamp,
 } from '../constants/routes';
 import { DatabaseHelper } from '../services/databaseHelper';
 
 interface ConsumerCardProps {
   consumer: Consumer;
+  readingCount: number;
+  latestReading?: MeterReading;
   onSelectConsumer: (consumer: Consumer) => void;
   onStartReading: (consumer: Consumer) => void;
 }
 
 const ConsumerDirectoryCard: React.FC<ConsumerCardProps> = React.memo(
-  ({ consumer, onSelectConsumer, onStartReading }) => {
+  ({ consumer, readingCount, latestReading, onSelectConsumer, onStartReading }) => {
     const isReadyForReading = isValidatedForFieldReading(consumer);
     const isDisconnected = isConsumerDisconnected(consumer);
     const deactivationReason = getConsumerDeactivationReason(consumer);
 
+    const activeReading = latestReading || consumer.currentMonthReading;
+    const hasRecordedReading = Boolean(activeReading || consumer.isReadThisMonth);
+
     const displayedPreviousReading =
-      consumer.isReadThisMonth && consumer.currentMonthReading?.previousReading !== undefined
-        ? consumer.currentMonthReading.previousReading
+      activeReading?.previousReading !== undefined
+        ? activeReading.previousReading
         : consumer.previousReading;
 
     const isApproved =
-      consumer.currentMonthReading?.approvalStatus === 'approved' ||
-      consumer.currentMonthReading?.status === 'APPROVED';
+      activeReading?.approvalStatus === 'approved' ||
+      activeReading?.status === 'APPROVED';
     const isRejected =
-      consumer.currentMonthReading?.approvalStatus === 'rejected' ||
-      consumer.currentMonthReading?.status === 'REJECTED';
-    const isPendingApproval = consumer.isReadThisMonth && !isApproved && !isRejected;
+      activeReading?.approvalStatus === 'rejected' ||
+      activeReading?.status === 'REJECTED';
+    const isPendingApproval = hasRecordedReading && !isApproved && !isRejected;
 
     return (
       <div
-        className={`consumer-card border rounded-2xl p-3.5 sm:p-4 space-y-3 transition shadow-sm ${
+        role="button"
+        tabIndex={0}
+        className={`consumer-card border rounded-2xl p-3.5 sm:p-4 space-y-3 transition shadow-sm cursor-pointer active:scale-[0.99] ${
           !isReadyForReading
-            ? 'border-rose-900/40 bg-slate-900/40 opacity-75 cursor-not-allowed select-none'
-            : consumer.isReadThisMonth
-            ? 'border-emerald-900/50 bg-emerald-950/10 hover:border-sky-500/70 cursor-pointer active:scale-[0.99]'
-            : 'border-slate-800 bg-slate-900/90 hover:border-sky-500/70 cursor-pointer active:scale-[0.99]'
+            ? 'border-rose-900/40 bg-slate-900/55 hover:border-rose-700/70'
+            : hasRecordedReading
+            ? 'border-emerald-900/50 bg-emerald-950/10 hover:border-sky-500/70'
+            : 'border-slate-800 bg-slate-900/90 hover:border-sky-500/70'
         }`}
-        onClick={() => {
-          if (isReadyForReading) {
+        onClick={() => onSelectConsumer(consumer)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
             onSelectConsumer(consumer);
           }
         }}
@@ -78,6 +88,14 @@ const ConsumerDirectoryCard: React.FC<ConsumerCardProps> = React.memo(
             <span className="text-slate-300 font-medium truncate">
               {consumer.category}
             </span>
+            {readingCount > 0 && (
+              <>
+                <span className="text-slate-600">·</span>
+                <span className="font-mono text-sky-400 shrink-0 tabular-nums">
+                  {readingCount} {readingCount === 1 ? 'reading' : 'readings'}
+                </span>
+              </>
+            )}
           </div>
 
           {!isReadyForReading ? (
@@ -153,15 +171,15 @@ const ConsumerDirectoryCard: React.FC<ConsumerCardProps> = React.memo(
             </span>
             <span
               className={`text-sm sm:text-base tabular-nums mt-0.5 ${
-                consumer.isReadThisMonth ? 'font-bold text-sky-300' : 'text-slate-400 italic font-medium'
+                hasRecordedReading ? 'font-bold text-sky-300' : 'text-slate-400 italic font-medium'
               }`}
             >
-              {consumer.isReadThisMonth && consumer.currentMonthReading
-                ? formatOdometerReading(consumer.currentMonthReading.currentReading)
+              {activeReading
+                ? formatOdometerReading(activeReading.currentReading)
                 : 'Pending'}
             </span>
             <span className="text-[10px] text-slate-500">
-              {consumer.isReadThisMonth ? 'cu.m.' : '—'}
+              {activeReading ? 'cu.m.' : '—'}
             </span>
           </div>
 
@@ -171,15 +189,15 @@ const ConsumerDirectoryCard: React.FC<ConsumerCardProps> = React.memo(
             </span>
             <span
               className={`text-sm sm:text-base font-bold tabular-nums mt-0.5 ${
-                consumer.isReadThisMonth ? 'text-emerald-400' : 'text-slate-500'
+                activeReading ? 'text-emerald-400' : 'text-slate-500'
               }`}
             >
-              {consumer.isReadThisMonth && consumer.currentMonthReading
-                ? `+${consumer.currentMonthReading.consumption}`
+              {activeReading
+                ? `+${activeReading.consumption}`
                 : '—'}
             </span>
             <span className="text-[10px] text-slate-500">
-              {consumer.isReadThisMonth ? 'cu.m.' : '—'}
+              {activeReading ? 'cu.m.' : '—'}
             </span>
           </div>
         </div>
@@ -193,10 +211,17 @@ const ConsumerDirectoryCard: React.FC<ConsumerCardProps> = React.memo(
           </div>
 
           {!isReadyForReading ? (
-            <span className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800/80 text-slate-400 border border-slate-700/80 flex items-center gap-1.5 shrink-0 whitespace-nowrap">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelectConsumer(consumer);
+              }}
+              className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800/80 hover:bg-slate-800 text-slate-300 border border-slate-700/80 flex items-center gap-1.5 shrink-0 whitespace-nowrap cursor-pointer"
+            >
               <Lock className="w-3.5 h-3.5 text-rose-400" />
-              <span>Locked</span>
-            </span>
+              <span>{readingCount > 0 ? 'View History' : 'Locked'}</span>
+            </button>
           ) : isPendingApproval ? (
             <button
               type="button"
@@ -206,7 +231,7 @@ const ConsumerDirectoryCard: React.FC<ConsumerCardProps> = React.memo(
               }}
               className="px-3 py-2 rounded-xl text-xs font-bold bg-amber-950/80 hover:bg-amber-900 text-amber-300 border border-amber-800 transition flex items-center gap-1 cursor-pointer shrink-0 whitespace-nowrap"
             >
-              <span>View Ledger</span>
+              <span>View History</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
           ) : (
@@ -214,19 +239,19 @@ const ConsumerDirectoryCard: React.FC<ConsumerCardProps> = React.memo(
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                if (consumer.isReadThisMonth) {
+                if (hasRecordedReading) {
                   onSelectConsumer(consumer);
                 } else {
                   onStartReading(consumer);
                 }
               }}
               className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer shrink-0 whitespace-nowrap ${
-                consumer.isReadThisMonth
+                hasRecordedReading
                   ? 'bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 border border-emerald-800'
                   : 'bg-sky-600 hover:bg-sky-500 text-white'
               }`}
             >
-              <span>{consumer.isReadThisMonth ? 'View History' : 'Enter Reading'}</span>
+              <span>{hasRecordedReading ? 'View History' : 'Enter Reading'}</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
           )}
@@ -240,6 +265,7 @@ ConsumerDirectoryCard.displayName = 'ConsumerDirectoryCard';
 
 interface ConsumerRowCustomProps {
   consumers: Consumer[];
+  readingSummaryMap: Map<string, { count: number; latest?: MeterReading }>;
   onSelectConsumer: (consumer: Consumer) => void;
   onStartReading: (consumer: Consumer) => void;
 }
@@ -249,16 +275,23 @@ const ConsumerDirectoryRow = ({
   index,
   style,
   consumers,
+  readingSummaryMap,
   onSelectConsumer,
   onStartReading,
 }: RowComponentProps<ConsumerRowCustomProps>) => {
   const consumer = consumers[index];
   if (!consumer) return null;
 
+  const accKey = (consumer.accountNumber || '').trim().toLowerCase();
+  const idKey = (consumer.id || '').trim().toLowerCase();
+  const summary = readingSummaryMap.get(accKey) || readingSummaryMap.get(idKey);
+
   return (
     <div {...ariaAttributes} style={style} className="pb-3">
       <ConsumerDirectoryCard
         consumer={consumer}
+        readingCount={summary?.count || 0}
+        latestReading={summary?.latest}
         onSelectConsumer={onSelectConsumer}
         onStartReading={onStartReading}
       />
@@ -268,6 +301,7 @@ const ConsumerDirectoryRow = ({
 
 interface ConsumersScreenProps {
   consumers: Consumer[];
+  readings?: MeterReading[];
   currentUser?: StaffUser | null;
   scrollContainer?: HTMLElement | null;
   onSelectConsumer: (consumer: Consumer) => void;
@@ -277,6 +311,7 @@ interface ConsumersScreenProps {
 
 export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
   consumers,
+  readings = [],
   currentUser,
   scrollContainer,
   onSelectConsumer,
@@ -287,6 +322,38 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
   const [selectedBarangay, setSelectedBarangay] = useState('ALL');
   const [filterStatus, setFilterStatus] = useState<'READY' | 'ALL' | 'READ' | 'UNREAD' | 'DEACTIVATED'>('READY');
   const [allRouteConsumers, setAllRouteConsumers] = useState<Consumer[]>([]);
+
+  const readingSummaryMap = useMemo(() => {
+    const map = new Map<string, { count: number; latest?: MeterReading }>();
+    const sorted = [...readings].sort((a, b) => parseReadingTimestamp(b) - parseReadingTimestamp(a));
+    const seenIds = new Set<string>();
+
+    for (const r of sorted) {
+      if (r.id && seenIds.has(r.id)) continue;
+      if (r.id) seenIds.add(r.id);
+
+      const keys = [
+        (r.accountNumber || '').trim().toLowerCase(),
+        (r.consumerId || '').trim().toLowerCase(),
+      ].filter(Boolean);
+
+      for (const k of keys) {
+        const existing = map.get(k);
+        if (!existing) {
+          map.set(k, {
+            count: 1,
+            latest: r.approvalStatus !== 'rejected' && r.status !== 'REJECTED' ? r : undefined,
+          });
+        } else {
+          existing.count += 1;
+          if (!existing.latest && r.approvalStatus !== 'rejected' && r.status !== 'REJECTED') {
+            existing.latest = r;
+          }
+        }
+      }
+    }
+    return map;
+  }, [readings]);
 
   useEffect(() => {
     const routes = currentUser?.assignedRoutes || (currentUser?.zone ? [currentUser.zone] : undefined);
@@ -371,10 +438,11 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
   const consumerRowProps = useMemo<ConsumerRowCustomProps>(
     () => ({
       consumers: filteredConsumers,
+      readingSummaryMap,
       onSelectConsumer,
       onStartReading,
     }),
-    [filteredConsumers, onSelectConsumer, onStartReading]
+    [filteredConsumers, readingSummaryMap, onSelectConsumer, onStartReading]
   );
 
   return (

@@ -1855,16 +1855,28 @@ app.get(['/api/barangays', '/barangays'], (req, res) => {
 });
 
 // Single Reading Submit Endpoint
-// Helper: Retrieves authoritative previous reading from the latest approved reading or initial registered baseline
-function getAuthoritativePreviousReading(accountNumber: string, meterSerial?: string, consumerId?: string, clientPrevious?: number): number {
+// Helper: Retrieves authoritative previous reading from the latest non-rejected reading (or initial registered baseline)
+function getAuthoritativePreviousReading(
+  accountNumber: string,
+  meterSerial?: string,
+  consumerId?: string,
+  clientPrevious?: number,
+  incomingCurrent?: number
+): number {
   const cleanAcc = (accountNumber || '').trim().toLowerCase();
   const cleanMeter = (meterSerial || '').trim().toLowerCase();
   const cleanId = (consumerId || '').trim().toLowerCase();
 
-  // 1. Search serverReadings for latest approved reading for this meter/account
-  const approvedReadings = serverReadings.filter((r: any) => {
-    const isApp = r.approvalStatus === 'approved' || r.status === 'APPROVED';
-    if (!isApp) return false;
+  // 1. Search serverReadings for latest non-rejected prior reading for this meter/account
+  // Exclude a pending reading with the exact same currentReading (idempotent retry of same submission)
+  const priorReadings = serverReadings.filter((r: any) => {
+    if (r.approvalStatus === 'rejected' || r.status === 'REJECTED') return false;
+    const isSamePendingRetry =
+      incomingCurrent !== undefined &&
+      Number(r.currentReading) === Number(incomingCurrent) &&
+      (r.approvalStatus === 'pending_approval' || r.status === 'PENDING_APPROVAL' || r.status === 'PENDING_SYNC');
+    if (isSamePendingRetry) return false;
+
     const rAcc = (r.accountNumber || '').trim().toLowerCase();
     const rMeter = (r.meterSerial || r.meterNumber || '').trim().toLowerCase();
     const rId = (r.consumerId || '').trim().toLowerCase();
@@ -1874,18 +1886,18 @@ function getAuthoritativePreviousReading(accountNumber: string, meterSerial?: st
            (cleanId && rId === cleanId);
   });
 
-  if (approvedReadings.length > 0) {
-    // Sort newest approved first using robust timestamp parsing and tie-breaker
-    approvedReadings.sort((a: any, b: any) => {
+  if (priorReadings.length > 0) {
+    // Sort newest first using robust timestamp parsing and tie-breaker
+    priorReadings.sort((a: any, b: any) => {
       const timeA = parseReadingTimestamp(a);
       const timeB = parseReadingTimestamp(b);
       if (timeB !== timeA) return timeB - timeA;
       return String(a.id || '').localeCompare(String(b.id || ''));
     });
-    return Number(approvedReadings[0].currentReading || 0);
+    return Number(priorReadings[0].currentReading || 0);
   }
 
-  // 2. If client supplied a valid previous reading on first reading before any approved history exists:
+  // 2. If client supplied a valid previous reading on first reading before any server history exists:
   if (clientPrevious !== undefined && clientPrevious !== null && !isNaN(Number(clientPrevious)) && Number(clientPrevious) > 0) {
     return Number(clientPrevious);
   }
@@ -1941,12 +1953,12 @@ app.post(['/api/readings/submit', '/api/sync/push', '/readings/submit', '/sync/p
       const meter = item.meterSerial || item.meterNumber;
       const cId = item.consumerId || acc;
 
-      // Authoritative baseline from latest approved reading (or initial 00000 policy)
-      const authoritativePrev = getAuthoritativePreviousReading(acc, meter, cId, Number(item.previousReading));
       const curr = Number(item.currentReading !== undefined ? item.currentReading : (item.readingValue || 0));
+      // Authoritative baseline from latest recorded reading (or initial 00000 policy)
+      const authoritativePrev = getAuthoritativePreviousReading(acc, meter, cId, Number(item.previousReading), curr);
       const { consumption: cons, isRollover } = calculateSequentialConsumption(authoritativePrev, curr);
 
-      // Check for existing pending reading for this water meter to prevent duplicate pending records
+      // Update in place ONLY for exact ID match or identical reading value retry; preserve prior readings as history!
       const cleanAcc = (acc || '').trim().toLowerCase();
       const cleanMeter = (meter || '').trim().toLowerCase();
       const existingPendingIndex = serverReadings.findIndex((r: any) => {
@@ -1955,7 +1967,8 @@ app.post(['/api/readings/submit', '/api/sync/push', '/readings/submit', '/sync/p
         if (item.id && r.id === item.id) return true;
         const rAcc = (r.accountNumber || '').trim().toLowerCase();
         const rMeter = (r.meterSerial || r.meterNumber || '').trim().toLowerCase();
-        return (cleanAcc && rAcc === cleanAcc) || (cleanMeter && (rMeter === cleanMeter || rMeter.includes(cleanMeter) || cleanMeter.includes(rMeter)));
+        const sameConsumer = (cleanAcc && rAcc === cleanAcc) || (cleanMeter && (rMeter === cleanMeter || rMeter.includes(cleanMeter) || cleanMeter.includes(rMeter)));
+        return sameConsumer && Number(r.currentReading) === curr;
       });
 
       let readingEntry: any;
@@ -2015,6 +2028,7 @@ app.post(['/api/readings/submit', '/api/sync/push', '/readings/submit', '/sync/p
       if (cIndex !== -1) {
         INITIAL_CONSUMERS[cIndex] = {
           ...INITIAL_CONSUMERS[cIndex],
+          previousReading: authoritativePrev,
           isReadThisMonth: true,
           currentMonthReading: readingEntry,
         };
@@ -2056,11 +2070,11 @@ app.post(['/api/readings/batch', '/readings/batch'], (req, res) => {
         const meter = reading.meterSerial || reading.meterNumber;
         const cId = reading.consumerId || acc;
 
-        const authoritativePrev = getAuthoritativePreviousReading(acc, meter, cId, Number(reading.previousReading));
         const curr = Number(reading.currentReading !== undefined ? reading.currentReading : (reading.readingValue || 0));
+        const authoritativePrev = getAuthoritativePreviousReading(acc, meter, cId, Number(reading.previousReading), curr);
         const { consumption: cons, isRollover } = calculateSequentialConsumption(authoritativePrev, curr);
 
-        // Check for existing pending reading
+        // Update in place ONLY for exact ID match or identical reading value retry; preserve prior readings as history!
         const cleanAcc = (acc || '').trim().toLowerCase();
         const cleanMeter = (meter || '').trim().toLowerCase();
         const existingPendingIndex = serverReadings.findIndex((r: any) => {
@@ -2069,7 +2083,8 @@ app.post(['/api/readings/batch', '/readings/batch'], (req, res) => {
           if (reading.id && r.id === reading.id) return true;
           const rAcc = (r.accountNumber || '').trim().toLowerCase();
           const rMeter = (r.meterSerial || r.meterNumber || '').trim().toLowerCase();
-          return (cleanAcc && rAcc === cleanAcc) || (cleanMeter && (rMeter === cleanMeter || rMeter.includes(cleanMeter) || cleanMeter.includes(rMeter)));
+          const sameConsumer = (cleanAcc && rAcc === cleanAcc) || (cleanMeter && (rMeter === cleanMeter || rMeter.includes(cleanMeter) || cleanMeter.includes(rMeter)));
+          return sameConsumer && Number(r.currentReading) === curr;
         });
 
         let readingRecord: any;
@@ -2110,6 +2125,7 @@ app.post(['/api/readings/batch', '/readings/batch'], (req, res) => {
         if (cIdx !== -1) {
           INITIAL_CONSUMERS[cIdx] = {
             ...INITIAL_CONSUMERS[cIdx],
+            previousReading: authoritativePrev,
             isReadThisMonth: true,
             currentMonthReading: readingRecord,
           };
@@ -2231,8 +2247,8 @@ const handleApproveReading = (req: any, res: any) => {
   const { id } = req.params;
   const { approvedBy } = req.body || {};
 
-  // Prioritize pending reading for the account/id, or pick the most recent one
-  const reading = serverReadings.find((r: any) => (r.id === id || r.accountNumber === id) && (r.approvalStatus === 'pending_approval' || r.status === 'PENDING_APPROVAL' || r.status === 'PENDING_SYNC')) ||
+  // Prioritize newest pending reading for the account/id, or pick the most recent one
+  const reading = serverReadings.slice().reverse().find((r: any) => (r.id === id || r.accountNumber === id) && (r.approvalStatus === 'pending_approval' || r.status === 'PENDING_APPROVAL' || r.status === 'PENDING_SYNC')) ||
     serverReadings.slice().reverse().find((r: any) => r.id === id || r.accountNumber === id);
   if (!reading) {
     return res.status(404).json({ success: false, message: 'Reading not found' });
