@@ -18,7 +18,8 @@ This document provides the definitive, authoritative reference for:
 ## 1. Network Integration Contract & Connection Hub
 
 ### 1.1 Central Connection Parameters
-* **Production Base URL**: `https://ais-dev-ui6fsepfskrowqsfycbac7-946013608969.asia-southeast1.run.app`
+* **Mobile Terminal URL**: `https://meterreader.onrender.com`
+* **Central Water District System URL**: `https://twd-6pqd.onrender.com`
 * **Local Proxy / Dev Server**: `http://localhost:3000` (Automatic fallback via `universalApiFetch`)
 * **API Route Prefix**: `/api`
 * **CORS Policy**: `Access-Control-Allow-Origin: *` (Full cross-origin access enabled)
@@ -314,7 +315,7 @@ $$\text{Subtotal} = \text{Basic Charge} + 10.00 \text{ (Maintenance Fee)}$$
 
 ## 6. Summary Checklist for Mobile Team Deployment
 
-1. **Point Base URL**: Set to `https://ais-dev-ui6fsepfskrowqsfycbac7-946013608969.asia-southeast1.run.app` with prefix `/api`.
+1. **Point Base URL**: Set to `https://twd-6pqd.onrender.com` (Central System) or `https://meterreader.onrender.com` (Mobile Terminal) with prefix `/api`.
 2. **Authenticate**: Login via `POST /api/auth/login` or register with automatic activation. Pass returned Bearer token in the `Authorization` header.
 3. **Download Routes**: Invoke `GET /api/consumers` to seed the local database.
 4. **Field Execution**: Record readings offline with GPS stamps and photo proofs.

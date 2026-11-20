@@ -423,7 +423,8 @@ app.get(['/api/health', '/health'], (req, res) => {
       activeReaders: REGISTERED_READERS.filter(r => r.status === 'active').length,
       terminatedReaders: REGISTERED_READERS.filter(r => r.status === 'terminated').length,
       wsActiveConnections: activeClients.size,
-      mobileTerminalUrl: process.env.MOBILE_TERMINAL_URL || process.env.VITE_MOBILE_TERMINAL_URL || 'https://mobile-li9q.onrender.com',
+      mobileTerminalUrl: process.env.MOBILE_TERMINAL_URL || process.env.VITE_MOBILE_TERMINAL_URL || 'https://meterreader.onrender.com',
+      centralApiUrl: process.env.CENTRAL_API_URL || process.env.VITE_CENTRAL_API_URL || 'https://twd-6pqd.onrender.com',
     });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message || 'Server error' });
@@ -432,7 +433,7 @@ app.get(['/api/health', '/health'], (req, res) => {
 
 // Remote System Probe & Gateway Forwarder
 app.all(['/api/system/probe', '/api/gateway/probe'], async (req, res) => {
-  const targetBaseUrl = (req.query.baseUrl || req.body?.baseUrl || 'https://ais-dev-ui6fsepfskrowqsfycbac7-946013608969.asia-southeast1.run.app').toString();
+  const targetBaseUrl = (req.query.baseUrl || req.body?.baseUrl || process.env.CENTRAL_API_URL || 'https://twd-6pqd.onrender.com').toString();
   const endpoint = (req.query.endpoint || req.body?.endpoint || '/api/health').toString();
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
   const fullTargetUrl = `${targetBaseUrl.replace(/\/+$/, '')}${cleanEndpoint}`;

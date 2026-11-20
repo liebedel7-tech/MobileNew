@@ -93,8 +93,8 @@ export const LIVE_BACKEND_URL = typeof window !== 'undefined' && window.location
   ? window.location.origin 
   : '';
 
-export const DEFAULT_TAGOLOAN_CLOUD_URL = '';
-export const DEFAULT_MOBILE_RENDER_URL = '';
+export const DEFAULT_TAGOLOAN_CLOUD_URL = 'https://twd-6pqd.onrender.com';
+export const DEFAULT_MOBILE_RENDER_URL = 'https://meterreader.onrender.com';
 
 // Dynamic Resolution: Default to the active server origin hosting this application
 // to guarantee 100% instant connectivity out of the box, with full support for external targets
@@ -241,6 +241,14 @@ export function getCandidateBackendUrls(): string[] {
     }
   } catch {
     // Ignore in non-vite environments
+  }
+
+  // Candidate 5: Configured Render fallback URLs (when running offline or on a static host)
+  if (DEFAULT_MOBILE_RENDER_URL && !candidates.includes(DEFAULT_MOBILE_RENDER_URL)) {
+    candidates.push(DEFAULT_MOBILE_RENDER_URL);
+  }
+  if (DEFAULT_TAGOLOAN_CLOUD_URL && !candidates.includes(DEFAULT_TAGOLOAN_CLOUD_URL)) {
+    candidates.push(DEFAULT_TAGOLOAN_CLOUD_URL);
   }
 
   return candidates.length > 0 ? candidates : [''];

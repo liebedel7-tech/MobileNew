@@ -669,10 +669,17 @@ export const SystemConnectionScreen: React.FC<SystemConnectionScreenProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => handleSelectPreset('')}
+                onClick={() => handleSelectPreset(DEFAULT_TAGOLOAN_CLOUD_URL)}
                 className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-emerald-700/80 text-[10.5px] font-mono text-emerald-300 font-bold transition cursor-pointer"
               >
-                ● Relative Origin
+                ● TWD System (twd-6pqd)
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSelectPreset('https://meterreader.onrender.com')}
+                className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-cyan-700/80 text-[10.5px] font-mono text-cyan-300 font-bold transition cursor-pointer"
+              >
+                ● Mobile Render (meterreader)
               </button>
               <button
                 type="button"
