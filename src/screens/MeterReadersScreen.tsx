@@ -79,71 +79,68 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
   const [terminationReason, setTerminationReason] = useState<string>('Account terminated by administrator');
   const [isTerminating, setIsTerminating] = useState<boolean>(false);
 
-  // Load and sync readers from both local DB and central API
-  const loadAndSyncReaders = useCallback(async (showLoading = false) => {
+  const backoffUntilRef = React.useRef<number>(0);
+
+  // Load and sync readers authoritatively from Central API (with offline fallback)
+  const loadAndSyncReaders = useCallback(async (showLoading = false, force = false) => {
+    if (!force && Date.now() < backoffUntilRef.current) return;
     if (showLoading) setLoading(true);
     setIsSyncing(true);
 
     try {
-      // 1. Get from local DB first
-      const local = await DatabaseHelper.getLocalReaders();
-      
-      // 2. Fetch/Sync with Central API
-      try {
-        const res = await universalApiFetch('/api/readers', {
-          headers: { 'Accept': 'application/json' },
-        });
+      const res = await universalApiFetch('/api/readers', {
+        headers: { 'Accept': 'application/json' },
+      });
 
-        if (res.ok) {
-          const text = await res.text();
-          if (text) {
-            const data = JSON.parse(text);
-            const serverList: ReaderAccount[] = data.readers || data.staff || data.data || [];
-            
-            // Merge unique readers
-            const map = new Map<string, ReaderAccount>();
-            local.forEach(r => map.set((r.username || r.id).toLowerCase(), r));
-            serverList.forEach(r => map.set((r.username || r.id).toLowerCase(), r));
-
-            const merged = Array.from(map.values());
-            // Sort: active first, then alphabetically by name
-            merged.sort((a, b) => {
-              if (a.status === 'active' && b.status !== 'active') return -1;
-              if (b.status === 'active' && a.status !== 'active') return 1;
-              return (a.name || '').localeCompare(b.name || '');
-            });
-
-            setReaders(merged);
-            // Cache back to local DB
-            for (const r of merged) {
-              await DatabaseHelper.saveLocalReader(r);
-            }
-            setIsSyncing(false);
-            if (showLoading) setLoading(false);
-            return;
-          }
-        }
-      } catch {
-        // Fallback to local
+      if (res.status === 429) {
+        const retrySec = Number(res.headers.get('Retry-After')) || 30;
+        backoffUntilRef.current = Date.now() + Math.max(15000, retrySec * 1000);
+        const local = await DatabaseHelper.getLocalReaders();
+        setReaders(local);
+        return;
       }
 
-      // If network fails, use local
+      if (res.ok) {
+        const text = await res.text();
+        if (text) {
+          const data = JSON.parse(text);
+          if (!data?.isOfflineFallback) {
+            const serverList: ReaderAccount[] = data.readers || data.staff || data.data || [];
+            if (Array.isArray(serverList)) {
+              const authoritative = await DatabaseHelper.replaceLocalReaders(serverList);
+              authoritative.sort((a, b) => {
+                if (a.status === 'active' && b.status !== 'active') return -1;
+                if (b.status === 'active' && a.status !== 'active') return 1;
+                return (a.name || '').localeCompare(b.name || '');
+              });
+              setReaders(authoritative);
+              return;
+            }
+          }
+        }
+      }
+
+      const local = await DatabaseHelper.getLocalReaders();
       setReaders(local);
     } catch (err: any) {
       console.warn('Error loading readers:', err);
+      const local = await DatabaseHelper.getLocalReaders().catch(() => []);
+      setReaders(local);
     } finally {
       setIsSyncing(false);
       if (showLoading) setLoading(false);
     }
   }, []);
 
-  // Initial load and periodic live polling (every 3.5 seconds)
+  // Initial load and periodic live polling (every 15 seconds when visible)
   useEffect(() => {
-    loadAndSyncReaders(true);
+    loadAndSyncReaders(true, true);
 
     const interval = setInterval(() => {
-      loadAndSyncReaders(false);
-    }, 3500);
+      if (typeof document === 'undefined' || !document.hidden) {
+        loadAndSyncReaders(false, false);
+      }
+    }, 15000);
 
     // WebSocket real-time subscription
     const unsub = WebSocketService.subscribe((msg) => {
@@ -152,7 +149,7 @@ export const MeterReadersScreen: React.FC<MeterReadersScreenProps> = ({
         msg.type === 'READER_ACCOUNT_TERMINATED' || 
         msg.type === 'READER_STATUS_CHANGED'
       ) {
-        loadAndSyncReaders(false);
+        loadAndSyncReaders(false, true);
         if (msg.type === 'READER_REGISTERED_ACTIVE') {
           setActionSuccessMessage(`⚡ New meter reader registered from mobile & automatically active: ${msg.payload?.reader?.name || 'Field Reader'}`);
           setTimeout(() => setActionSuccessMessage(null), 5000);

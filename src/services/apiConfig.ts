@@ -337,8 +337,13 @@ export async function universalApiFetch(path: string, init?: RequestInit): Promi
       );
 
       const contentType = response.headers.get('content-type') || '';
-      // Ensure response is valid JSON, not an HTML redirect or cookie check
-      if (response.status < 400 && !contentType.includes('text/html')) {
+      // If a static host returns HTML (e.g. SPA fallback) for an API route, try the next backend candidate
+      if (contentType.includes('text/html')) {
+        console.warn(`[TWD-API] Received HTML instead of JSON on [${method}] ${fullUrl}, trying next candidate`);
+        continue;
+      }
+
+      if (response.status < 400) {
         cachedWorkingBaseUrl = base;
         lastHealthCheckTime = Date.now();
 
@@ -357,10 +362,12 @@ export async function universalApiFetch(path: string, init?: RequestInit): Promi
 
         return response;
       } else if (response.status < 500) {
-        // 4xx client errors (e.g. 404, 400)
+        // 4xx client errors (400, 401, 403, 404, 429) - do not cache 429 as healthy
+        if (response.status !== 429) {
+          cachedWorkingBaseUrl = base;
+          lastHealthCheckTime = Date.now();
+        }
         console.warn(`[TWD-API] HTTP ${response.status} ${response.statusText} on [${method}] ${fullUrl} (${durationMs}ms)`);
-        cachedWorkingBaseUrl = base;
-        lastHealthCheckTime = Date.now();
 
         recordApiLog({
           id: `API-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,

@@ -1102,10 +1102,9 @@ export class DatabaseHelper {
     }
   }
 
-  // Default Initial Readers for Tagoloan Water District
-  private static DEFAULT_INITIAL_READERS: ReaderAccount[] = [...(INITIAL_READERS as any)];
+  private static LEGACY_SEED_IDS = new Set((INITIAL_READERS as any[]).map(r => String(r.id || '').toLowerCase()));
 
-  // Local Registered Readers (supports offline field operations & Vercel static fallback)
+  // Local Registered Readers (only real synced or pending offline registrations; never force-injects fake all-occupied seed readers)
   static async getLocalReaders(): Promise<ReaderAccount[]> {
     try {
       const fromDB = await this.getItem<ReaderAccount[]>('twd_registered_readers', []);
@@ -1116,16 +1115,54 @@ export class DatabaseHelper {
           try { fromLS = JSON.parse(raw); } catch { /* ignore */ }
         }
       }
-      
-      // Merge unique by username / id
+
       const map = new Map<string, ReaderAccount>();
-      // Base defaults
-      this.DEFAULT_INITIAL_READERS.forEach(r => map.set((r.username || r.id).toLowerCase(), r));
-      (fromDB || []).forEach(r => map.set((r.username || r.id).toLowerCase(), r));
-      (fromLS || []).forEach(r => map.set((r.username || r.id).toLowerCase(), r));
+      [...(fromDB || []), ...(fromLS || [])].forEach((r) => {
+        if (!r) return;
+        const rId = String(r.id || '').toLowerCase();
+        // Drop legacy fake seed readers unless explicitly flagged as synced from live server or pending local
+        if (this.LEGACY_SEED_IDS.has(rId) && !(r as any).mobileSynced && !(r as any).pendingCentralSync) {
+          return;
+        }
+        const key = (r.username || r.id || '').toLowerCase();
+        if (key) map.set(key, r);
+      });
       return Array.from(map.values());
     } catch {
-      return [...this.DEFAULT_INITIAL_READERS];
+      return [];
+    }
+  }
+
+  // Authoritatively replace cached reader list from Central Server (preserving only unsynced pending offline registrations)
+  static async replaceLocalReaders(serverReaders: ReaderAccount[]): Promise<ReaderAccount[]> {
+    try {
+      const existing = await this.getLocalReaders();
+      const pendingOffline = existing.filter((r: any) => Boolean(r?.pendingCentralSync));
+
+      const map = new Map<string, ReaderAccount>();
+      for (const sr of serverReaders || []) {
+        if (!sr) continue;
+        const key = (sr.username || sr.id || '').toLowerCase();
+        if (key) {
+          map.set(key, { ...sr, mobileSynced: true } as any);
+        }
+      }
+      for (const pr of pendingOffline) {
+        const key = (pr.username || pr.id || '').toLowerCase();
+        if (key && !map.has(key)) {
+          map.set(key, pr);
+        }
+      }
+
+      const nextList = Array.from(map.values());
+      await this.setItem('twd_registered_readers', nextList);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('twd_registered_readers', JSON.stringify(nextList));
+      }
+      return nextList;
+    } catch (err) {
+      console.warn('Error replacing local readers:', err);
+      return serverReaders || [];
     }
   }
 
@@ -1166,7 +1203,6 @@ export class DatabaseHelper {
           (r.employeeId && r.employeeId.toLowerCase() === cleanId)
         ) {
           const isDeactivating = status === 'terminated' || status === 'rejected';
-          // When mobile detects a deactivated account, the assigned area routes are automatically released and made available
           const updatedRoutes = isDeactivating
             ? (assignedRoutes !== undefined ? assignedRoutes : [])
             : (assignedRoutes && assignedRoutes.length > 0 ? assignedRoutes : r.assignedRoutes);

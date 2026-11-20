@@ -105,22 +105,28 @@ export class SyncService {
   static async syncReaders(): Promise<any[]> {
     try {
       const localReaders = await DatabaseHelper.getLocalReaders();
-      const res = await universalApiFetch('/api/readers/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ readers: localReaders }),
-      });
+      const pendingLocals = localReaders.filter((r: any) => Boolean(r?.pendingCentralSync));
+
+      // Push pending offline registrations if any, otherwise query authoritative list cleanly via GET
+      const res = pendingLocals.length > 0
+        ? await universalApiFetch('/api/readers/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ readers: pendingLocals }),
+          })
+        : await universalApiFetch('/api/readers', {
+            headers: { 'Accept': 'application/json' },
+          });
 
       if (res.ok) {
         const text = await res.text();
         if (text) {
           const data = JSON.parse(text);
-          const serverReaders = data?.readers || data?.staff || data?.data;
-          if (Array.isArray(serverReaders) && serverReaders.length > 0) {
-            for (const r of serverReaders) {
-              await DatabaseHelper.saveLocalReader(r);
+          if (!data?.isOfflineFallback) {
+            const serverReaders = data?.readers || data?.staff || data?.data;
+            if (Array.isArray(serverReaders)) {
+              return await DatabaseHelper.replaceLocalReaders(serverReaders);
             }
-            return serverReaders;
           }
         }
       }
@@ -495,24 +501,9 @@ export class SyncService {
         // Consumer records remain intact in local SQLite / IndexedDB
       }
 
-      // 3. Bi-Directional Meter Reader Account Synchronization
+      // 3. Authoritative Meter Reader Account Synchronization
       try {
-        const localReaders = await DatabaseHelper.getLocalReaders();
-        const readerSyncRes = await universalApiFetch('/api/readers/sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-          body: JSON.stringify({ readers: localReaders }),
-        });
-
-        if (readerSyncRes.ok) {
-          const readerSyncData = await safeParseJson(readerSyncRes);
-          const serverReaders = readerSyncData?.readers || readerSyncData?.staff || readerSyncData?.data;
-          if (Array.isArray(serverReaders) && serverReaders.length > 0) {
-            for (const sReader of serverReaders) {
-              await DatabaseHelper.saveLocalReader(sReader);
-            }
-          }
-        }
+        await this.syncReaders();
       } catch (readerSyncErr) {
         // Local reader accounts remain safe
       }

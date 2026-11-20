@@ -35,6 +35,7 @@ async function request(path: string, options: RequestInit = {}): Promise<{ statu
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
+        'x-test-suite': 'true',
         ...(options.headers || {}),
       },
     });

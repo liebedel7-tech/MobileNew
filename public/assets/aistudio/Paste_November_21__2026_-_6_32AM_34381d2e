@@ -1,0 +1,385 @@
+4m=_b:1495 No ID or name found in config.
+updateJsLog @ m=_b:1495
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app:24678/?token=E_7YSFFPnUMy' failed: Error in connection establishment: net::ERR_CONNECTION_TIMED_OUT
+createWebSocket @ _aistudio-iframe.js?v=29045eb3:317
+2m=_b:1495 No ID or name found in config.
+updateJsLog @ m=_b:1495
+ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/api/readings:1  Failed to load resource: net::ERR_NAME_NOT_RESOLVED
+ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/api/consumers?zones=Casinglot%2CMohon&readerId=WDT-MR02&username=reader02&includeInactive=true:1  Failed to load resource: net::ERR_NAME_NOT_RESOLVED
+ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/api/readings:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/api/consumers?zones=Casinglot%2CMohon&readerId=WDT-MR02&username=reader02&includeInactive=true:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/api/readings:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/api/consumers?zones=Casinglot%2CMohon&readerId=WDT-MR02&username=reader02&includeInactive=true:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+createWebSocket @ _aistudio-iframe.js?v=29045eb3:317
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+createWebSocket @ _aistudio-iframe.js?v=29045eb3:317
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+createWebSocket @ _aistudio-iframe.js?v=29045eb3:317
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+createWebSocket @ _aistudio-iframe.js?v=29045eb3:317
+ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/api/readings:1  Failed to load resource: net::ERR_NAME_NOT_RESOLVED
+ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/api/consumers?zones=Casinglot%2CMohon&readerId=WDT-MR02&username=reader02&includeInactive=true:1  Failed to load resource: net::ERR_NAME_NOT_RESOLVED
+ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/api/consumers?zones=Casinglot%2CMohon&readerId=WDT-MR02&username=reader02&includeInactive=true:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/api/readings:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/api/readings:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/api/consumers?zones=Casinglot%2CMohon&readerId=WDT-MR02&username=reader02&includeInactive=true:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/api/readings:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/api/readings:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/api/readings:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+createWebSocket @ _aistudio-iframe.js?v=29045eb3:317
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+createWebSocket @ _aistudio-iframe.js?v=29045eb3:317
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+createWebSocket @ _aistudio-iframe.js?v=29045eb3:317
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+createWebSocket @ _aistudio-iframe.js?v=29045eb3:317
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error in connection establishment: net::ERR_INTERNET_DISCONNECTED
+createWebSocket @ _aistudio-iframe.js?v=29045eb3:317
+987The resource <URL> was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally.
+ssl.gstatic.com/docs/common/cleardot.gif?zx=hv0rjql4u1w8:1  Failed to load resource: net::ERR_CONNECTION_CLOSED
+signaler-pa.clients6.google.com/punctual/multi-watch/channel?VER=8&gsessionid=R-neB0RxvzMLZNHkTBe0hUTC3riCUjDdZKTdHWjcTic&key=AIzaSyAWGrfCCr7albM3lmCc937gx4uIphbpeKQ&RID=rpc&SID=j5wefItFclkt3P_2eVf9EA&AID=27&CI=0&TYPE=xmlhttp&zx=48l3tuy7ztyw&t=1:1  Failed to load resource: net::ERR_QUIC_PROTOCOL_ERROR.QUIC_NETWORK_IDLE_TIMEOUT
+signaler-pa.clients6.google.com/punctual/multi-watch/channel?VER=8&gsessionid=zOHKwCS3Qld7R-2_qFOOEPY0K7ih87fFnCC1gtJIIzY&key=AIzaSyAWGrfCCr7albM3lmCc937gx4uIphbpeKQ&RID=rpc&SID=UEEBfdubAaa9VnGXF1MO3w&AID=40&CI=0&TYPE=xmlhttp&zx=7zw9ppfk0nht&t=1:1  Failed to load resource: net::ERR_QUIC_PROTOCOL_ERROR.QUIC_NETWORK_IDLE_TIMEOUT
+signaler-pa.clients6.google.com/punctual/multi-watch/channel?VER=8&gsessionid=R-neB0RxvzMLZNHkTBe0hUTC3riCUjDdZKTdHWjcTic&key=AIzaSyAWGrfCCr7albM3lmCc937gx4uIphbpeKQ&RID=rpc&SID=j5wefItFclkt3P_2eVf9EA&AID=39&CI=0&TYPE=xmlhttp&zx=87bf9rbfe69l&t=2:1  Failed to load resource: the server responded with a status of 400 ()
+signaler-pa.clients6.google.com/punctual/multi-watch/channel?VER=8&gsessionid=zOHKwCS3Qld7R-2_qFOOEPY0K7ih87fFnCC1gtJIIzY&key=AIzaSyAWGrfCCr7albM3lmCc937gx4uIphbpeKQ&RID=rpc&SID=UEEBfdubAaa9VnGXF1MO3w&AID=47&CI=0&TYPE=xmlhttp&zx=kcna6ltmpa0f&t=2:1  Failed to load resource: the server responded with a status of 400 ()
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error during WebSocket handshake: 'Sec-WebSocket-Accept' header is missing
+createWebSocket @ _aistudio-iframe.js?v=29045eb3:317
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error during WebSocket handshake: 'Sec-WebSocket-Accept' header is missing
+createWebSocket @ _aistudio-iframe.js?v=29045eb3:317
+VM500:1 The powerPreference option is currently ignored when calling requestAdapter() on Windows. See https://crbug.com/369219127
+eval @ VM500:1
+/apps/d55f6ea7-2c74-4d3f-ae1b-bcd9142d2e0b?showPreview=true&appParams=landing&showAssistant=true:1 No available adapters.
+docs.google.com/picker/logImpressions?authuser=0&opi=96797242:1  Failed to load resource: the server responded with a status of 400 ()
+docs.google.com/picker/logImpressions?authuser=0&opi=96797242:1  Failed to load resource: the server responded with a status of 400 ()
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error during WebSocket handshake: 'Sec-WebSocket-Accept' header is missing
+createWebSocket @ _aistudio-iframe.js?v=29045eb3:317
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws' failed: Error during WebSocket handshake: 'Sec-WebSocket-Accept' header is missing
+createWebSocket @ _aistudio-iframe.js?v=29045eb3:317
+m=Jn51xb:1944 Origin trial controlled feature not enabled: 'writer'.
+(anonymous) @ m=Jn51xb:1944
+m=Jn51xb:1944 Origin trial controlled feature not enabled: 'rewriter'.
+(anonymous) @ m=Jn51xb:1944
+m=Jn51xb:1944 Unrecognized feature: 'proofreader'.
+(anonymous) @ m=Jn51xb:1944
+IWU5O3yRaE9v/vs/loader.js:6 Loading the script 'https://www.gstatic.com/monaco_editor/IWU5O3yRaE9v/vs/language/typescript/tsMode.js' violates the following Content Security Policy directive: "script-src 'unsafe-inline' 'unsafe-eval' blob: data: https://accounts.google.com/gsi/client https://apis.google.com/js/api.js https://billing-ads-qa-devel.corp.google.com/payments/v4/js/integrator.js https://payments.google.com/payments/v4/js/integrator.js https://payments.sandbox.google.com/payments/v4/js/integrator.js https://www.googletagmanager.com/gtm.js https://www.gstatic.com/glue/cookienotificationbar/cookienotificationbar.min.js https://www-onepick-opensocial.googleusercontent.com/gadgets/js/rpc.js https://support.google.com/inapp/api.js https://www.google.com/tools/feedback/activate.js https://www.google.com/tools/feedback/chat_load.js https://www.google.com/tools/feedback/help_api.js https://www.google.com/tools/feedback/load.js https://www.google.com/tools/feedback/open.js https://www.google.com/tools/feedback/open_to_help_guide_lazy.js https://www.gstatic.com/feedback/js/ https://www.gstatic.com/feedback/js/help/prod/service/lazy.min.js https://www.gstatic.com/inproduct_help/api/main.min.js https://www.gstatic.com/inproduct_help/chatsupport/chatsupport_button_v2.js https://www.gstatic.com/inproduct_help/service/lazy.min.js https://www.gstatic.com/uservoice/feedback/client/web/live/ https://www.gstatic.com/uservoice/surveys/resources/prod/js/survey/ https://www.googletagmanager.com/gtag/js https://www.google-analytics.com/analytics.js https://www.googletagmanager.com/gtag/destination https://www.gstatic.com/_/mss/boq-makersuite/_/js/k=boq-makersuite.MakerSuite.en.M270UOz8pe4.2018.O/ https://apis.google.com/_/scs/abc-static/_/js/ https://payments.google.com/payments/u/0/v4/js/integrator.js https://payments.youtube.com/payments/v4/js/integrator.js https://payments.youtube.com/payments/u/0/v4/js/integrator.js https://payments.cloud.google/payments/v4/js/integrator.js". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The policy is report-only, so the violation has been logged but no further action has been taken.
+editor.main.js:601 Creating a worker from 'https://aistudio.google.com/monaco/IWU5O3yRaE9v/worker.js' violates the following Content Security Policy directive: "script-src 'unsafe-inline' 'unsafe-eval' blob: data: https://accounts.google.com/gsi/client https://apis.google.com/js/api.js https://billing-ads-qa-devel.corp.google.com/payments/v4/js/integrator.js https://payments.google.com/payments/v4/js/integrator.js https://payments.sandbox.google.com/payments/v4/js/integrator.js https://www.googletagmanager.com/gtm.js https://www.gstatic.com/glue/cookienotificationbar/cookienotificationbar.min.js https://www-onepick-opensocial.googleusercontent.com/gadgets/js/rpc.js https://support.google.com/inapp/api.js https://www.google.com/tools/feedback/activate.js https://www.google.com/tools/feedback/chat_load.js https://www.google.com/tools/feedback/help_api.js https://www.google.com/tools/feedback/load.js https://www.google.com/tools/feedback/open.js https://www.google.com/tools/feedback/open_to_help_guide_lazy.js https://www.gstatic.com/feedback/js/ https://www.gstatic.com/feedback/js/help/prod/service/lazy.min.js https://www.gstatic.com/inproduct_help/api/main.min.js https://www.gstatic.com/inproduct_help/chatsupport/chatsupport_button_v2.js https://www.gstatic.com/inproduct_help/service/lazy.min.js https://www.gstatic.com/uservoice/feedback/client/web/live/ https://www.gstatic.com/uservoice/surveys/resources/prod/js/survey/ https://www.googletagmanager.com/gtag/js https://www.google-analytics.com/analytics.js https://www.googletagmanager.com/gtag/destination https://www.gstatic.com/_/mss/boq-makersuite/_/js/k=boq-makersuite.MakerSuite.en.M270UOz8pe4.2018.O/ https://apis.google.com/_/scs/abc-static/_/js/ https://payments.google.com/payments/u/0/v4/js/integrator.js https://payments.youtube.com/payments/v4/js/integrator.js https://payments.youtube.com/payments/u/0/v4/js/integrator.js https://payments.cloud.google/payments/v4/js/integrator.js". Note that 'worker-src' was not explicitly set, so 'script-src' is used as a fallback. The policy is report-only, so the violation has been logged but no further action has been taken.
+editor.main.js:601 Creating a worker from 'https://aistudio.google.com/monaco/IWU5O3yRaE9v/worker.js' violates the following Content Security Policy directive: "script-src 'unsafe-inline' 'unsafe-eval' blob: data: https://accounts.google.com/gsi/client https://apis.google.com/js/api.js https://billing-ads-qa-devel.corp.google.com/payments/v4/js/integrator.js https://payments.google.com/payments/v4/js/integrator.js https://payments.sandbox.google.com/payments/v4/js/integrator.js https://www.googletagmanager.com/gtm.js https://www.gstatic.com/glue/cookienotificationbar/cookienotificationbar.min.js https://www-onepick-opensocial.googleusercontent.com/gadgets/js/rpc.js https://support.google.com/inapp/api.js https://www.google.com/tools/feedback/activate.js https://www.google.com/tools/feedback/chat_load.js https://www.google.com/tools/feedback/help_api.js https://www.google.com/tools/feedback/load.js https://www.google.com/tools/feedback/open.js https://www.google.com/tools/feedback/open_to_help_guide_lazy.js https://www.gstatic.com/feedback/js/ https://www.gstatic.com/feedback/js/help/prod/service/lazy.min.js https://www.gstatic.com/inproduct_help/api/main.min.js https://www.gstatic.com/inproduct_help/chatsupport/chatsupport_button_v2.js https://www.gstatic.com/inproduct_help/service/lazy.min.js https://www.gstatic.com/uservoice/feedback/client/web/live/ https://www.gstatic.com/uservoice/surveys/resources/prod/js/survey/ https://www.googletagmanager.com/gtag/js https://www.google-analytics.com/analytics.js https://www.googletagmanager.com/gtag/destination https://www.gstatic.com/_/mss/boq-makersuite/_/js/k=boq-makersuite.MakerSuite.en.M270UOz8pe4.2018.O/ https://apis.google.com/_/scs/abc-static/_/js/ https://payments.google.com/payments/u/0/v4/js/integrator.js https://payments.youtube.com/payments/v4/js/integrator.js https://payments.youtube.com/payments/u/0/v4/js/integrator.js https://payments.cloud.google/payments/v4/js/integrator.js". Note that 'worker-src' was not explicitly set, so 'script-src' is used as a fallback. The policy is report-only, so the violation has been logged but no further action has been taken.
+IWU5O3yRaE9v/vs/loader.js:8 Duplicate definition of module 'vs/language/typescript/tsMode'
+defineModule @ IWU5O3yRaE9v/vs/loader.js:8
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app:24678/?token=SmmP8qlzr76x' failed: Error in connection establishment: net::ERR_CONNECTION_TIMED_OUT
+createWebSocket @ _aistudio-iframe.js?v=29045eb3:317
+2m=_b:1495 No ID or name found in config.
+updateJsLog @ m=_b:1495
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app:24678/?token=EfLj_o37i8vR' failed: Error in connection establishment: net::ERR_CONNECTION_TIMED_OUT
+createWebSocket @ _aistudio-iframe.js?v=29045eb3:317
+ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/api/auth/login:1  Failed to load resource: the server responded with a status of 401 ()
+ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/api/auth/login:1  Failed to load resource: the server responded with a status of 401 ()
+ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/api/auth/login:1  Failed to load resource: the server responded with a status of 401 ()
+editor.main.js:601 Creating a worker from 'https://aistudio.google.com/monaco/IWU5O3yRaE9v/worker.js' violates the following Content Security Policy directive: "script-src 'unsafe-inline' 'unsafe-eval' blob: data: https://accounts.google.com/gsi/client https://apis.google.com/js/api.js https://billing-ads-qa-devel.corp.google.com/payments/v4/js/integrator.js https://payments.google.com/payments/v4/js/integrator.js https://payments.sandbox.google.com/payments/v4/js/integrator.js https://www.googletagmanager.com/gtm.js https://www.gstatic.com/glue/cookienotificationbar/cookienotificationbar.min.js https://www-onepick-opensocial.googleusercontent.com/gadgets/js/rpc.js https://support.google.com/inapp/api.js https://www.google.com/tools/feedback/activate.js https://www.google.com/tools/feedback/chat_load.js https://www.google.com/tools/feedback/help_api.js https://www.google.com/tools/feedback/load.js https://www.google.com/tools/feedback/open.js https://www.google.com/tools/feedback/open_to_help_guide_lazy.js https://www.gstatic.com/feedback/js/ https://www.gstatic.com/feedback/js/help/prod/service/lazy.min.js https://www.gstatic.com/inproduct_help/api/main.min.js https://www.gstatic.com/inproduct_help/chatsupport/chatsupport_button_v2.js https://www.gstatic.com/inproduct_help/service/lazy.min.js https://www.gstatic.com/uservoice/feedback/client/web/live/ https://www.gstatic.com/uservoice/surveys/resources/prod/js/survey/ https://www.googletagmanager.com/gtag/js https://www.google-analytics.com/analytics.js https://www.googletagmanager.com/gtag/destination https://www.gstatic.com/_/mss/boq-makersuite/_/js/k=boq-makersuite.MakerSuite.en.M270UOz8pe4.2018.O/ https://apis.google.com/_/scs/abc-static/_/js/ https://payments.google.com/payments/u/0/v4/js/integrator.js https://payments.youtube.com/payments/v4/js/integrator.js https://payments.youtube.com/payments/u/0/v4/js/integrator.js https://payments.cloud.google/payments/v4/js/integrator.js". Note that 'worker-src' was not explicitly set, so 'script-src' is used as a fallback. The policy is report-only, so the violation has been logged but no further action has been taken.
+2m=_b:1495 No ID or name found in config.
+updateJsLog @ m=_b:1495
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+readers:1  Failed to load resource: the server responded with a status of 429 ()
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app:24678/?token=NDDHe_LJxLlC' failed: Error in connection establishment: net::ERR_CONNECTION_TIMED_OUT
+2m=_b:1495 No ID or name found in config.
+alkalimakersuite-pa.clients6.google.com/$rpc/google.internal.alkali.applications.makersuite.v1.MakerSuiteService/StoreRecentApplet:1  Failed to load resource: the server responded with a status of 503 ()
+m=_b:1479 Unknown Key:  1
+m=_b:1479 Unknown Key:  2
+m=_b:1479 Unknown Key:  3
+2m=_b:1495 No ID or name found in config.
+m=Jn51xb:3000 JetskiLog: currentStep changed to 0
+ WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app:24678/?token=ZnlB_eZG3qL2' failed: Error in connection establishment: net::ERR_CONNECTION_TIMED_OUT
+2m=_b:1495 No ID or name found in config.
+_aistudio-iframe.js?v=29045eb3:317 WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app:24678/?token=vWzz931e_3Pg' failed: Error in connection establishment: net::ERR_CONNECTION_TIMED_OUT
+IWU5O3yRaE9v/vs/loader.js:6 Loading the script 'https://www.gstatic.com/monaco_editor/IWU5O3yRaE9v/vs/basic-languages/markdown/markdown.js' violates the following Content Security Policy directive: "script-src 'unsafe-inline' 'unsafe-eval' blob: data: https://accounts.google.com/gsi/client https://apis.google.com/js/api.js https://billing-ads-qa-devel.corp.google.com/payments/v4/js/integrator.js https://payments.google.com/payments/v4/js/integrator.js https://payments.sandbox.google.com/payments/v4/js/integrator.js https://www.googletagmanager.com/gtm.js https://www.gstatic.com/glue/cookienotificationbar/cookienotificationbar.min.js https://www-onepick-opensocial.googleusercontent.com/gadgets/js/rpc.js https://support.google.com/inapp/api.js https://www.google.com/tools/feedback/activate.js https://www.google.com/tools/feedback/chat_load.js https://www.google.com/tools/feedback/help_api.js https://www.google.com/tools/feedback/load.js https://www.google.com/tools/feedback/open.js https://www.google.com/tools/feedback/open_to_help_guide_lazy.js https://www.gstatic.com/feedback/js/ https://www.gstatic.com/feedback/js/help/prod/service/lazy.min.js https://www.gstatic.com/inproduct_help/api/main.min.js https://www.gstatic.com/inproduct_help/chatsupport/chatsupport_button_v2.js https://www.gstatic.com/inproduct_help/service/lazy.min.js https://www.gstatic.com/uservoice/feedback/client/web/live/ https://www.gstatic.com/uservoice/surveys/resources/prod/js/survey/ https://www.googletagmanager.com/gtag/js https://www.google-analytics.com/analytics.js https://www.googletagmanager.com/gtag/destination https://www.gstatic.com/_/mss/boq-makersuite/_/js/k=boq-makersuite.MakerSuite.en.M270UOz8pe4.2018.O/ https://apis.google.com/_/scs/abc-static/_/js/ https://payments.google.com/payments/u/0/v4/js/integrator.js https://payments.youtube.com/payments/v4/js/integrator.js https://payments.youtube.com/payments/u/0/v4/js/integrator.js https://payments.cloud.google/payments/v4/js/integrator.js". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The policy is report-only, so the violation has been logged but no further action has been taken.
+editor.main.js:601 Creating a worker from 'https://aistudio.google.com/monaco/IWU5O3yRaE9v/worker.js' violates the following Content Security Policy directive: "script-src 'unsafe-inline' 'unsafe-eval' blob: data: https://accounts.google.com/gsi/client https://apis.google.com/js/api.js https://billing-ads-qa-devel.corp.google.com/payments/v4/js/integrator.js https://payments.google.com/payments/v4/js/integrator.js https://payments.sandbox.google.com/payments/v4/js/integrator.js https://www.googletagmanager.com/gtm.js https://www.gstatic.com/glue/cookienotificationbar/cookienotificationbar.min.js https://www-onepick-opensocial.googleusercontent.com/gadgets/js/rpc.js https://support.google.com/inapp/api.js https://www.google.com/tools/feedback/activate.js https://www.google.com/tools/feedback/chat_load.js https://www.google.com/tools/feedback/help_api.js https://www.google.com/tools/feedback/load.js https://www.google.com/tools/feedback/open.js https://www.google.com/tools/feedback/open_to_help_guide_lazy.js https://www.gstatic.com/feedback/js/ https://www.gstatic.com/feedback/js/help/prod/service/lazy.min.js https://www.gstatic.com/inproduct_help/api/main.min.js https://www.gstatic.com/inproduct_help/chatsupport/chatsupport_button_v2.js https://www.gstatic.com/inproduct_help/service/lazy.min.js https://www.gstatic.com/uservoice/feedback/client/web/live/ https://www.gstatic.com/uservoice/surveys/resources/prod/js/survey/ https://www.googletagmanager.com/gtag/js https://www.google-analytics.com/analytics.js https://www.googletagmanager.com/gtag/destination https://www.gstatic.com/_/mss/boq-makersuite/_/js/k=boq-makersuite.MakerSuite.en.M270UOz8pe4.2018.O/ https://apis.google.com/_/scs/abc-static/_/js/ https://payments.google.com/payments/u/0/v4/js/integrator.js https://payments.youtube.com/payments/v4/js/integrator.js https://payments.youtube.com/payments/u/0/v4/js/integrator.js https://payments.cloud.google/payments/v4/js/integrator.js". Note that 'worker-src' was not explicitly set, so 'script-src' is used as a fallback. The policy is report-only, so the violation has been logged but no further action has been taken.
+2m=_b:1495 No ID or name found in config.
+_aistudio-iframe.js?v=29045eb3:403 [TWD-WS] [6:15:51 AM] Attempting connection to wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws (attempt #1)...
+_aistudio-iframe.js?v=29045eb3:403 [TWD-WS] [6:15:52 AM] Connection established with Central Node: wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app/ws
+_aistudio-iframe.js?v=29045eb3:403 [TWD-WS] [6:15:52 AM] Handshake confirmed: Tagoloan Water District Central Billing Node
+_aistudio-iframe.js?v=29045eb3:317 WebSocket connection to 'wss://ais-dev-6cykzmqeda3wtxfpbqbxts-409978713286.asia-southeast1.run.app:24678/?token=-7w676ijGhso' failed: Error in connection establishment: net::ERR_CONNECTION_TIMED_OUT
+_aistudio-iframe.js?v=29045eb3:413 [vite] failed to connect to websocket (Error: WebSocket closed without opened.). 
+client:454 Uncaught (in promise) Error: WebSocket closed without opened.
+    at WebSocket.<anonymous> (client:454:22)
+m=Jn51xb:3000 JetskiLog: currentStep changed to 0
+751 log entries are not shown.

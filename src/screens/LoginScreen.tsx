@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   Droplet, 
   ShieldCheck, 
@@ -73,7 +73,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
   // Registered Readers State for Real-Time Location Occupancy
   const [registeredReaders, setRegisteredReaders] = useState<ReaderAccount[]>([]);
-  const [isLoadingLocations, setIsLoadingLocations] = useState(false);
+  const [isLoadingLocations, setIsLoadingLocations] = useState(true);
+  const backoffUntilRef = useRef<number>(0);
+  const inFlightLoadRef = useRef<boolean>(false);
+  const readersFingerprintRef = useRef<string>('');
 
   // Registration Form State
   const [regName, setRegName] = useState('');
@@ -86,73 +89,77 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [regSelectedRoutes, setRegSelectedRoutes] = useState<string[]>([]);
   const [isRegistering, setIsRegistering] = useState(false);
 
-  // Fetch current readers from local database and Central Server to determine occupied routes
-  const loadReadersAndOccupancy = useCallback(async () => {
-    try {
-      const local = await DatabaseHelper.getLocalReaders();
-      setRegisteredReaders(local);
-
-      try {
-        // 1. Fetch live readers list from Central Server
-        const res = await universalApiFetch('/api/readers');
-        if (res.ok) {
-          const data = await res.json();
-          const serverList: ReaderAccount[] = data.readers || data.staff || [];
-          if (Array.isArray(serverList) && serverList.length > 0) {
-            const map = new Map<string, ReaderAccount>();
-            // Add local readers first
-            local.forEach(r => map.set((r.username || r.id).toLowerCase(), r));
-
-            // Central server is the single source of truth across all devices
-            for (const sr of serverList) {
-              const key = (sr.username || sr.id).toLowerCase();
-              const existingLocal = map.get(key);
-              const isServerActive = sr.status === 'active' || (sr as any).employmentStatus === 'active';
-
-              if (isServerActive) {
-                const activeRecord: ReaderAccount = {
-                  ...(existingLocal || {}),
-                  ...sr,
-                  status: 'active',
-                  assignedRoutes: Array.isArray(sr.assignedRoutes) ? sr.assignedRoutes : (existingLocal?.assignedRoutes || []),
-                };
-                map.set(key, activeRecord);
-                // Crucial for multi-device: persist active server reader to local storage on this device
-                DatabaseHelper.saveLocalReader(activeRecord).catch(() => {});
-              } else {
-                const isDeactivated = isReaderAccountDeactivated(sr);
-                if (isDeactivated) {
-                  const deactivatedRecord: ReaderAccount = {
-                    ...(existingLocal || sr),
-                    ...sr,
-                    status: 'terminated',
-                    assignedRoutes: [], // Area route assigned is freed
-                  };
-                  map.set(key, deactivatedRecord);
-                  DatabaseHelper.updateLocalReaderStatus(key, 'terminated', []).catch(() => {});
-                } else {
-                  map.set(key, { ...(existingLocal || {}), ...sr });
-                }
-              }
-            }
-
-            const merged = Array.from(map.values());
-            setRegisteredReaders(merged);
-          }
-        }
-      } catch {
-        // Offline fallback is already loaded
-      }
-    } catch (err) {
-      console.warn('Error loading readers for occupancy:', err);
+  const commitReadersIfChanged = useCallback((nextReaders: ReaderAccount[]) => {
+    const fp = nextReaders
+      .map(r => `${r.id}|${r.username}|${r.status}|${(r.assignedRoutes || []).slice().sort().join(',')}`)
+      .sort()
+      .join(';;');
+    if (fp !== readersFingerprintRef.current || readersFingerprintRef.current === '') {
+      readersFingerprintRef.current = fp;
+      setRegisteredReaders(nextReaders);
     }
   }, []);
 
-  useEffect(() => {
-    loadReadersAndOccupancy();
-    const interval = setInterval(loadReadersAndOccupancy, 3500);
+  // Fetch authoritative registered readers from Central Server (with offline fallback & 429 backoff)
+  const loadReadersAndOccupancy = useCallback(async (force = false) => {
+    if (inFlightLoadRef.current) return;
+    if (!force && Date.now() < backoffUntilRef.current) return;
 
-    // Live WebSocket Listener: When mobile detects any account deactivation/termination, immediately reload & free routes!
+    inFlightLoadRef.current = true;
+    try {
+      const res = await universalApiFetch('/api/readers', {
+        headers: { 'Accept': 'application/json' },
+      });
+
+      if (res.status === 429) {
+        const retrySec = Number(res.headers.get('Retry-After')) || 30;
+        backoffUntilRef.current = Date.now() + Math.max(15000, retrySec * 1000);
+        if (readersFingerprintRef.current === '') {
+          const local = await DatabaseHelper.getLocalReaders();
+          commitReadersIfChanged(local);
+        }
+        return;
+      }
+
+      if (res.ok) {
+        const data = await res.json().catch(() => null);
+        if (data && !data.isOfflineFallback) {
+          const serverList: ReaderAccount[] = data.readers || data.staff || data.data || [];
+          if (Array.isArray(serverList)) {
+            const authoritative = await DatabaseHelper.replaceLocalReaders(serverList);
+            commitReadersIfChanged(authoritative);
+            return;
+          }
+        }
+      }
+
+      // Offline or fallback: only load local cache if we haven't populated state yet
+      if (readersFingerprintRef.current === '') {
+        const local = await DatabaseHelper.getLocalReaders();
+        commitReadersIfChanged(local);
+      }
+    } catch (err) {
+      if (readersFingerprintRef.current === '') {
+        const local = await DatabaseHelper.getLocalReaders().catch(() => []);
+        commitReadersIfChanged(local);
+      }
+    } finally {
+      inFlightLoadRef.current = false;
+      setIsLoadingLocations(false);
+    }
+  }, [commitReadersIfChanged]);
+
+  useEffect(() => {
+    loadReadersAndOccupancy(true);
+
+    // Only poll every 15s while on the Registration tab and page is visible
+    const interval = setInterval(() => {
+      if (authMode === 'REGISTER' && (typeof document === 'undefined' || !document.hidden)) {
+        loadReadersAndOccupancy(false);
+      }
+    }, 15000);
+
+    // Live WebSocket Listener: immediately reload when a reader registers or is terminated
     const unsubWs = WebSocketService.subscribe((msg) => {
       if (
         msg.type === 'READER_ACCOUNT_TERMINATED' || 
@@ -162,7 +169,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         msg.type === 'READER_REGISTERED_ACTIVE' ||
         msg.type === 'READER_APPROVED_ACTIVE'
       ) {
-        loadReadersAndOccupancy();
+        loadReadersAndOccupancy(true);
       }
     });
 
@@ -170,26 +177,27 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       clearInterval(interval);
       unsubWs();
     };
-  }, [loadReadersAndOccupancy]);
+  }, [authMode, loadReadersAndOccupancy]);
 
   // Compute live location occupancies
   const locationOccupancies: LocationOccupancy[] = calculateLocationOccupancies(registeredReaders);
   const availableLocations = locationOccupancies.filter(l => !l.isOccupied).map(l => l.location);
   const occupiedLocations = locationOccupancies.filter(l => l.isOccupied);
+  const availableLocationsKey = availableLocations.join('|');
 
-  // Set default initial selection to the first available/unoccupied route
+  // Keep selected routes valid without resetting user choices on unrelated refreshes
   useEffect(() => {
+    if (isLoadingLocations) return;
     if (availableLocations.length > 0) {
       setRegSelectedRoutes(prev => {
-        // Filter out any previously selected routes that are now occupied
         const stillAvailable = prev.filter(r => availableLocations.some(av => areLocationsEqual(av, r)));
         if (stillAvailable.length > 0) return stillAvailable;
         return [availableLocations[0]];
       });
     } else {
-      setRegSelectedRoutes([]);
+      setRegSelectedRoutes(prev => (prev.length === 0 ? prev : []));
     }
-  }, [registeredReaders]);
+  }, [availableLocationsKey, isLoadingLocations]);
 
   const toggleRouteSelection = (route: string) => {
     const occ = locationOccupancies.find(l => areLocationsEqual(l.location, route));
@@ -415,11 +423,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       createdAt: new Date().toISOString(),
     };
 
-    try {
-      // 1. Instantly save to local database
-      await DatabaseHelper.saveLocalReader(localReaderRecord);
+    let savedReader: any = { ...localReaderRecord, pendingCentralSync: true };
 
-      // 2. Dispatch background synchronization to central admin
+    try {
+      // 1. Register directly with Central Server first so conflicts are caught immediately
+      let syncedWithServer = false;
       try {
         const response = await universalApiFetch('/api/readers/register', {
           method: 'POST',
@@ -438,33 +446,44 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           }),
         });
 
+        const resData = await response.json().catch(() => null);
         if (!response.ok) {
-          const resData = await response.json().catch(() => null);
-          if (resData && resData.message) {
-            setError(resData.message);
-            setIsRegistering(false);
-            return;
-          }
+          setError(resData?.message || resData?.error || 'Registration could not be completed. Please try again.');
+          setIsRegistering(false);
+          loadReadersAndOccupancy(true);
+          return;
+        }
+
+        if (resData && !resData.isOfflineFallback && resData.reader) {
+          savedReader = { ...localReaderRecord, ...resData.reader, pin: localReaderRecord.pin, pendingCentralSync: false };
+          syncedWithServer = true;
         }
       } catch {
-        // Continue with local save if offline
+        // Offline fallback below
       }
 
-      SyncService.syncReaders().catch(() => {});
+      // 2. Persist locally (marked pendingCentralSync only if offline)
+      await DatabaseHelper.saveLocalReader(savedReader);
+      if (syncedWithServer) {
+        SyncService.syncReaders().catch(() => {});
+      }
 
       // Configure sync engine for the reader's chosen routes
-      SyncService.setActiveRoutes(localReaderRecord.assignedRoutes);
+      const finalRoutes = Array.isArray(savedReader.assignedRoutes) && savedReader.assignedRoutes.length > 0
+        ? savedReader.assignedRoutes
+        : localReaderRecord.assignedRoutes;
+      SyncService.setActiveRoutes(finalRoutes);
 
       // 3. Immediately launch meter reader terminal for instant operational use
       setIsRegistering(false);
       onLogin({
-        id: localReaderRecord.id,
-        employeeId: localReaderRecord.employeeId,
-        username: localReaderRecord.username,
-        name: localReaderRecord.name,
-        role: 'Meter Reader I',
-        zone: localReaderRecord.assignedRoutes.join(', '),
-        assignedRoutes: localReaderRecord.assignedRoutes,
+        id: savedReader.id,
+        employeeId: savedReader.employeeId,
+        username: savedReader.username,
+        name: savedReader.name,
+        role: savedReader.role || 'Meter Reader I',
+        zone: finalRoutes.join(', '),
+        assignedRoutes: finalRoutes,
         status: 'active',
       });
     } catch (err: any) {
@@ -821,7 +840,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   )}
                 </div>
 
-                {availableLocations.length === 0 ? (
+                {isLoadingLocations ? (
+                  <div className="p-4 bg-white/[0.06] backdrop-blur-md rounded-xl text-xs sm:text-sm text-slate-300 flex items-center gap-2.5">
+                    <RefreshCw className="w-4 h-4 text-sky-400 animate-spin shrink-0" />
+                    <span>Syncing live route assignments with Tagoloan Water District...</span>
+                  </div>
+                ) : availableLocations.length === 0 ? (
                   <div className="p-3.5 bg-amber-950/70 border border-amber-800/80 rounded-xl text-xs sm:text-sm text-amber-200 flex items-start gap-2.5">
                     <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
                     <div>
