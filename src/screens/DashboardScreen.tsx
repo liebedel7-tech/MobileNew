@@ -374,7 +374,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             <span className="text-xs">No meter readings logged on this device yet.</span>
           </div>
         ) : (
-          <div className="space-y-2.5">
+          <div className="space-y-3">
             {recentReadings.map((reading) => {
               const isApproved = isReadingApproved(reading);
               const isRejected = isReadingRejected(reading);
@@ -391,119 +391,137 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     c.meterSerial.trim().toLowerCase() === reading.meterSerial.trim().toLowerCase())
               );
 
-              const isAccountActiveAndVerified = Boolean(consumer && isValidatedForFieldReading(consumer));
               const isAccountDisconnected = Boolean(consumer && isConsumerDisconnected(consumer));
               const isAccountUnverified = Boolean(consumer && isConsumerUnverified(consumer));
+
+              const handleOpenHistory = () => {
+                if (!onSelectConsumer) return;
+                if (consumer) {
+                  onSelectConsumer(consumer);
+                  return;
+                }
+                onSelectConsumer({
+                  id: reading.consumerId || `CON-${reading.accountNumber}`,
+                  accountNumber: reading.accountNumber,
+                  name: reading.consumerName || 'Water Consumer',
+                  address: reading.barangay ? `Brgy. ${reading.barangay}, Tagoloan` : 'Tagoloan, Misamis Oriental',
+                  barangay: reading.barangay || 'Poblacion',
+                  routeCode: reading.routeCode || 'R-01',
+                  sequenceNo: 0,
+                  category: 'Residential',
+                  rateCode: 'RES-01',
+                  meterSerial: reading.meterSerial || 'TAG-N/A',
+                  meterNumber: reading.meterSerial || 'TAG-N/A',
+                  meterSize: '1/2"',
+                  meterStatus: 'active',
+                  status: 'Active',
+                  previousReading: reading.previousReading ?? 0,
+                  previousReadingDate: reading.readingDate,
+                  averageConsumption: reading.consumption ?? 0,
+                  gpsCoordinates: reading.gpsCoordinates || { lat: 8.5382, lng: 124.7568 },
+                  isReadThisMonth: true,
+                  currentMonthReading: reading,
+                  lastSyncDate: new Date().toISOString(),
+                });
+              };
 
               return (
                 <div
                   key={reading.id}
-                  onClick={() => {
-                    if (isAccountActiveAndVerified && consumer && onSelectConsumer) {
-                      onSelectConsumer(consumer);
+                  role="button"
+                  tabIndex={0}
+                  onClick={handleOpenHistory}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleOpenHistory();
                     }
                   }}
-                  title={
-                    isAccountActiveAndVerified && consumer
-                      ? `View ${consumer.name}'s past readings ledger`
-                      : consumer
-                      ? `Account is ${isAccountDisconnected ? 'disconnected' : 'unverified'}. Reading history is locked.`
-                      : 'Consumer record not loaded'
-                  }
-                  className={`bg-slate-900 border rounded-2xl p-4 space-y-3 transition shadow-sm ${
-                    isAccountActiveAndVerified
-                      ? 'border-slate-800 hover:border-sky-500/80 cursor-pointer active:scale-[0.99]'
-                      : 'border-slate-800/80 opacity-75 cursor-not-allowed select-none'
-                  }`}
+                  className="bg-slate-900 border border-slate-800/90 hover:border-sky-500/70 rounded-2xl p-4 space-y-3 transition cursor-pointer active:scale-[0.99]"
                 >
-                  {/* Top Row: Account # + Single Status */}
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono text-xs font-bold text-sky-400">
-                      {reading.accountNumber}
-                    </span>
+                  {/* Top Row: Consumer Name & Metadata + Clean Unboxed Status */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1 space-y-0.5">
+                      <h4 className="text-[15px] font-semibold text-white leading-snug truncate">
+                        {reading.consumerName}
+                      </h4>
+                      <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                        <span className="font-mono font-semibold text-sky-400">{reading.accountNumber}</span>
+                        <span aria-hidden="true" className="text-slate-600">·</span>
+                        <span className="font-mono truncate">{reading.meterSerial}</span>
+                      </div>
+                    </div>
 
                     {isPending && (
-                      <span className="text-xs font-semibold text-amber-300 flex items-center gap-1 whitespace-nowrap">
+                      <span className="text-xs font-semibold text-amber-300 flex items-center gap-1 shrink-0 whitespace-nowrap pt-0.5">
                         <Clock className="w-3.5 h-3.5 text-amber-400" />
-                        <span>Pending Approval</span>
+                        <span>Pending</span>
                       </span>
                     )}
 
                     {isApproved && (
-                      <span className="text-xs font-semibold text-emerald-300 flex items-center gap-1 whitespace-nowrap">
+                      <span className="text-xs font-semibold text-emerald-300 flex items-center gap-1 shrink-0 whitespace-nowrap pt-0.5">
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                         <span>Approved</span>
                       </span>
                     )}
 
                     {isRejected && (
-                      <span className="text-xs font-semibold text-rose-300 flex items-center gap-1 whitespace-nowrap">
+                      <span className="text-xs font-semibold text-rose-300 flex items-center gap-1 shrink-0 whitespace-nowrap pt-0.5">
                         <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
                         <span>Flagged</span>
                       </span>
                     )}
                   </div>
 
-                  {/* Consumer Name */}
-                  <h4 className="text-sm font-bold text-white leading-snug break-words">
-                    {reading.consumerName}
-                  </h4>
-
-                  {/* Clean 3-Column Odometer Grid */}
-                  <div className="grid grid-cols-3 divide-x divide-slate-800/80 bg-slate-950 rounded-xl py-2.5 px-1 border border-slate-800/80 text-center font-mono">
-                    <div className="min-w-0 px-1.5 flex flex-col items-center justify-center">
-                      <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wide">
+                  {/* Clean Hairline 3-Column Odometer Metrics */}
+                  <div className="grid grid-cols-3 divide-x divide-slate-800/80 border-t border-slate-800/70 pt-3 text-center font-mono">
+                    <div className="min-w-0 px-1.5 flex flex-col items-center">
+                      <span className="text-[11px] font-sans font-medium text-slate-400">
                         Previous
                       </span>
-                      <span className="text-sm font-bold text-slate-200 tabular-nums mt-0.5">
+                      <span className="text-sm font-semibold text-slate-200 tabular-nums mt-0.5">
                         {formatOdometerReading(reading.previousReading)}
                       </span>
-                      <span className="text-[10px] text-slate-500">cu.m.</span>
                     </div>
 
-                    <div className="min-w-0 px-1.5 flex flex-col items-center justify-center">
-                      <span className="text-[10px] uppercase font-semibold text-sky-400 tracking-wide">
+                    <div className="min-w-0 px-1.5 flex flex-col items-center">
+                      <span className="text-[11px] font-sans font-medium text-sky-400">
                         Present
                       </span>
                       <span className="text-sm font-bold text-sky-300 tabular-nums mt-0.5">
                         {formatOdometerReading(reading.currentReading)}
                       </span>
-                      <span className="text-[10px] text-slate-500">cu.m.</span>
                     </div>
 
-                    <div className="min-w-0 px-1.5 flex flex-col items-center justify-center">
-                      <span className="text-[10px] uppercase font-semibold text-emerald-400 tracking-wide">
+                    <div className="min-w-0 px-1.5 flex flex-col items-center">
+                      <span className="text-[11px] font-sans font-medium text-emerald-400">
                         Consumed
                       </span>
                       <span className="text-sm font-bold text-emerald-400 tabular-nums mt-0.5">
-                        +{reading.consumption}
+                        +{reading.consumption} <span className="text-[11px] font-normal text-slate-400">cu.m.</span>
                       </span>
-                      <span className="text-[10px] text-slate-500">cu.m.</span>
                     </div>
                   </div>
 
                   {/* Clean Metadata Footer */}
-                  <div className="flex items-center justify-between gap-2 text-xs text-slate-400">
+                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-800/50 text-xs text-slate-400">
                     <span className="font-mono text-[11px] truncate">
-                      {reading.readingDate} · {reading.meterSerial}
+                      {reading.readingDate}
                     </span>
 
-                    {isAccountActiveAndVerified ? (
-                      <span className="text-sky-400 font-semibold flex items-center gap-0.5 shrink-0 whitespace-nowrap">
-                        <span>Ledger</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {(isAccountDisconnected || isAccountUnverified) && (
+                        <span className="text-rose-400 font-medium text-[11px] inline-flex items-center gap-1 whitespace-nowrap">
+                          <Lock className="w-3 h-3" />
+                          <span>{isAccountDisconnected ? 'Disconnected' : 'Unverified'}</span>
+                        </span>
+                      )}
+                      <span className="text-sky-400 font-semibold flex items-center gap-0.5 whitespace-nowrap">
+                        <span>History</span>
                         <ChevronRight className="w-3.5 h-3.5" />
                       </span>
-                    ) : isAccountDisconnected ? (
-                      <span className="text-rose-400 font-semibold flex items-center gap-1 shrink-0 whitespace-nowrap">
-                        <Lock className="w-3 h-3" />
-                        <span>Disconnected</span>
-                      </span>
-                    ) : isAccountUnverified ? (
-                      <span className="text-amber-400 font-semibold flex items-center gap-1 shrink-0 whitespace-nowrap">
-                        <Lock className="w-3 h-3" />
-                        <span>Unverified</span>
-                      </span>
-                    ) : null}
+                    </div>
                   </div>
                 </div>
               );

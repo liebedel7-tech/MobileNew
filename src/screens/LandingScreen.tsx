@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   ArrowRight, 
-  Sparkles, 
   Smartphone, 
   Users, 
   FileText, 
@@ -22,12 +21,8 @@ import {
 import { ActiveScreen, StaffUser, SyncState } from '../types';
 import { WebSocketService, WSTelemetryStats } from '../services/websocketService';
 import { OfficialLogo } from '../components/OfficialLogo';
-import { 
-  OFFICIAL_TAGOLOAN_LOGO_URL, 
-  OFFICIAL_TAGOLOAN_LOGO_FALLBACK, 
-  APP_OFFICIAL_BADGE, 
-  APP_OFFICIAL_TITLE 
-} from '../constants/branding';
+import { LogoGlassBackdrop } from '../components/LogoGlassBackdrop';
+import { APP_OFFICIAL_BADGE, APP_OFFICIAL_TITLE } from '../constants/branding';
 import { useDeviceInstallStatus } from '../services/installService';
 
 interface LandingScreenProps {
@@ -51,8 +46,6 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
 }) => {
   const { isInstalled } = useDeviceInstallStatus();
   const [wsStats, setWsStats] = useState<WSTelemetryStats>(WebSocketService.getStats());
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const [imageError, setImageError] = useState(false);
 
 
   useEffect(() => {
@@ -71,166 +64,78 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-slate-950 text-slate-100 selection:bg-sky-500 selection:text-slate-950 pb-8">
-      {/* Mobile Top Navigation Header */}
-      <header className="sticky top-0 z-40 bg-slate-950/90 backdrop-blur-md border-b border-slate-800/80 px-4 py-2.5 pt-[calc(0.625rem+env(safe-area-inset-top))]">
-        <div className="flex items-center justify-between">
-          {/* Official District Brand Emblem */}
-          <div className="flex items-center gap-2.5">
-            <OfficialLogo size="sm" glow />
-            <div>
-              <div className="flex items-center gap-1.5">
-                <h1 className="text-xs font-black text-white tracking-tight leading-none uppercase">
-                  {APP_OFFICIAL_TITLE}
-                </h1>
-              </div>
-              <p className="text-[10px] text-slate-400 font-mono mt-0.5">
-                Field Operations Terminal
+    <div className="relative flex-1 min-h-0 w-full flex flex-col bg-slate-950 text-slate-100 selection:bg-sky-500 selection:text-slate-950 overflow-hidden">
+      <LogoGlassBackdrop intensity="balanced" />
+
+      <div className="relative z-10 flex-1 min-h-0 flex flex-col overflow-y-auto overflow-x-hidden pb-8 pt-[calc(1.25rem+env(safe-area-inset-top))]">
+        {/* Main Mobile Screen Scrollable Body - Seamless Whole-Page Glass Canvas */}
+        <div className="px-5 py-6 max-w-md mx-auto w-full flex-1 flex flex-col justify-between gap-6">
+          {/* Open Unboxed District Hero */}
+          <div className="flex flex-col items-center text-center pt-6 space-y-3">
+            <OfficialLogo size="2xl" />
+
+            <div className="space-y-1">
+              <p className="text-[11px] font-semibold tracking-wider text-sky-300/90 uppercase">
+                {APP_OFFICIAL_BADGE}
               </p>
-            </div>
-          </div>
-
-          {/* Right Status Pill & APK Button */}
-          <div className="flex items-center gap-1.5">
-            <span className={`inline-flex items-center gap-1 text-[9px] font-mono px-2 py-0.5 rounded-full border ${
-              wsStatus === 'CONNECTED'
-                ? 'bg-emerald-950/80 text-emerald-300 border-emerald-700/60'
-                : 'bg-amber-950/80 text-amber-300 border-amber-700/60'
-            }`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${wsStatus === 'CONNECTED' ? 'bg-emerald-400 animate-ping' : 'bg-amber-400'}`} />
-              <span>{wsStatus === 'CONNECTED' ? `${wsStats.latencyMs}ms` : 'OFFLINE'}</span>
-            </span>
-
-            {!isInstalled && (
-              <button
-                type="button"
-                onClick={onOpenApkModal}
-                className="px-2 py-1 rounded-xl bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-600/70 text-emerald-300 hover:text-emerald-100 transition cursor-pointer flex items-center gap-1 font-bold text-xs"
-                title="Install App on Phone"
-              >
-                <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="text-[10px]">Install</span>
-              </button>
-            )}
-          </div>
-        </div>
-      </header>
-
-      {/* Main Mobile Screen Scrollable Body */}
-      <div className="px-4 py-4 space-y-4 max-w-md mx-auto w-full">
-        {/* District Official Badge Pill */}
-        <div className="flex items-center justify-between">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-500/10 border border-sky-500/30 text-sky-300 text-[10px] font-mono font-medium">
-            <Sparkles className="w-3 h-3 text-sky-400 animate-pulse" />
-            <span>{APP_OFFICIAL_BADGE}</span>
-          </div>
-
-          <span className="text-[10px] font-mono text-slate-500">v2.4.0-Mobile</span>
-        </div>
-
-        {/* Clear Photo Card of Tagoloan Water District */}
-        <div className="w-full flex justify-center items-center py-1 select-none">
-          <div className="relative w-full aspect-[4/3] rounded-2xl bg-slate-900 border border-slate-700/80 p-2 shadow-[0_15px_35px_rgba(14,165,233,0.25)] group cursor-pointer transition-all duration-300 hover:shadow-[0_20px_40px_rgba(14,165,233,0.35)]">
-            {/* Outer Glowing Holographic Halo */}
-            <div className="absolute -inset-0.5 rounded-2xl bg-gradient-to-r from-sky-500 via-teal-400 to-blue-600 opacity-40 group-hover:opacity-70 blur-md transition duration-500 -z-10" />
-
-            {/* Inner Clear Photo Screen */}
-            <div className="relative w-full h-full rounded-xl overflow-hidden bg-slate-950 flex items-center justify-center border border-slate-800 shadow-inner">
-              {/* Clear Photo from Google Drive */}
-              <img
-                src={imageError ? OFFICIAL_TAGOLOAN_LOGO_FALLBACK : OFFICIAL_TAGOLOAN_LOGO_URL}
-                onError={() => {
-                  if (!imageError) setImageError(true);
-                }}
-                onLoad={() => setImageLoaded(true)}
-                alt="Tagoloan Water District Official Emblem"
-                referrerPolicy="no-referrer"
-                className="w-full h-full object-contain p-4 filter drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)] transition duration-500 group-hover:scale-105"
-              />
-
-              {/* Ambient Readability Gradient */}
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/20 to-transparent pointer-events-none" />
-
-              {/* Top Banner Tag */}
-              <div className="absolute inset-x-2.5 top-2.5 p-2 rounded-xl bg-slate-950/90 backdrop-blur-md border border-sky-500/40 shadow-lg">
-                <div className="flex items-center justify-between text-[10px] font-mono">
-                  <span className="flex items-center gap-1.5 font-bold text-sky-400">
-                    <OfficialLogo size="xs" />
-                    <span>TAGOLOAN WATER DISTRICT</span>
-                  </span>
-                  <span className="px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-400 text-[9px] border border-emerald-800 font-bold">
-                    ACTIVE
-                  </span>
-                </div>
-              </div>
-
-              {/* Bottom Photo Overlay */}
-              <div className="absolute left-2.5 bottom-2.5 right-2.5 p-2 rounded-xl bg-slate-900/90 backdrop-blur-md border border-slate-700/80 shadow-xl space-y-0.5 text-center">
-                <div className="text-[11px] font-bold text-white uppercase tracking-wide">
-                  Official Mobile Terminal
-                </div>
-                <div className="text-[9px] text-sky-300 font-mono">
-                  Autonomous Offline Meter Reading & Billing Platform
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Dedicated Landing Sign In & Register Section (Clean & Minimalist) */}
-        {!user ? (
-          <div className="space-y-3.5 pt-2">
-            <div className="text-center space-y-1">
-              <h2 className="text-sm font-bold text-white uppercase tracking-wider">
-                Meter Reader Authentication
+              <h2 className="text-2xl font-extrabold tracking-tight text-white drop-shadow-sm">
+                {APP_OFFICIAL_TITLE}
               </h2>
-              <p className="text-[11px] text-slate-400">
-                Official Mobile Terminal • Authorized Field Meter Readers Only
-              </p>
             </div>
-
-            {/* ONLY Sign In & Register Buttons */}
-            <div className="grid grid-cols-2 gap-3">
-              {/* Sign In Button */}
-              <button
-                type="button"
-                onClick={() => onOpenLogin('LOGIN')}
-                className="py-3.5 px-4 rounded-2xl bg-gradient-to-r from-sky-500 via-sky-400 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-slate-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-sky-500/25 flex items-center justify-center gap-2 transition active:scale-[0.98] cursor-pointer"
-              >
-                <LogIn className="w-4 h-4 text-slate-950" />
-                <span>Sign In</span>
-              </button>
-
-              {/* Register Button */}
-              <button
-                type="button"
-                onClick={() => onOpenLogin('REGISTER')}
-                className="py-3.5 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-sky-500/40 text-sky-300 font-bold text-xs uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 transition active:scale-[0.98] cursor-pointer"
-              >
-                <UserPlus className="w-4 h-4 text-sky-400" />
-                <span>Register</span>
-              </button>
-            </div>
-
-            {/* Direct Mobile APK / PWA Download Action - Only shown if app is not yet installed */}
-            {!isInstalled && (
-              <button
-                type="button"
-                onClick={onOpenApkModal}
-                className="w-full py-2.5 px-3 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/50 text-slate-300 hover:text-white text-xs font-semibold flex items-center justify-between transition group cursor-pointer"
-              >
-                <div className="flex items-center gap-2">
-                  <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="text-[11px]">Install / Download Mobile App</span>
-                </div>
-                <div className="flex items-center gap-1 text-[10px] text-emerald-400 font-mono">
-                  <Download className="w-3 h-3 group-hover:translate-y-0.5 transition-transform" />
-                  <span>APK / PWA</span>
-                </div>
-              </button>
-            )}
           </div>
-        ) : (
+
+          {/* Seamless Unboxed Authentication & Actions (Zero Borders or Boundaries) */}
+          {!user ? (
+            <div className="space-y-4">
+              <div className="text-center space-y-1">
+                <h3 className="text-sm font-bold text-white tracking-wide">
+                  Meter Reader Authentication
+                </h3>
+                <p className="text-xs text-slate-300/85">
+                  Authorized Field Meter Readers Only
+                </p>
+              </div>
+
+              {/* Borderless Sign In & Register Buttons */}
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => onOpenLogin('LOGIN')}
+                  className="py-3.5 px-4 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs uppercase tracking-wider shadow-lg shadow-sky-500/20 flex items-center justify-center gap-2 transition active:scale-[0.98] cursor-pointer"
+                >
+                  <LogIn className="w-4 h-4 text-slate-950" />
+                  <span>Sign In</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onOpenLogin('REGISTER')}
+                  className="py-3.5 px-4 rounded-xl bg-white/12 hover:bg-white/20 backdrop-blur-md text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition active:scale-[0.98] cursor-pointer"
+                >
+                  <UserPlus className="w-4 h-4 text-sky-300" />
+                  <span>Register</span>
+                </button>
+              </div>
+
+              {/* Direct Mobile APK / PWA Download Action - Borderless */}
+              {!isInstalled && (
+                <button
+                  type="button"
+                  onClick={onOpenApkModal}
+                  className="w-full py-3 px-4 rounded-xl bg-white/[0.08] hover:bg-white/[0.14] backdrop-blur-md text-slate-100 hover:text-white text-xs font-semibold flex items-center justify-between transition group cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Install / Download Mobile App</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-[11px] text-emerald-300 font-mono">
+                    <Download className="w-3 h-3 group-hover:translate-y-0.5 transition-transform" />
+                    <span>APK / PWA</span>
+                  </div>
+                </button>
+              )}
+            </div>
+          ) : (
           /* User Is Logged In - Unlocked Field Terminal Modules */
           <div className="space-y-3 pt-1 animate-in fade-in">
             {/* Logged in Welcome Card */}
@@ -452,15 +357,16 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
           </div>
         )}
 
-        {/* Mobile Footer Information */}
-        <div className="pt-4 border-t border-slate-800/80 text-center space-y-1">
-          <div className="flex items-center justify-center gap-1.5 text-[10px] text-slate-400">
+        {/* Mobile Footer Information - Seamless */}
+        <div className="pt-2 text-center space-y-1">
+          <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-300/85">
             <ShieldCheck className="w-3.5 h-3.5 text-sky-400" />
             <span>LWUA Accredited Water Utility Terminal</span>
           </div>
-          <p className="text-[9px] text-slate-500 font-mono">
+          <p className="text-[10px] text-slate-400 font-mono">
             Tagoloan Water District • Misamis Oriental, Philippines
           </p>
+        </div>
         </div>
       </div>
     </div>

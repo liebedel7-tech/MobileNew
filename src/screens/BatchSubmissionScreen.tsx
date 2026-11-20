@@ -41,7 +41,7 @@ export const BatchSubmissionScreen: React.FC<BatchSubmissionScreenProps> = ({
     try {
       const res = await onSyncTrigger();
       if (res && res.success) {
-        setSubmitResult(`Successfully uploaded ${res.syncedReadingsCount} readings to Tagoloan Central Office billing server.`);
+        setSubmitResult(`Successfully uploaded ${res.syncedReadingsCount} readings to Tagoloan Central Office.`);
       } else {
         setSubmitResult(res?.message || 'Submission completed with notices.');
       }
@@ -53,31 +53,29 @@ export const BatchSubmissionScreen: React.FC<BatchSubmissionScreenProps> = ({
   };
 
   return (
-    <div className="p-3 sm:p-4 max-w-4xl mx-auto w-full space-y-4 pb-16">
+    <div className="p-3.5 sm:p-5 max-w-4xl mx-auto w-full space-y-4 pb-20">
       {/* Header Navigation */}
       <div className="flex items-center justify-between">
         <button
           onClick={() => onNavigate('dashboard')}
-          className="flex items-center gap-1 text-xs font-bold text-sky-400 hover:text-sky-300 transition"
+          className="flex items-center gap-1.5 text-xs font-semibold text-sky-400 hover:text-sky-300 transition py-1 cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Dashboard</span>
         </button>
 
-        <span className="text-xs font-semibold text-slate-400">
-          Batch Management
+        <span className="text-xs font-medium text-slate-400">
+          Sync Queue
         </span>
       </div>
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-black text-white uppercase tracking-tight">
-            Batch Submission Engine
-          </h2>
-          <p className="text-xs text-slate-400">
-            Upload field meter readings directly to WDT Central Billing Server
-          </p>
-        </div>
+      <div>
+        <h2 className="text-lg font-bold text-white tracking-tight">
+          Batch Submission
+        </h2>
+        <p className="text-xs text-slate-400 mt-0.5">
+          Upload offline field meter readings to Central Admin
+        </p>
       </div>
 
       {/* Sync Status Banner Card */}
@@ -164,75 +162,79 @@ export const BatchSubmissionScreen: React.FC<BatchSubmissionScreenProps> = ({
         </button>
       </div>
 
-      {/* Readings List */}
-      <div className="space-y-2.5">
+      {/* Readings List (Unified Clean Surface) */}
+      <div>
         {activeTab === 'PENDING' ? (
           pendingReadings.length === 0 ? (
-            <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-8 text-center text-slate-400 space-y-2">
-              <CheckCircle2 className="w-10 h-10 mx-auto text-emerald-400" />
-              <div className="font-bold text-sm text-slate-200">All Readings Synchronized</div>
+            <div className="bg-slate-900 border border-slate-800/90 rounded-2xl p-8 text-center text-slate-400 space-y-2">
+              <CheckCircle2 className="w-9 h-9 mx-auto text-emerald-400" />
+              <div className="font-semibold text-sm text-slate-200">All Readings Synchronized</div>
               <p className="text-xs text-slate-500">
-                No pending readings in local offline queue. All records are backed up on central servers.
+                No pending readings in local offline queue.
               </p>
             </div>
           ) : (
-            pendingReadings.map((reading) => (
-              <div
-                key={reading.id}
-                className="bg-slate-900 border border-amber-900/40 rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-sm"
-              >
-                <div className="space-y-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono text-xs font-extrabold text-sky-400">
-                      {reading.accountNumber}
-                    </span>
-                    <span className="text-[11px] font-bold text-amber-300 bg-amber-950 px-2 py-0.5 rounded border border-amber-800 sm:hidden">
-                      Awaiting Sync
-                    </span>
+            <div className="bg-slate-900 border border-slate-800/90 rounded-2xl divide-y divide-slate-800/70 overflow-hidden">
+              {pendingReadings.map((reading) => (
+                <div
+                  key={reading.id}
+                  className="p-4 flex items-center justify-between gap-3"
+                >
+                  <div className="space-y-1 min-w-0">
+                    <h4 className="font-semibold text-[15px] text-white leading-snug truncate">
+                      {reading.consumerName}
+                    </h4>
+                    <div className="flex items-center gap-1.5 text-xs text-slate-400 font-mono flex-wrap">
+                      <span className="text-sky-400 font-semibold">{reading.accountNumber}</span>
+                      <span aria-hidden="true" className="text-slate-600">·</span>
+                      <span className="tabular-nums">
+                        {formatOdometerReading(reading.previousReading)} → {formatOdometerReading(reading.currentReading)}
+                      </span>
+                      <span aria-hidden="true" className="text-slate-600">·</span>
+                      <span className="text-emerald-400 font-semibold tabular-nums">+{reading.consumption} cu.m.</span>
+                    </div>
                   </div>
-                  <h4 className="font-bold text-sm text-white leading-snug">{reading.consumerName}</h4>
-                  <div className="text-xs text-slate-400 font-mono tabular-nums">
-                    Prev: {formatOdometerReading(reading.previousReading)} · Pres: {formatOdometerReading(reading.currentReading)} · Used: +{reading.consumption} cu.m.
-                  </div>
-                </div>
 
-                <span className="hidden sm:inline-flex text-xs font-mono text-amber-300 bg-amber-950 px-2.5 py-1 rounded-lg border border-amber-800 font-bold shrink-0 whitespace-nowrap">
-                  Awaiting Sync
-                </span>
-              </div>
-            ))
+                  <span className="text-xs font-semibold text-amber-300 flex items-center gap-1 shrink-0 whitespace-nowrap">
+                    <Clock className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Queued</span>
+                  </span>
+                </div>
+              ))}
+            </div>
           )
         ) : (
           syncedReadings.length === 0 ? (
-            <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-8 text-center text-slate-400 text-xs">
+            <div className="bg-slate-900 border border-slate-800/90 rounded-2xl p-8 text-center text-slate-400 text-xs">
               No synced readings yet in this session.
             </div>
           ) : (
-            syncedReadings.map((reading) => (
-              <div
-                key={reading.id}
-                className="bg-slate-900 border border-emerald-900/40 rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-sm"
-              >
-                <div className="space-y-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono text-xs font-extrabold text-sky-400">
-                      {reading.accountNumber}
-                    </span>
-                    <span className="text-[11px] font-bold text-emerald-300 bg-emerald-950 px-2 py-0.5 rounded border border-emerald-800 sm:hidden">
-                      Uploaded
-                    </span>
+            <div className="bg-slate-900 border border-slate-800/90 rounded-2xl divide-y divide-slate-800/70 overflow-hidden">
+              {syncedReadings.map((reading) => (
+                <div
+                  key={reading.id}
+                  className="p-4 flex items-center justify-between gap-3"
+                >
+                  <div className="space-y-1 min-w-0">
+                    <h4 className="font-semibold text-[15px] text-white leading-snug truncate">
+                      {reading.consumerName}
+                    </h4>
+                    <div className="flex items-center gap-1.5 text-xs text-slate-400 font-mono flex-wrap">
+                      <span className="text-sky-400 font-semibold">{reading.accountNumber}</span>
+                      <span aria-hidden="true" className="text-slate-600">·</span>
+                      <span>{reading.readingDate}</span>
+                      <span aria-hidden="true" className="text-slate-600">·</span>
+                      <span className="text-emerald-400 font-semibold tabular-nums">+{reading.consumption} cu.m.</span>
+                    </div>
                   </div>
-                  <h4 className="font-bold text-sm text-white leading-snug">{reading.consumerName}</h4>
-                  <div className="text-xs text-slate-400 font-mono">
-                    Batch: {reading.batchId || 'SYNC-AUTO'} · {reading.readingDate}
-                  </div>
-                </div>
 
-                <span className="hidden sm:inline-flex text-xs font-mono text-emerald-300 bg-emerald-950 px-2.5 py-1 rounded-lg border border-emerald-800 font-bold shrink-0 whitespace-nowrap">
-                  Uploaded
-                </span>
-              </div>
-            ))
+                  <span className="text-xs font-semibold text-emerald-300 flex items-center gap-1 shrink-0 whitespace-nowrap">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Synced</span>
+                  </span>
+                </div>
+              ))}
+            </div>
           )
         )}
       </div>

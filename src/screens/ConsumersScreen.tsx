@@ -59,12 +59,12 @@ const ConsumerDirectoryCard: React.FC<ConsumerCardProps> = React.memo(
       <div
         role="button"
         tabIndex={0}
-        className={`consumer-card border rounded-2xl p-3.5 sm:p-4 space-y-3 transition shadow-sm cursor-pointer active:scale-[0.99] ${
+        className={`consumer-card bg-slate-900 border rounded-2xl p-4 space-y-3 transition cursor-pointer active:scale-[0.99] ${
           !isReadyForReading
-            ? 'border-rose-900/40 bg-slate-900/55 hover:border-rose-700/70'
+            ? 'border-rose-900/50 bg-slate-900/60 hover:border-rose-700/70'
             : hasRecordedReading
-            ? 'border-emerald-900/50 bg-emerald-950/10 hover:border-sky-500/70'
-            : 'border-slate-800 bg-slate-900/90 hover:border-sky-500/70'
+            ? 'border-slate-800/90 hover:border-sky-500/70'
+            : 'border-slate-800/90 hover:border-sky-500/70'
         }`}
         onClick={() => onSelectConsumer(consumer)}
         onKeyDown={(e) => {
@@ -74,117 +74,101 @@ const ConsumerDirectoryCard: React.FC<ConsumerCardProps> = React.memo(
           }
         }}
       >
-        {/* Row 1: Clean Metadata (Account · Seq · Category) + Single Status Tag */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 min-w-0 text-xs flex-wrap">
-            <span className="font-mono font-bold text-sky-300 shrink-0">
-              {consumer.accountNumber}
-            </span>
-            <span className="text-slate-600">·</span>
-            <span className="font-mono text-slate-400 shrink-0">
-              Seq #{consumer.sequenceNo}
-            </span>
-            <span className="text-slate-600">·</span>
-            <span className="text-slate-300 font-medium truncate">
-              {consumer.category}
-            </span>
-            {readingCount > 0 && (
-              <>
-                <span className="text-slate-600">·</span>
-                <span className="font-mono text-sky-400 shrink-0 tabular-nums">
-                  {readingCount} {readingCount === 1 ? 'reading' : 'readings'}
-                </span>
-              </>
-            )}
+        {/* Row 1: Consumer Name + Clean Unboxed Status */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1 space-y-0.5">
+            <h3 className="font-semibold text-[15px] text-white leading-snug truncate">
+              {consumer.name}
+            </h3>
+            <div className="flex items-center gap-1.5 text-xs text-slate-400 flex-wrap">
+              <span className="font-mono font-semibold text-sky-400">{consumer.accountNumber}</span>
+              <span aria-hidden="true" className="text-slate-600">·</span>
+              <span className="font-mono">Seq #{consumer.sequenceNo}</span>
+              <span aria-hidden="true" className="text-slate-600">·</span>
+              <span className="truncate">{consumer.category}</span>
+              {readingCount > 0 && (
+                <>
+                  <span aria-hidden="true" className="text-slate-600">·</span>
+                  <span className="font-mono text-sky-300 tabular-nums">
+                    {readingCount} {readingCount === 1 ? 'reading' : 'readings'}
+                  </span>
+                </>
+              )}
+            </div>
           </div>
 
           {!isReadyForReading ? (
-            <span className="text-[11px] font-bold text-rose-300 bg-rose-950 border border-rose-800 px-2 py-0.5 rounded-md flex items-center gap-1 shrink-0 whitespace-nowrap">
-              <Lock className="w-3 h-3 text-rose-400" />
+            <span className="text-xs font-semibold text-rose-400 flex items-center gap-1 shrink-0 whitespace-nowrap pt-0.5">
+              <Lock className="w-3.5 h-3.5" />
               <span>{isDisconnected ? 'Disconnected' : 'Unverified'}</span>
             </span>
           ) : isApproved ? (
-            <span className="text-[11px] font-bold text-emerald-300 bg-emerald-950 border border-emerald-800 px-2 py-0.5 rounded-md flex items-center gap-1 shrink-0 whitespace-nowrap">
-              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+            <span className="text-xs font-semibold text-emerald-300 flex items-center gap-1 shrink-0 whitespace-nowrap pt-0.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
               <span>Approved</span>
             </span>
           ) : isRejected ? (
-            <span className="text-[11px] font-bold text-rose-300 bg-rose-950 border border-rose-800 px-2 py-0.5 rounded-md flex items-center gap-1 shrink-0 whitespace-nowrap">
-              <AlertCircle className="w-3 h-3 text-rose-400" />
+            <span className="text-xs font-semibold text-rose-300 flex items-center gap-1 shrink-0 whitespace-nowrap pt-0.5">
+              <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
               <span>Flagged</span>
             </span>
           ) : isPendingApproval ? (
-            <span className="text-[11px] font-bold text-amber-300 bg-amber-950 border border-amber-800 px-2 py-0.5 rounded-md flex items-center gap-1 shrink-0 whitespace-nowrap">
-              <Clock className="w-3 h-3 text-amber-400" />
+            <span className="text-xs font-semibold text-amber-300 flex items-center gap-1 shrink-0 whitespace-nowrap pt-0.5">
+              <Clock className="w-3.5 h-3.5 text-amber-400" />
               <span>Pending</span>
             </span>
           ) : (
-            <span className="text-[11px] font-semibold text-slate-300 bg-slate-800 border border-slate-700 px-2 py-0.5 rounded-md shrink-0 whitespace-nowrap">
+            <span className="text-xs font-medium text-slate-400 shrink-0 whitespace-nowrap pt-0.5">
               Unread
             </span>
           )}
         </div>
 
-        {/* Row 2: Consumer Name & Address (Full Width, No Fixed Height Clipping) */}
+        {/* Row 2: Address & Quiet Inactive Notice */}
         <div className="space-y-1">
-          <h3 className="font-bold text-base text-white leading-snug break-words">
-            {consumer.name}
-          </h3>
           <div className="text-xs text-slate-400 flex items-center gap-1.5 min-w-0">
-            <MapPin className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+            <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
             <span className="truncate">{consumer.address}</span>
           </div>
-        </div>
 
-        {/* Deactivation Alert if Inactive */}
-        {!isReadyForReading && (
-          <div className="p-2.5 rounded-xl bg-rose-950/40 border border-rose-900/60 flex items-start gap-2 text-xs text-rose-200">
-            <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-            <div className="min-w-0">
-              <span className="font-bold block text-rose-300">
-                {isDisconnected
-                  ? 'Service Disconnected — Withheld from Reading'
-                  : 'Unverified — Awaiting Admin ID Issuance'}
-              </span>
-              <span className="text-xs text-rose-300/80 block mt-0.5">
-                {deactivationReason || 'Unavailable until reactivated by Central Admin.'}
+          {!isReadyForReading && (
+            <div className="text-xs text-rose-300/90 flex items-center gap-1.5">
+              <ShieldAlert className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+              <span className="truncate">
+                {deactivationReason || 'Withheld from field reading until reactivated.'}
               </span>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
-        {/* Full-Width 3-Column Odometer Grid (Zero Horizontal Compression) */}
-        <div className="grid grid-cols-3 divide-x divide-slate-800/80 bg-slate-950 rounded-xl py-2.5 px-1 border border-slate-800 text-center font-mono">
-          <div className="min-w-0 px-1.5 flex flex-col items-center justify-center">
-            <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wide">
+        {/* Row 3: Hairline 3-Column Odometer Metrics (No Nested Box) */}
+        <div className="grid grid-cols-3 divide-x divide-slate-800/80 border-t border-slate-800/70 pt-3 text-center font-mono">
+          <div className="min-w-0 px-1.5 flex flex-col items-center">
+            <span className="text-[11px] font-sans font-medium text-slate-400">
               Previous
             </span>
-            <span className="text-sm sm:text-base font-bold text-slate-200 tabular-nums mt-0.5">
+            <span className="text-sm sm:text-base font-semibold text-slate-200 tabular-nums mt-0.5">
               {formatOdometerReading(displayedPreviousReading)}
             </span>
-            <span className="text-[10px] text-slate-500">cu.m.</span>
           </div>
 
-          <div className="min-w-0 px-1.5 flex flex-col items-center justify-center">
-            <span className="text-[10px] uppercase font-semibold text-sky-400 tracking-wide">
+          <div className="min-w-0 px-1.5 flex flex-col items-center">
+            <span className="text-[11px] font-sans font-medium text-sky-400">
               Present
             </span>
             <span
               className={`text-sm sm:text-base tabular-nums mt-0.5 ${
-                hasRecordedReading ? 'font-bold text-sky-300' : 'text-slate-400 italic font-medium'
+                hasRecordedReading ? 'font-bold text-sky-300' : 'text-slate-500 font-medium'
               }`}
             >
               {activeReading
                 ? formatOdometerReading(activeReading.currentReading)
-                : 'Pending'}
-            </span>
-            <span className="text-[10px] text-slate-500">
-              {activeReading ? 'cu.m.' : '—'}
+                : '—'}
             </span>
           </div>
 
-          <div className="min-w-0 px-1.5 flex flex-col items-center justify-center">
-            <span className="text-[10px] uppercase font-semibold text-emerald-400 tracking-wide">
+          <div className="min-w-0 px-1.5 flex flex-col items-center">
+            <span className="text-[11px] font-sans font-medium text-emerald-400">
               Consumed
             </span>
             <span
@@ -193,21 +177,20 @@ const ConsumerDirectoryCard: React.FC<ConsumerCardProps> = React.memo(
               }`}
             >
               {activeReading
-                ? `+${activeReading.consumption}`
+                ? (
+                  <>
+                    +{activeReading.consumption} <span className="text-[11px] font-normal text-slate-400">cu.m.</span>
+                  </>
+                )
                 : '—'}
-            </span>
-            <span className="text-[10px] text-slate-500">
-              {activeReading ? 'cu.m.' : '—'}
             </span>
           </div>
         </div>
 
-        {/* Bottom Action Footer */}
-        <div className="flex items-center justify-between gap-2 pt-0.5">
+        {/* Row 4: Quiet Footer & Single Primary Action */}
+        <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-800/50">
           <div className="text-xs text-slate-400 font-mono truncate min-w-0">
-            <span>Tag: <strong className="text-sky-300">{consumer.meterNumber || consumer.meterSerial}</strong></span>
-            <span className="mx-1.5 text-slate-600">·</span>
-            <span>{consumer.rateCode}</span>
+            <span>Tag {consumer.meterNumber || consumer.meterSerial}</span>
           </div>
 
           {!isReadyForReading ? (
@@ -217,22 +200,10 @@ const ConsumerDirectoryCard: React.FC<ConsumerCardProps> = React.memo(
                 e.stopPropagation();
                 onSelectConsumer(consumer);
               }}
-              className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800/80 hover:bg-slate-800 text-slate-300 border border-slate-700/80 flex items-center gap-1.5 shrink-0 whitespace-nowrap cursor-pointer"
+              className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800/80 hover:bg-slate-800 text-slate-300 flex items-center gap-1 shrink-0 whitespace-nowrap cursor-pointer"
             >
-              <Lock className="w-3.5 h-3.5 text-rose-400" />
-              <span>{readingCount > 0 ? 'View History' : 'Locked'}</span>
-            </button>
-          ) : isPendingApproval ? (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onSelectConsumer(consumer);
-              }}
-              className="px-3 py-2 rounded-xl text-xs font-bold bg-amber-950/80 hover:bg-amber-900 text-amber-300 border border-amber-800 transition flex items-center gap-1 cursor-pointer shrink-0 whitespace-nowrap"
-            >
-              <span>View History</span>
-              <ChevronRight className="w-3.5 h-3.5" />
+              <Lock className="w-3 h-3 text-rose-400" />
+              <span>{readingCount > 0 ? 'History' : 'Locked'}</span>
             </button>
           ) : (
             <button
@@ -245,9 +216,9 @@ const ConsumerDirectoryCard: React.FC<ConsumerCardProps> = React.memo(
                   onStartReading(consumer);
                 }
               }}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-sm cursor-pointer shrink-0 whitespace-nowrap ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-1 cursor-pointer shrink-0 whitespace-nowrap ${
                 hasRecordedReading
-                  ? 'bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 border border-emerald-800'
+                  ? 'bg-slate-800 hover:bg-slate-700 text-sky-300'
                   : 'bg-sky-600 hover:bg-sky-500 text-white'
               }`}
             >
@@ -426,7 +397,7 @@ export const ConsumersScreen: React.FC<ConsumersScreenProps> = ({
   }, [baseConsumerPool, searchTerm, selectedBarangay, filterStatus]);
 
   const dynamicRowHeight = useDynamicRowHeight({
-    defaultRowHeight: filterStatus === 'DEACTIVATED' || filterStatus === 'ALL' ? 310 : 245,
+    defaultRowHeight: filterStatus === 'DEACTIVATED' || filterStatus === 'ALL' ? 235 : 210,
     key: `${filterStatus}-${selectedBarangay}-${searchTerm.trim()}-${filteredConsumers.length}`,
   });
 

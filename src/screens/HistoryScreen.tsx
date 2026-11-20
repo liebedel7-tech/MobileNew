@@ -89,123 +89,107 @@ export const ReadingHistoryRow: React.FC<ReadingHistoryRowProps> = React.memo(
           }
         }}
         title={`Click to view ${reading.consumerName}'s complete reading history (${accountReadingCount} record${accountReadingCount === 1 ? '' : 's'})`}
-        className={`reading-card bg-slate-900 border rounded-2xl p-3.5 sm:p-4 space-y-2.5 shadow-sm transition cursor-pointer active:scale-[0.99] ${
+        className={`reading-card bg-slate-900 border rounded-2xl p-4 space-y-3 transition cursor-pointer active:scale-[0.99] ${
           isAccountDisconnected || isAccountUnverified
-            ? 'border-slate-800/80 hover:border-amber-500/70'
-            : 'border-slate-800/90 hover:border-sky-500/80 hover:bg-slate-900/90'
+            ? 'border-slate-800/80 hover:border-amber-500/60'
+            : 'border-slate-800/90 hover:border-sky-500/70 hover:bg-slate-900/95'
         }`}
       >
-        {/* Header Row: Account Number + Clean Reading Count & Status */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 min-w-0 text-xs">
-            <span className="font-mono font-bold text-sky-400 shrink-0">
-              {reading.accountNumber}
-            </span>
-            <span className="text-slate-600">·</span>
-            <span className="font-mono text-slate-400 shrink-0 tabular-nums">
-              {accountReadingCount} {accountReadingCount === 1 ? 'reading' : 'readings'}
-            </span>
+        {/* Row 1: Consumer Name + Clean Unboxed Status */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1 space-y-0.5">
+            <h4 className="font-semibold text-[15px] text-white tracking-tight leading-snug truncate">
+              {reading.consumerName}
+            </h4>
+            <div className="flex items-center gap-1.5 text-xs text-slate-400 flex-wrap">
+              <span className="font-mono font-semibold text-sky-400">{reading.accountNumber}</span>
+              <span aria-hidden="true" className="text-slate-600">·</span>
+              <span className="font-mono text-slate-300">{reading.meterSerial}</span>
+              <span aria-hidden="true" className="text-slate-600">·</span>
+              <span className="tabular-nums text-slate-400">
+                {accountReadingCount} {accountReadingCount === 1 ? 'reading' : 'readings'}
+              </span>
+            </div>
           </div>
 
           {isPending && (
-            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-amber-950/80 text-amber-300 border border-amber-800/70 flex items-center gap-1 shrink-0 whitespace-nowrap">
-              <Clock className="w-3 h-3" />
-              <span>Pending Approval</span>
+            <span className="text-xs font-semibold text-amber-300 flex items-center gap-1 shrink-0 whitespace-nowrap pt-0.5">
+              <Clock className="w-3.5 h-3.5 text-amber-400" />
+              <span>Pending</span>
             </span>
           )}
 
           {isApproved && (
-            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-emerald-950/80 text-emerald-300 border border-emerald-800/70 flex items-center gap-1 shrink-0 whitespace-nowrap">
-              <CheckCircle2 className="w-3 h-3" />
+            <span className="text-xs font-semibold text-emerald-300 flex items-center gap-1 shrink-0 whitespace-nowrap pt-0.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
               <span>Approved</span>
             </span>
           )}
 
           {isRejected && (
-            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-rose-950/80 text-rose-300 border border-rose-800/70 flex items-center gap-1 shrink-0 whitespace-nowrap">
-              <AlertCircle className="w-3 h-3" />
+            <span className="text-xs font-semibold text-rose-300 flex items-center gap-1 shrink-0 whitespace-nowrap pt-0.5">
+              <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
               <span>Flagged</span>
             </span>
           )}
         </div>
 
-        {/* Consumer Name & Meter Tag (Stacks cleanly without clipping or overlap) */}
-        <div className="space-y-0.5">
-          <h4 className="font-bold text-sm sm:text-base text-white tracking-tight leading-snug break-words group-hover:text-sky-300">
-            {reading.consumerName}
-          </h4>
-          <div className="text-xs font-mono text-slate-400">
-            Meter Tag: <span className="text-slate-300">{reading.meterSerial}</span>
-          </div>
-        </div>
-
-        {/* Clean 3-Column Odometer Breakdown (Zero Overlap on 360px Viewports) */}
-        <div className="grid grid-cols-3 divide-x divide-slate-800/80 bg-slate-950/80 rounded-xl py-2.5 px-1 border border-slate-800/70 text-center font-mono">
-          <div className="min-w-0 px-1.5 flex flex-col items-center justify-center">
-            <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wide">
+        {/* Row 2: Clean Hairline 3-Column Odometer Metrics (No Nested Box) */}
+        <div className="grid grid-cols-3 divide-x divide-slate-800/80 border-t border-slate-800/70 pt-3 text-center font-mono">
+          <div className="min-w-0 px-1.5 flex flex-col items-center">
+            <span className="text-[11px] font-sans font-medium text-slate-400">
               Previous
             </span>
-            <span className="text-sm sm:text-base font-bold text-slate-200 tabular-nums mt-0.5">
+            <span className="text-sm sm:text-base font-semibold text-slate-200 tabular-nums mt-0.5">
               {formatOdometerReading(reading.previousReading)}
             </span>
-            <span className="text-[10px] text-slate-500">cu.m.</span>
           </div>
 
-          <div className="min-w-0 px-1.5 flex flex-col items-center justify-center">
-            <span className="text-[10px] uppercase font-semibold text-sky-400 tracking-wide">
+          <div className="min-w-0 px-1.5 flex flex-col items-center">
+            <span className="text-[11px] font-sans font-medium text-sky-400">
               Present
             </span>
             <span className="text-sm sm:text-base font-bold text-sky-300 tabular-nums mt-0.5">
               {formatOdometerReading(reading.currentReading)}
             </span>
-            <span className="text-[10px] text-slate-500">cu.m.</span>
           </div>
 
-          <div className="min-w-0 px-1.5 flex flex-col items-center justify-center">
-            <span className="text-[10px] uppercase font-semibold text-emerald-400 tracking-wide">
+          <div className="min-w-0 px-1.5 flex flex-col items-center">
+            <span className="text-[11px] font-sans font-medium text-emerald-400">
               Consumed
             </span>
             <span className="text-sm sm:text-base font-bold text-emerald-400 tabular-nums mt-0.5">
-              +{reading.consumption}
+              +{reading.consumption} <span className="text-[11px] font-normal text-slate-400">cu.m.</span>
             </span>
-            <span className="text-[10px] text-slate-500">cu.m.</span>
           </div>
         </div>
 
-        {/* Footer Metadata & Clickable Ledger Cue */}
-        <div className="flex items-center justify-between gap-2 flex-wrap text-xs text-slate-400 pt-0.5">
-          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 font-mono text-[11px]">
-            <span>{reading.readingDate} {reading.readingTime}</span>
-            <span className="text-slate-600">·</span>
-            <span>{reading.readerName || reading.readerId}</span>
-
+        {/* Row 3: Quiet Footer Metadata & History Cue */}
+        <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-800/50 text-xs text-slate-400">
+          <div className="flex items-center gap-1.5 min-w-0 truncate text-[11px]">
+            <span className="font-mono shrink-0">{reading.readingDate}</span>
+            <span aria-hidden="true" className="text-slate-600">·</span>
+            <span className="truncate">{reading.readerName || reading.readerId}</span>
             {isApproved && (
               <>
-                <span className="text-slate-600">·</span>
-                <span className="text-emerald-400 font-semibold flex items-center gap-1">
-                  <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                  <span>Verified ({reading.approvedBy || 'Supervisor'})</span>
+                <span aria-hidden="true" className="text-slate-600">·</span>
+                <span className="text-emerald-400 font-medium inline-flex items-center gap-1 shrink-0">
+                  <ShieldCheck className="w-3 h-3" />
+                  <span>Verified</span>
                 </span>
-              </>
-            )}
-
-            {reading.remarks && (
-              <>
-                <span className="text-slate-600">·</span>
-                <span className="text-slate-400 italic">Note: {reading.remarks}</span>
               </>
             )}
           </div>
 
-          <div className="flex items-center gap-2 shrink-0 ml-auto">
+          <div className="flex items-center gap-2 shrink-0">
             {(isAccountDisconnected || isAccountUnverified) && (
-              <span className="text-rose-400 font-sans font-semibold text-[11px] flex items-center gap-1 whitespace-nowrap">
+              <span className="text-rose-400 font-medium text-[11px] inline-flex items-center gap-1 whitespace-nowrap">
                 <Lock className="w-3 h-3" />
                 <span>{isAccountDisconnected ? 'Disconnected' : 'Unverified'}</span>
               </span>
             )}
-            <span className="text-sky-400 hover:text-sky-300 font-sans font-semibold text-xs flex items-center gap-0.5 shrink-0 whitespace-nowrap">
-              <span>Account History</span>
+            <span className="text-sky-400 font-semibold text-xs inline-flex items-center gap-0.5 whitespace-nowrap">
+              <span>History</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </span>
           </div>
@@ -412,7 +396,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
   }, [deduplicatedReadings, searchTerm, filterApproval]);
 
   const dynamicRowHeight = useDynamicRowHeight({
-    defaultRowHeight: 225,
+    defaultRowHeight: 185,
     key: `${filterApproval}-${searchTerm.trim()}-${filteredReadings.length}`,
   });
 

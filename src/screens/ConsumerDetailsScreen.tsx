@@ -83,7 +83,7 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
   const displayedCurrentReading = latestRecorded || consumer.currentMonthReading;
 
   return (
-    <div className="p-3.5 sm:p-5 max-w-4xl mx-auto w-full space-y-3.5 pb-20">
+    <div className="p-3.5 sm:p-5 max-w-4xl mx-auto w-full space-y-4 pb-20">
       {/* Top Header & Breadcrumb */}
       <div className="flex items-center justify-between gap-2">
         <button
@@ -95,375 +95,308 @@ export const ConsumerDetailsScreen: React.FC<ConsumerDetailsScreenProps> = ({
           <span>{backLabel}</span>
         </button>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2 text-xs font-medium">
           {consumer.meterStatus && consumer.meterStatus !== 'active' && (
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-rose-950 text-rose-300 border border-rose-800 uppercase">
-              Meter: {consumer.meterStatus}
-            </span>
+            <>
+              <span className="text-rose-400 capitalize">Meter: {consumer.meterStatus}</span>
+              <span aria-hidden="true" className="text-slate-700">·</span>
+            </>
           )}
-          <span
-            className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-              consumer.status === 'Active'
-                ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
-                : 'bg-rose-950 text-rose-400 border border-rose-800'
-            }`}
-          >
-            Account: {consumer.status}
+          <span className={consumer.status === 'Active' ? 'text-emerald-400' : 'text-rose-400'}>
+            {consumer.status}
           </span>
         </div>
       </div>
 
-      {/* Main Consumer Profile Card */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-4 shadow-sm">
-        {/* Title, Category & Address */}
-        <div className="space-y-1.5 pb-3 border-b border-slate-800">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-mono text-xs font-bold text-sky-400 bg-sky-950/80 px-2.5 py-0.5 rounded border border-sky-800/60">
-              {consumer.accountNumber}
-            </span>
-            <span className="text-[11px] font-bold text-amber-300 bg-amber-950/60 px-2 py-0.5 rounded border border-amber-800/60">
-              {consumer.category}
-            </span>
-            <span className="text-[11px] font-mono text-slate-400 ml-auto">
-              Route: <strong className="text-slate-200">{consumer.routeCode}</strong> · #{consumer.sequenceNo}
-            </span>
-          </div>
-
-          <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight">
+      {/* Main Consumer Profile Card (Single Elevation, Zero Nested Boxes) */}
+      <div className="bg-slate-900 border border-slate-800/90 rounded-2xl p-4 sm:p-5 space-y-4">
+        <div className="space-y-1.5">
+          <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight leading-snug">
             {consumer.name}
           </h2>
-
+          <div className="flex items-center gap-1.5 flex-wrap text-xs text-slate-400">
+            <span className="font-mono font-semibold text-sky-400">{consumer.accountNumber}</span>
+            <span aria-hidden="true" className="text-slate-600">·</span>
+            <span>{consumer.category}</span>
+            <span aria-hidden="true" className="text-slate-600">·</span>
+            <span className="font-mono">Route {consumer.routeCode} #{consumer.sequenceNo}</span>
+          </div>
           <div className="text-xs text-slate-400 flex items-center gap-1.5 pt-0.5">
-            <MapPin className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+            <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
             <span>{consumer.address}</span>
           </div>
-        </div>
-
-        {/* Primary Action Buttons Bar */}
-        <div className="space-y-2.5">
-          {!isReadyForReading ? (
-            <div className="p-3 bg-rose-950/50 text-rose-300 border border-rose-800/80 rounded-xl text-xs font-semibold flex items-center gap-2">
-              <Lock className="w-4 h-4 text-rose-400 shrink-0" />
-              <span>Reading Prohibited: Account or Water Meter has been deactivated by Admin.</span>
+          {consumer.contactNumber && (
+            <div className="text-xs text-slate-400 flex items-center gap-1.5 font-mono">
+              <Phone className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+              <span>{consumer.contactNumber}</span>
             </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-2 gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => onScanMeter(consumer)}
-                  className="h-11 px-3 bg-slate-800 hover:bg-slate-750 text-sky-300 border border-slate-700/80 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition active:scale-95 shadow-sm cursor-pointer"
-                >
-                  <Camera className="w-4 h-4 text-sky-400" />
-                  <span>Scan Camera OCR</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => onStartReading(consumer)}
-                  className="h-11 px-3 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-md shadow-sky-600/25 transition active:scale-95 cursor-pointer"
-                >
-                  <FileText className="w-4 h-4" />
-                  <span>{latestRecorded ? 'Enter New Reading' : 'Enter Reading'}</span>
-                </button>
-              </div>
-
-              {latestRecorded && (
-                <div className="px-3 py-2 bg-sky-950/40 border border-sky-800/60 rounded-xl text-[11.5px] text-sky-200 flex items-center justify-between gap-2 flex-wrap">
-                  <span>
-                    Latest recorded reading <strong className="font-mono text-white">{formatOdometerReading(latestRecorded.currentReading)} cu.m.</strong> is now the active baseline for the next reading.
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => onNavigate('history')}
-                    className="text-sky-400 hover:text-sky-300 font-semibold flex items-center gap-0.5 cursor-pointer shrink-0"
-                  >
-                    <span>All Accounts</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              )}
-            </>
           )}
         </div>
 
-        {/* 🚫 Deactivation Alert Banner (if deactivated) */}
-        {!isReadyForReading && (
-          <div className="p-3 bg-rose-950/30 border border-rose-900/80 rounded-xl flex items-start gap-2.5 text-xs text-rose-200">
+        {/* Action Buttons */}
+        {!isReadyForReading ? (
+          <div className="pt-3 border-t border-slate-800/70 flex items-start gap-2.5 text-xs text-rose-300">
             <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-            <div className="space-y-1">
-              <span className="font-bold text-rose-300 block text-xs">
-                Account Status Notice
-              </span>
-              <p className="text-[11.5px] text-rose-200/90 leading-relaxed">
+            <div className="space-y-0.5">
+              <span className="font-semibold block">Reading Disabled</span>
+              <p className="text-rose-300/80 leading-relaxed">
                 {deactivationReason || 'This account or water meter is inactive and withheld from field reading capture.'}
               </p>
             </div>
           </div>
+        ) : (
+          <div className="space-y-2.5 pt-1">
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={() => onScanMeter(consumer)}
+                className="h-11 px-3 bg-slate-800 hover:bg-slate-700 text-sky-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer"
+              >
+                <Camera className="w-4 h-4 text-sky-400 shrink-0" />
+                <span>Scan Camera</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onStartReading(consumer)}
+                className="h-11 px-3 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer"
+              >
+                <FileText className="w-4 h-4 shrink-0" />
+                <span>{latestRecorded ? 'New Reading' : 'Enter Reading'}</span>
+              </button>
+            </div>
+
+            {latestRecorded && (
+              <div className="flex items-center justify-between gap-2 text-xs text-slate-400 pt-1">
+                <span>
+                  Active baseline: <strong className="font-mono text-slate-200">{formatOdometerReading(latestRecorded.currentReading)} cu.m.</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onNavigate('history')}
+                  className="text-sky-400 hover:text-sky-300 font-semibold inline-flex items-center gap-0.5 cursor-pointer shrink-0"
+                >
+                  <span>All Accounts</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
         )}
 
-        {/* Standardized Specifications 4-Box Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 font-mono">
-          <div className="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800/80">
-            <span className="text-slate-500 block text-[9.5px] uppercase font-bold tracking-wider">
-              METER TAG / SN
-            </span>
-            <span className="font-bold text-sky-300 text-xs sm:text-sm block mt-0.5 truncate">
-              {consumer.meterNumber || 'TAG-N/A'}
-            </span>
-            <span className="text-[10px] text-slate-400 block truncate mt-0.5">
-              {consumer.meterSerial}
+        {/* Hairline Meter Specs Strip (No Nested Boxes) */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3.5 border-t border-slate-800/70 font-mono">
+          <div className="min-w-0">
+            <span className="text-[11px] font-sans text-slate-400 block">Meter Tag</span>
+            <span className="font-semibold text-sky-300 text-xs sm:text-sm block mt-0.5 truncate">
+              {consumer.meterNumber || consumer.meterSerial || 'TAG-N/A'}
             </span>
           </div>
 
-          <div className="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800/80">
-            <span className="text-slate-500 block text-[9.5px] uppercase font-bold tracking-wider">
-              SIZE / RATE CODE
-            </span>
-            <span className="font-bold text-white text-xs sm:text-sm block mt-0.5">
+          <div className="min-w-0">
+            <span className="text-[11px] font-sans text-slate-400 block">Meter Size</span>
+            <span className="font-semibold text-slate-200 text-xs sm:text-sm block mt-0.5">
               {consumer.meterSize || '1/2"'}
             </span>
-            <span className="text-[10px] text-slate-400 block mt-0.5">
-              {consumer.rateCode || 'RES-01'}
-            </span>
           </div>
 
-          <div className="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800/80">
-            <span className="text-slate-500 block text-[9.5px] uppercase font-bold tracking-wider">
-              {latestRecorded ? 'ACTIVE BASELINE' : 'PREVIOUS READING'}
+          <div className="min-w-0">
+            <span className="text-[11px] font-sans text-slate-400 block">
+              {latestRecorded ? 'Active Baseline' : 'Previous Reading'}
             </span>
-            <span className="font-bold text-slate-200 text-xs sm:text-sm block mt-0.5 tabular-nums">
+            <span className="font-semibold text-slate-200 text-xs sm:text-sm block mt-0.5 tabular-nums">
               {formatOdometerReading(activeBaseline)} cu.m.
             </span>
-            <span className="text-[10px] text-slate-400 block mt-0.5 truncate">
-              {activeBaselineDate || 'Prior cycle'}
-            </span>
           </div>
 
-          <div className="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800/80">
-            <span className="text-slate-500 block text-[9.5px] uppercase font-bold tracking-wider">
-              CONSUMPTION AVG
-            </span>
-            <span className="font-bold text-emerald-400 text-xs sm:text-sm block mt-0.5">
-              {consumer.previousConsumption ?? consumer.averageConsumption} cu.m.
-            </span>
-            <span className="text-[10px] text-slate-400 block mt-0.5">
-              3-Mo: {consumer.averageConsumption} cu.m.
+          <div className="min-w-0">
+            <span className="text-[11px] font-sans text-slate-400 block">3-Mo Average</span>
+            <span className="font-semibold text-emerald-400 text-xs sm:text-sm block mt-0.5 tabular-nums">
+              {consumer.averageConsumption} cu.m.
             </span>
           </div>
         </div>
-
-        {/* Secondary Contact Strip */}
-        {consumer.contactNumber && (
-          <div className="text-xs text-slate-400 flex items-center gap-1.5 pt-0.5 font-mono">
-            <Phone className="w-3.5 h-3.5 text-slate-500" />
-            <span>Contact: <strong className="text-slate-200">{consumer.contactNumber}</strong></span>
-          </div>
-        )}
       </div>
 
       {/* Latest Reading Summary Card */}
       {displayedCurrentReading ? (
-        <div className="bg-emerald-950/30 border border-emerald-700/60 rounded-2xl p-4 sm:p-5 space-y-3 shadow-sm">
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <div>
-                <h3 className="font-bold text-xs sm:text-sm text-emerald-300">
-                  Latest Reading Logged
-                </h3>
-                <span className="text-[10.5px] text-slate-400 font-mono">
-                  {displayedCurrentReading.readingDate} at {displayedCurrentReading.readingTime}
-                </span>
-              </div>
+        <div className="bg-slate-900 border border-slate-800/90 rounded-2xl p-4 sm:p-5 space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="font-semibold text-sm text-white">Latest Reading</h3>
+              <span className="text-xs text-slate-400 font-mono">
+                {displayedCurrentReading.readingDate}
+                {displayedCurrentReading.readingTime ? ` · ${displayedCurrentReading.readingTime}` : ''}
+              </span>
             </div>
 
             {isReadingApproved(displayedCurrentReading) ? (
-              <span className="text-[10px] font-mono text-emerald-300 bg-emerald-950 px-2 py-0.5 rounded border border-emerald-700 font-bold flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                <span>Approved by Admin</span>
+              <span className="text-xs font-semibold text-emerald-300 flex items-center gap-1 shrink-0 whitespace-nowrap">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Approved</span>
               </span>
             ) : isReadingRejected(displayedCurrentReading) ? (
-              <span className="text-[10px] font-mono text-rose-300 bg-rose-950 px-2 py-0.5 rounded border border-rose-700 font-bold flex items-center gap-1">
-                <AlertCircle className="w-3 h-3 text-rose-400" />
-                <span>Flagged / Rejected</span>
+              <span className="text-xs font-semibold text-rose-300 flex items-center gap-1 shrink-0 whitespace-nowrap">
+                <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
+                <span>Flagged</span>
               </span>
             ) : (
-              <span className="text-[10px] font-mono text-amber-300 bg-amber-950 px-2 py-0.5 rounded border border-amber-800 font-bold flex items-center gap-1">
-                <Clock className="w-3 h-3 text-amber-400" />
-                <span>Pending Admin Approval</span>
+              <span className="text-xs font-semibold text-amber-300 flex items-center gap-1 shrink-0 whitespace-nowrap">
+                <Clock className="w-3.5 h-3.5 text-amber-400" />
+                <span>Pending</span>
               </span>
             )}
           </div>
 
-          {/* 3-Column Odometer Breakdown */}
-          <div className="grid grid-cols-3 divide-x divide-slate-800/80 bg-slate-950/80 rounded-xl py-2.5 px-1 border border-slate-800/80 text-center font-mono">
-            <div className="min-w-0 px-1.5 flex flex-col items-center justify-center">
-              <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wide">
-                Previous
-              </span>
-              <span className="text-sm font-bold text-slate-200 tabular-nums mt-0.5">
+          <div className="grid grid-cols-3 divide-x divide-slate-800/80 border-t border-slate-800/70 pt-3 text-center font-mono">
+            <div className="min-w-0 px-1.5 flex flex-col items-center">
+              <span className="text-[11px] font-sans font-medium text-slate-400">Previous</span>
+              <span className="text-sm sm:text-base font-semibold text-slate-200 tabular-nums mt-0.5">
                 {formatOdometerReading(displayedCurrentReading.previousReading ?? consumer.previousReading)}
               </span>
-              <span className="text-[10px] text-slate-500">cu.m.</span>
             </div>
 
-            <div className="min-w-0 px-1.5 flex flex-col items-center justify-center">
-              <span className="text-[10px] uppercase font-semibold text-sky-400 tracking-wide">
-                Present
-              </span>
-              <span className="text-sm font-bold text-sky-300 tabular-nums mt-0.5">
+            <div className="min-w-0 px-1.5 flex flex-col items-center">
+              <span className="text-[11px] font-sans font-medium text-sky-400">Present</span>
+              <span className="text-sm sm:text-base font-bold text-sky-300 tabular-nums mt-0.5">
                 {formatOdometerReading(displayedCurrentReading.currentReading)}
               </span>
-              <span className="text-[10px] text-slate-500">cu.m.</span>
             </div>
 
-            <div className="min-w-0 px-1.5 flex flex-col items-center justify-center">
-              <span className="text-[10px] uppercase font-semibold text-emerald-400 tracking-wide">
-                Consumed
+            <div className="min-w-0 px-1.5 flex flex-col items-center">
+              <span className="text-[11px] font-sans font-medium text-emerald-400">Consumed</span>
+              <span className="text-sm sm:text-base font-bold text-emerald-400 tabular-nums mt-0.5">
+                +{displayedCurrentReading.consumption} <span className="text-[11px] font-normal text-slate-400">cu.m.</span>
               </span>
-              <span className="text-sm font-bold text-emerald-400 tabular-nums mt-0.5">
-                +{displayedCurrentReading.consumption}
-              </span>
-              <span className="text-[10px] text-slate-500">cu.m.</span>
             </div>
           </div>
 
-          <div className="flex items-center justify-between gap-2 pt-1">
-            <span className="text-[11px] text-slate-400 font-mono truncate">
-              Field Reader: <strong className="text-slate-200">{displayedCurrentReading.readerName || 'Field Reader'}</strong>
+          <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-800/50 text-xs text-slate-400">
+            <span className="truncate">
+              Reader: <strong className="text-slate-200 font-medium">{displayedCurrentReading.readerName || 'Field Reader'}</strong>
             </span>
             {isReadyForReading && (
               <button
                 type="button"
                 onClick={() => onStartReading(consumer)}
-                className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-semibold transition active:scale-95 cursor-pointer shrink-0 whitespace-nowrap"
+                className="text-sky-400 hover:text-sky-300 font-semibold flex items-center gap-0.5 cursor-pointer shrink-0 whitespace-nowrap"
               >
-                Enter New Reading
+                <span>Record Next</span>
+                <ChevronRight className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
         </div>
       ) : (
-        <div className="bg-amber-950/20 border border-amber-800/60 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <Clock className="w-5 h-5 text-amber-400 shrink-0" />
-            <div className="min-w-0">
-              <div className="font-bold text-xs text-amber-300">
-                Awaiting Present Reading
-              </div>
-              <div className="text-[11px] text-slate-400 font-mono mt-0.5">
-                Previous Index: <strong className="text-slate-200">{formatOdometerReading(consumer.previousReading)} cu.m.</strong> · 3-Mo Avg: <strong className="text-sky-300">{consumer.averageConsumption} cu.m.</strong>
-              </div>
+        <div className="bg-slate-900 border border-slate-800/90 rounded-2xl p-4 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="font-semibold text-sm text-white">No Reading Recorded Yet</div>
+            <div className="text-xs text-slate-400 font-mono mt-0.5">
+              Baseline: {formatOdometerReading(consumer.previousReading)} cu.m.
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => onStartReading(consumer)}
-            className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold rounded-xl text-xs transition flex items-center justify-center gap-1.5 shrink-0 shadow-sm active:scale-95 cursor-pointer whitespace-nowrap"
-          >
-            <FileText className="w-3.5 h-3.5" />
-            <span>Enter Present Reading</span>
-          </button>
+          {isReadyForReading ? (
+            <button
+              type="button"
+              onClick={() => onStartReading(consumer)}
+              className="px-3.5 py-2 bg-sky-600 hover:bg-sky-500 text-white font-semibold rounded-xl text-xs transition flex items-center gap-1.5 shrink-0 cursor-pointer whitespace-nowrap"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>Enter Reading</span>
+            </button>
+          ) : (
+            <span className="text-xs text-rose-400 flex items-center gap-1 shrink-0">
+              <Lock className="w-3.5 h-3.5" />
+              <span>Locked</span>
+            </span>
+          )}
         </div>
       )}
 
-      {/* Historical Readings Progression Chain */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-3 shadow-sm">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 text-xs font-bold text-slate-300 uppercase tracking-wider">
+      {/* Reading History Section (Unified Single-Card List) */}
+      <div className="space-y-2.5">
+        <div className="flex items-center justify-between gap-2 px-1">
+          <div className="flex items-center gap-2 text-sm font-bold text-white">
             <History className="w-4 h-4 text-sky-400" />
-            <span>Meter Readings History Chain</span>
+            <span>Reading History</span>
           </div>
-          <span className="text-[11px] font-mono text-slate-500 shrink-0">
-            {consumerReadings.length} Record(s)
+          <span className="text-xs font-mono text-slate-400 tabular-nums">
+            {consumerReadings.length} {consumerReadings.length === 1 ? 'record' : 'records'}
           </span>
         </div>
 
         {consumerReadings.length === 0 ? (
-          <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-6 text-center text-slate-400 text-xs space-y-1">
-            <div className="font-bold text-slate-300 text-sm">Initial Cycle Baseline Active</div>
+          <div className="bg-slate-900 border border-slate-800/90 rounded-2xl p-6 text-center text-slate-400 text-xs space-y-1">
+            <div className="font-semibold text-slate-200 text-sm">Initial Baseline Active</div>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Previous baseline index: <strong className="text-slate-200 font-mono">{formatOdometerReading(consumer.previousReading)} cu.m.</strong> ({consumer.previousReadingDate}).
-              Historical records from past months will be displayed here as cycles conclude.
+              Starting baseline: <strong className="text-slate-200 font-mono">{formatOdometerReading(consumer.previousReading)} cu.m.</strong>
+              {activeBaselineDate ? ` (${activeBaselineDate})` : ''}. Future readings logged for this account will appear here.
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="bg-slate-900 border border-slate-800/90 rounded-2xl divide-y divide-slate-800/70 overflow-hidden">
             {consumerReadings.map((reading) => {
               const isApproved = isReadingApproved(reading);
               const isRejected = isReadingRejected(reading);
 
               return (
-                <div
-                  key={reading.id}
-                  className="bg-slate-950 border border-slate-800 rounded-xl p-3.5 space-y-2.5 hover:border-slate-700 transition shadow-sm"
-                >
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <span className="text-xs sm:text-sm font-bold text-white font-mono">
-                      {reading.readingDate} {reading.readingTime}
+                <div key={reading.id} className="p-4 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs sm:text-sm font-semibold text-white font-mono">
+                      {reading.readingDate}
+                      {reading.readingTime ? ` · ${reading.readingTime}` : ''}
                     </span>
-                    <span
-                      className={`text-[11px] font-bold px-2.5 py-0.5 rounded-lg flex items-center gap-1 whitespace-nowrap ${
-                        isApproved
-                          ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
-                          : isRejected
-                          ? 'bg-rose-950 text-rose-300 border border-rose-800'
-                          : 'bg-amber-950 text-amber-300 border border-amber-800'
-                      }`}
-                    >
-                      {isApproved ? (
-                        <>
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                          <span>Approved</span>
-                        </>
-                      ) : isRejected ? (
-                        <>
-                          <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
-                          <span>Flagged</span>
-                        </>
-                      ) : (
-                        <>
-                          <Clock className="w-3.5 h-3.5 text-amber-400" />
-                          <span>Pending Approval</span>
-                        </>
-                      )}
-                    </span>
+
+                    {isApproved ? (
+                      <span className="text-xs font-semibold text-emerald-300 flex items-center gap-1 whitespace-nowrap">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Approved</span>
+                      </span>
+                    ) : isRejected ? (
+                      <span className="text-xs font-semibold text-rose-300 flex items-center gap-1 whitespace-nowrap">
+                        <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
+                        <span>Flagged</span>
+                      </span>
+                    ) : (
+                      <span className="text-xs font-semibold text-amber-300 flex items-center gap-1 whitespace-nowrap">
+                        <Clock className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Pending</span>
+                      </span>
+                    )}
                   </div>
 
-                  {/* 3-Column Readings-Only Progression Grid */}
-                  <div className="bg-slate-900/90 rounded-xl py-2.5 px-1 border border-slate-800/80 grid grid-cols-3 divide-x divide-slate-800/80 text-center font-mono items-center">
+                  {/* Clean 3-Column Readings-Only Row */}
+                  <div className="grid grid-cols-3 divide-x divide-slate-800/80 text-center font-mono items-center">
                     <div className="min-w-0 px-1.5 flex flex-col justify-center">
-                      <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wide">Previous</span>
-                      <span className="text-sm font-bold text-slate-200 tabular-nums mt-0.5">
+                      <span className="text-[11px] font-sans font-medium text-slate-400">Previous</span>
+                      <span className="text-sm font-semibold text-slate-200 tabular-nums mt-0.5">
                         {formatOdometerReading(reading.previousReading)}
                       </span>
-                      <span className="text-[10px] text-slate-500">cu.m.</span>
                     </div>
                     <div className="min-w-0 px-1.5 flex flex-col justify-center">
-                      <span className="text-[10px] uppercase font-semibold text-sky-400 tracking-wide">Present</span>
+                      <span className="text-[11px] font-sans font-medium text-sky-400">Present</span>
                       <span className="text-sm font-bold text-sky-300 tabular-nums mt-0.5">
                         {formatOdometerReading(reading.currentReading)}
                       </span>
-                      <span className="text-[10px] text-slate-500">cu.m.</span>
                     </div>
                     <div className="min-w-0 px-1.5 flex flex-col justify-center">
-                      <span className="text-[10px] uppercase font-semibold text-emerald-400 tracking-wide">Consumed</span>
+                      <span className="text-[11px] font-sans font-medium text-emerald-400">Consumed</span>
                       <span className="text-sm font-bold text-emerald-400 tabular-nums mt-0.5">
-                        +{reading.consumption}
+                        +{reading.consumption} <span className="text-[11px] font-normal text-slate-400">cu.m.</span>
                       </span>
-                      <span className="text-[10px] text-slate-500">cu.m.</span>
                     </div>
                   </div>
 
-                  <div className="text-xs text-slate-400 flex flex-wrap items-center justify-between gap-1.5 font-mono pt-0.5">
-                    <span>Reader: <strong className="text-slate-200">{reading.readerName || reading.readerId}</strong></span>
+                  <div className="text-xs text-slate-400 flex flex-wrap items-center justify-between gap-1.5">
+                    <span>
+                      Reader: <strong className="text-slate-200 font-medium">{reading.readerName || reading.readerId}</strong>
+                    </span>
                     {reading.approvedBy && isApproved && (
-                      <span className="text-emerald-400">Verified by: {reading.approvedBy}</span>
+                      <span className="text-emerald-400">Verified by {reading.approvedBy}</span>
                     )}
                     {reading.remarks && (
-                      <span className="text-slate-400 italic">Note: {reading.remarks}</span>
+                      <span className="text-slate-400 italic w-full">Note: {reading.remarks}</span>
                     )}
                   </div>
                 </div>
