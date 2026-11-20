@@ -500,7 +500,7 @@ async function syncReadersFromCentral(force = false): Promise<boolean> {
       // 2. Fetch authoritative registered readers from Central System
       const res = await fetch(`${centralUrl}/api/readers`, {
         headers: { 'Accept': 'application/json' },
-        signal: AbortSignal.timeout(7000),
+        signal: AbortSignal.timeout(15000),
       });
       if (!res.ok) {
         lastCentralReadersSyncAt = Date.now();
@@ -1182,8 +1182,9 @@ app.all(['/api/readers/register', '/api/readers/sync', '/api/readers/batch-sync'
 
     // Forward real registration upstream to Tagoloan Water District Central System
     if (!isTestMode && !isCentralSyncDisabled()) {
+      const centralUrl = getCentralApiUrl();
+      let centralConfirmed = false;
       try {
-        const centralUrl = getCentralApiUrl();
         const upstreamRes = await fetch(`${centralUrl}/api/readers/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
@@ -1201,7 +1202,7 @@ app.all(['/api/readers/register', '/api/readers/sync', '/api/readers/batch-sync'
             deviceInfo: newReader.deviceInfo,
             status: 'active',
           }),
-          signal: AbortSignal.timeout(8000),
+          signal: AbortSignal.timeout(20000),
         });
 
         const upstreamData = await upstreamRes.json().catch(() => null);
@@ -1210,13 +1211,32 @@ app.all(['/api/readers/register', '/api/readers/sync', '/api/readers/batch-sync'
             upstreamData || { success: false, message: 'Central system rejected registration.' }
           );
         }
-        if (upstreamRes.ok && upstreamData?.reader) {
-          newReader = { ...newReader, ...normalizeCentralReader(upstreamData.reader), pin: newReader.pin, pendingCentralSync: false };
-        } else if (!upstreamRes.ok) {
+        if (upstreamRes.ok && (upstreamData?.reader || upstreamData?.success)) {
+          if (upstreamData?.reader) {
+            newReader = { ...newReader, ...normalizeCentralReader(upstreamData.reader), pin: newReader.pin, pendingCentralSync: false };
+          }
+          centralConfirmed = true;
+        } else if (!body.allowOfflineQueue) {
+          return res.status(503).json({
+            success: false,
+            message: `Central Water District server (${centralUrl}) returned HTTP ${upstreamRes.status}. Please retry in a few seconds so your account syncs with Admin.`,
+          });
+        } else {
           newReader.pendingCentralSync = true;
         }
       } catch {
+        if (!body.allowOfflineQueue) {
+          return res.status(503).json({
+            success: false,
+            message: `Could not reach Tagoloan Water District Central System (${centralUrl}) to sync registration. Please check your connection and retry.`,
+          });
+        }
         newReader.pendingCentralSync = true;
+      }
+
+      if (centralConfirmed) {
+        lastCentralReadersSyncAt = Date.now();
+        centralReadersHealthy = true;
       }
     }
 
@@ -1244,11 +1264,51 @@ app.all(['/api/readers/register', '/api/readers/sync', '/api/readers/batch-sync'
       message: 'Meter reader registered successfully. Ready for field operations.',
       status: 'active',
       employmentStatus: 'active',
+      centralSynced: !newReader.pendingCentralSync,
       reader: newReader,
       allReaders: store,
     });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message || 'Registration failed' });
+  }
+});
+
+// Authoritative Reader Reconciliation from Central Admin / Firestore
+app.post(['/api/readers/reconcile', '/readers/reconcile'], (req, res) => {
+  try {
+    const isTestMode = isTestSuiteRequest(req);
+    const store = getReaderStore(req);
+    const rawList = req.body?.readers || req.body?.staff;
+    if (!Array.isArray(rawList)) {
+      return res.status(400).json({ success: false, message: 'readers array is required' });
+    }
+
+    const normalized = rawList.map(normalizeCentralReader).map((cr: any) => ({
+      ...cr,
+      pin: cr.pin || '1234',
+      pendingCentralSync: false,
+    }));
+
+    store.splice(0, store.length, ...normalized);
+    if (!isTestMode) {
+      lastCentralReadersSyncAt = Date.now();
+      centralReadersHealthy = true;
+    }
+
+    broadcastWebSocketEvent('READER_STATUS_CHANGED', {
+      count: store.length,
+      readers: store,
+      timestamp: new Date().toISOString(),
+    });
+
+    res.json({
+      success: true,
+      count: store.length,
+      readers: store,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Failed to reconcile readers' });
   }
 });
 

@@ -428,6 +428,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     try {
       // 1. Register directly with Central Server first so conflicts are caught immediately
       let syncedWithServer = false;
+      const isOfflineNow = typeof navigator !== 'undefined' && !navigator.onLine;
       try {
         const response = await universalApiFetch('/api/readers/register', {
           method: 'POST',
@@ -443,6 +444,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             assignedRoutes: localReaderRecord.assignedRoutes,
             deviceInfo: localReaderRecord.deviceInfo,
             status: 'active',
+            allowOfflineQueue: isOfflineNow,
           }),
         });
 
@@ -454,12 +456,27 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           return;
         }
 
-        if (resData && !resData.isOfflineFallback && resData.reader) {
-          savedReader = { ...localReaderRecord, ...resData.reader, pin: localReaderRecord.pin, pendingCentralSync: false };
-          syncedWithServer = true;
+        if (resData?.isOfflineFallback && !isOfflineNow) {
+          setError('Could not reach Tagoloan Water District Central System to sync registration. Please check connection and retry.');
+          setIsRegistering(false);
+          return;
         }
-      } catch {
-        // Offline fallback below
+
+        if (resData && !resData.isOfflineFallback && resData.reader) {
+          savedReader = {
+            ...localReaderRecord,
+            ...resData.reader,
+            pin: localReaderRecord.pin,
+            pendingCentralSync: resData.centralSynced === false,
+          };
+          syncedWithServer = resData.centralSynced !== false;
+        }
+      } catch (netErr: any) {
+        if (!isOfflineNow) {
+          setError(netErr?.message || 'Unable to connect to Central System for registration.');
+          setIsRegistering(false);
+          return;
+        }
       }
 
       // 2. Persist locally (marked pendingCentralSync only if offline)
